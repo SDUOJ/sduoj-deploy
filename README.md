@@ -4,6 +4,7 @@ This project contains a Docker image meant to facilitate the deployment of [SDUO
 
 ## Project directory
 
+- build: The source code of the docker image.
 - env: Environment variable file for compose yaml.
 - example: Docker compose example for SDUOJ.
 

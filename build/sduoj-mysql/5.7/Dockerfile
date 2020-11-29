@@ -91,6 +91,9 @@ RUN { \
 
 VOLUME /var/lib/mysql
 
+COPY sduoj-server-init.sql /docker-entrypoint-initdb.d/
+COPY sduoj-nacos-init.sql /docker-entrypoint-initdb.d/
+COPY my.cnf /etc/mysql/conf.d/
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN ln -s usr/local/bin/docker-entrypoint.sh /entrypoint.sh # backwards compat
 ENTRYPOINT ["docker-entrypoint.sh"]
