@@ -1,0 +1,62 @@
+version: "3"
+services:
+  # 中间件
+  sduoj-nacos:
+    container_name: sduoj-nacos
+    image: nacos/nacos-server:1.4.0
+    networks:
+      sduoj-net:
+        ipv4_address: 172.190.1.10
+    env_file:
+      - ../env/nacos-standlone-mysql.env
+    volumes:
+      - ./sduoj-nacos-logs/:/home/nacos/logs
+    ports:
+      - "8848:8848"
+#      - "9555:9555"
+    depends_on:
+      - sduoj-mysql
+    restart: on-failure
+  sduoj-mysql:
+    container_name: sduoj-mysql
+    image: registry.cn-beijing.aliyuncs.com/sduoj/sduoj-mysql:5.7
+    networks:
+      sduoj-net:
+        ipv4_address: 172.190.1.11
+    env_file:
+      - ../env/mysql.env
+    volumes:
+      - ./mysql:/var/lib/mysql
+    ports:
+      - "3306:3306"
+  sduoj-redis:
+    container_name: sduoj-redis
+    image: redis:alpine
+    networks:
+      sduoj-net:
+        ipv4_address: 172.190.1.12
+    ports:
+      - "6379:6379"
+    restart: on-failure
+  sduoj-rabbit:
+    container_name: sduoj-rabbit
+    image: rabbitmq:management
+    env_file:
+      - ../env/rabbitmq.env
+    ports:
+#      - "5672:5672"
+      - "15672:15672"
+    networks:
+      sduoj-net:
+        ipv4_address: 172.190.1.13
+    restart: on-failure
+  # 前端
+  # 后端
+  # 评测机
+networks:
+  sduoj-net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.190.1.0/24
