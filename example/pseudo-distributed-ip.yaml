@@ -1,31 +1,17 @@
 version: "3"
 services:
   # 中间件
-  sduoj-nacos:
-    container_name: sduoj-nacos
-    image: nacos/nacos-server:1.4.0
+  sduoj-mysql:
+    container_name: sduoj-mysql
+    image: mysql:5.7
     networks:
       sduoj-net:
         ipv4_address: 172.190.1.10
     env_file:
-      - ../env/nacos-standlone-mysql.env
-    volumes:
-      - ./sduoj-nacos-logs/:/home/nacos/logs
-    ports:
-      - "8848:8848"
-#      - "9555:9555"
-    depends_on:
-      - sduoj-mysql
-    restart: on-failure
-  sduoj-mysql:
-    container_name: sduoj-mysql
-    image: registry.cn-beijing.aliyuncs.com/sduoj/sduoj-mysql:5.7
-    networks:
-      sduoj-net:
-        ipv4_address: 172.190.1.11
-    env_file:
       - ../env/mysql.env
     volumes:
+      - ../env/mysql-conf.d:/docker-entrypoint-initdb.d
+      - ../env/mysql-initdb.d:/docker-entrypoint-initdb.d
       - ./mysql:/var/lib/mysql
     ports:
       - "3306:3306"
@@ -34,7 +20,7 @@ services:
     image: redis:alpine
     networks:
       sduoj-net:
-        ipv4_address: 172.190.1.12
+        ipv4_address: 172.190.1.11
     ports:
       - "6379:6379"
     restart: on-failure
@@ -48,7 +34,25 @@ services:
       - "15672:15672"
     networks:
       sduoj-net:
+        ipv4_address: 172.190.1.12
+    restart: on-failure
+  sduoj-nacos:
+    container_name: sduoj-nacos
+    image: registry.cn-beijing.aliyuncs.com/sduoj/sduoj-nacos:1.4.0
+    networks:
+      sduoj-net:
         ipv4_address: 172.190.1.13
+    env_file:
+      - ../env/nacos-standlone-mysql.env
+    volumes:
+      - ./sduoj-nacos-logs/:/home/nacos/logs
+    ports:
+      - "8848:8848"
+#      - "9555:9555"
+    depends_on:
+      - sduoj-mysql
+    environment:
+      WAIT_HOSTS: sduoj-mysql:3306
     restart: on-failure
   # 前端
   # 后端

@@ -8,3 +8,8 @@ This project contains a Docker image meant to facilitate the deployment of [SDUO
 - env: Environment variable file for compose yaml.
 - example: Docker compose example for SDUOJ.
 
+# Credits
+
+* [nacos-docker](https://github.com/nacos-group/nacos-docker)
+* [wait-for-it](https://github.com/vishnubob/wait-for-it)
+
