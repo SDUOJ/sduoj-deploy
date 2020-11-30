@@ -10,11 +10,11 @@ services:
     env_file:
       - ../env/mysql.env
     volumes:
-      - ../env/mysql-conf.d:/docker-entrypoint-initdb.d
+      - ../env/mysql-conf.d:/etc/mysql/conf.d
       - ../env/mysql-initdb.d:/docker-entrypoint-initdb.d
       - ./mysql:/var/lib/mysql
-#    ports:
-#      - "3306:3306"
+    ports:
+      - "3306:3306"
   sduoj-redis:
     container_name: sduoj-redis
     image: redis:alpine
@@ -30,7 +30,7 @@ services:
     env_file:
       - ../env/rabbitmq.env
     ports:
-#      - "5672:5672"
+      - "5672:5672"
       - "15672:15672"
     networks:
       sduoj-net:
@@ -203,7 +203,7 @@ services:
   # 前端
   sduoj-frontend:
     container_name: sduoj-frontend
-    image: sduoj-frontend
+    image: registry.cn-beijing.aliyuncs.com/sduoj/sduoj-frontend
     networks:
       sduoj-net:
         ipv4_address: 172.190.1.22
