@@ -21,6 +21,16 @@ CREATE TABLE `oj_checkpoint` (
 -- ----------------------------
 -- Records of oj_checkpoint
 -- ----------------------------
+INSERT INTO `oj_checkpoint` VALUES ('121295592932077569', '2020-11-30 09:05:23', '2020-11-30 09:05:23', null, '26975 21625\r\n', '48600\r\n', '13', '7', '3.in', '3.out', '121295592596541441', '121295592630095874');
+INSERT INTO `oj_checkpoint` VALUES ('121295592932077570', '2020-11-30 09:05:23', '2020-11-30 09:05:23', null, '23107 28548\r\n', '51655\r\n', '13', '7', '4.in', '4.out', '121295592630095875', '121295592630095876');
+INSERT INTO `oj_checkpoint` VALUES ('121295592936271875', '2020-11-30 09:05:23', '2020-11-30 09:05:23', null, '16951 22289\r\n', '39240\r\n', '13', '7', '5.in', '5.out', '121295592630095877', '121295592630095878');
+INSERT INTO `oj_checkpoint` VALUES ('121295592936271876', '2020-11-30 09:05:23', '2020-11-30 09:05:23', null, '8634 13146\r\n', '21780\r\n', '12', '7', '6.in', '6.out', '121295592630095879', '121295592630095880');
+INSERT INTO `oj_checkpoint` VALUES ('121295592936271877', '2020-11-30 09:05:23', '2020-11-30 09:05:23', null, '17574 15337\r\n', '32911\r\n', '13', '7', '7.in', '7.out', '121295592630095881', '121295592630095882');
+INSERT INTO `oj_checkpoint` VALUES ('121295592936271878', '2020-11-30 09:05:23', '2020-11-30 09:05:23', null, '14548 28382\r\n', '42930\r\n', '13', '7', '8.in', '8.out', '121295592630095883', '121295592630095884');
+INSERT INTO `oj_checkpoint` VALUES ('121295592936271879', '2020-11-30 09:05:23', '2020-11-30 09:05:23', null, '3271 17411\r\n', '20682\r\n', '12', '7', '9.in', '9.out', '121295592630095885', '121295592630095886');
+INSERT INTO `oj_checkpoint` VALUES ('121295592936271880', '2020-11-30 09:05:23', '2020-11-30 09:05:23', null, '18820 26832\r\n', '45652\r\n', '13', '7', '0.in', '0.out', '121295592630095887', '121295592630095888');
+INSERT INTO `oj_checkpoint` VALUES ('121295592936271881', '2020-11-30 09:05:23', '2020-11-30 09:05:23', null, '1123 5687', '6810\r\n', '9', '6', '1.in', '1.out', '121295592630095889', '121295592630095890');
+INSERT INTO `oj_checkpoint` VALUES ('121295592936271882', '2020-11-30 09:05:23', '2020-11-30 09:05:23', null, '15646 8688\r\n', '24334\r\n', '12', '7', '2.in', '2.out', '121295592630095891', '121295592630095892');
 
 -- ----------------------------
 -- Table structure for oj_contest
@@ -95,6 +105,26 @@ CREATE TABLE `oj_file` (
 -- ----------------------------
 -- Records of oj_file
 -- ----------------------------
+INSERT INTO `oj_file` VALUES ('121295592596541441', '2020-11-30 09:05:23', '2020-11-30 09:05:23', '', '0', '1', '13', '1', 'bc08955e19e4a0863de86a7d2c219c24', '3.in', 'in');
+INSERT INTO `oj_file` VALUES ('121295592630095874', '2020-11-30 09:05:23', '2020-11-30 09:05:23', '', '0', '1', '7', '1', 'e05eb521811d7b93f428784a286bcf2b', '3.out', 'out');
+INSERT INTO `oj_file` VALUES ('121295592630095875', '2020-11-30 09:05:23', '2020-11-30 09:05:23', '', '0', '1', '13', '1', '871fcbd0618a6e9703705e934b7f198b', '4.in', 'in');
+INSERT INTO `oj_file` VALUES ('121295592630095876', '2020-11-30 09:05:23', '2020-11-30 09:05:23', '', '0', '1', '7', '1', 'e35ba2781ea201c7d6dcc4fc459a5efd', '4.out', 'out');
+INSERT INTO `oj_file` VALUES ('121295592630095877', '2020-11-30 09:05:23', '2020-11-30 09:05:23', '', '0', '1', '13', '1', '260f0affc904d757784509b3095972be', '5.in', 'in');
+INSERT INTO `oj_file` VALUES ('121295592630095878', '2020-11-30 09:05:23', '2020-11-30 09:05:23', '', '0', '1', '7', '1', '47628cbe8ded7080ae6bcc32d5cb11d0', '5.out', 'out');
+INSERT INTO `oj_file` VALUES ('121295592630095879', '2020-11-30 09:05:23', '2020-11-30 09:05:23', '', '0', '1', '12', '1', '2e7cbde6fa92301d5b4ef923ddcaade5', '6.in', 'in');
+INSERT INTO `oj_file` VALUES ('121295592630095880', '2020-11-30 09:05:23', '2020-11-30 09:05:23', '', '0', '1', '7', '1', '5c86f82100c9a9a68d61064a3f23afec', '6.out', 'out');
+INSERT INTO `oj_file` VALUES ('121295592630095881', '2020-11-30 09:05:23', '2020-11-30 09:05:23', '', '0', '1', '13', '1', '6e13b507c710279e7d69234efbedf7fb', '7.in', 'in');
+INSERT INTO `oj_file` VALUES ('121295592630095882', '2020-11-30 09:05:23', '2020-11-30 09:05:23', '', '0', '1', '7', '1', 'e64ec1d09be930c8359db0c933f0849a', '7.out', 'out');
+INSERT INTO `oj_file` VALUES ('121295592630095883', '2020-11-30 09:05:23', '2020-11-30 09:05:23', '', '0', '1', '13', '1', 'ec6f7b7a2133d560fcfea65c9de5a875', '8.in', 'in');
+INSERT INTO `oj_file` VALUES ('121295592630095884', '2020-11-30 09:05:23', '2020-11-30 09:05:23', '', '0', '1', '7', '1', 'd099881d6ad384f8143c4b2769a54408', '8.out', 'out');
+INSERT INTO `oj_file` VALUES ('121295592630095885', '2020-11-30 09:05:23', '2020-11-30 09:05:23', '', '0', '1', '12', '1', '9d05b9ab690a62eed37158114e991e38', '9.in', 'in');
+INSERT INTO `oj_file` VALUES ('121295592630095886', '2020-11-30 09:05:23', '2020-11-30 09:05:23', '', '0', '1', '7', '1', 'e064ef4ada61fe8f9c385d253af584a7', '9.out', 'out');
+INSERT INTO `oj_file` VALUES ('121295592630095887', '2020-11-30 09:05:23', '2020-11-30 09:05:23', '', '0', '1', '13', '1', '62c11285d4a6a1fd5674a392c276c41e', '0.in', 'in');
+INSERT INTO `oj_file` VALUES ('121295592630095888', '2020-11-30 09:05:23', '2020-11-30 09:05:23', '', '0', '1', '7', '1', '3d8aaa9bbc69f84dcff6ba8df6dc2c3e', '0.out', 'out');
+INSERT INTO `oj_file` VALUES ('121295592630095889', '2020-11-30 09:05:23', '2020-11-30 09:05:23', '', '0', '1', '9', '1', '64bcbb54019c37450f894569fc87fcbd', '1.in', 'in');
+INSERT INTO `oj_file` VALUES ('121295592630095890', '2020-11-30 09:05:23', '2020-11-30 09:05:23', '', '0', '1', '6', '1', '0dceae0799d18be5cc3160c4c1d9ea4a', '1.out', 'out');
+INSERT INTO `oj_file` VALUES ('121295592630095891', '2020-11-30 09:05:23', '2020-11-30 09:05:23', '', '0', '1', '12', '1', '7afbadeb013381145edff104a770fa4f', '2.in', 'in');
+INSERT INTO `oj_file` VALUES ('121295592630095892', '2020-11-30 09:05:23', '2020-11-30 09:05:23', '', '0', '1', '7', '1', '4593acbf5e805ea41f7bd5c82dda700f', '2.out', 'out');
 
 -- ----------------------------
 -- Table structure for oj_group
@@ -185,11 +215,12 @@ CREATE TABLE `oj_problem` (
   `p_checkpoint_cases` blob COMMENT '检查点样例 (checkpointId)',
   PRIMARY KEY (`p_id`),
   UNIQUE KEY `uk_problem_code` (`p_code`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=1000 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='题目表';
+) ENGINE=InnoDB AUTO_INCREMENT=1001 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='题目表';
 
 -- ----------------------------
 -- Records of oj_problem
 -- ----------------------------
+INSERT INTO `oj_problem` VALUES ('1000', '2020-11-30 09:03:27', '2020-11-30 09:07:32', '', '3', '0', 'SDUOJ-1000', '1', '1', 'A+B Problem', 'Init', null, null, '0', '0', null, '16384', '1000', '1', '10', '1,2,4', 0x01AEEDB2F98970010000000A01AEEDB2F98970020000000A01AEEDB2F9C970030000000A01AEEDB2F9C970040000000A01AEEDB2F9C970050000000A01AEEDB2F9C970060000000A01AEEDB2F9C970070000000A01AEEDB2F9C970080000000A01AEEDB2F9C970090000000A01AEEDB2F9C9700A0000000A, null);
 
 -- ----------------------------
 -- Table structure for oj_problem_description
@@ -216,11 +247,12 @@ CREATE TABLE `oj_problem_description` (
   `pd_html_hint` text COLLATE utf8mb4_unicode_ci COMMENT '提示',
   PRIMARY KEY (`pd_id`),
   KEY `idx_p_id` (`p_id`) USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='题目描述表';
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='题目描述表';
 
 -- ----------------------------
 -- Records of oj_problem_description
 -- ----------------------------
+INSERT INTO `oj_problem_description` VALUES ('1', '2020-11-30 09:03:31', '2020-11-30 09:03:51', '', '0', '0', '0', '1000', '1', '0', 'Default', '# Background\nSpecial for beginners, ^_^\n\n# Description\nGiven two integers x and y, print the sum.\n\n# Format\n\n## Input\nTwo integers x and y, satisfying 0 <= x, y <= 32767.\n\n## Output\nOne integer, the sum of x and y.\n\n# Sample 1\n\n## Input\n```\n123 500\n```\n\n## Output\n```\n623\n```\n\n# Limitation\n1s, 1024KiB for each test case.\n\n# Hint\n\n## Free Pascal Code\n\n```pascal\nvar a,b:longint;\nbegin\n    readln(a,b);\n    writeln(a+b);\nend.\n```\n\n## C Code\n\n```c\n#include <stdio.h>\nint main(void)\n{\n    int a, b;\n    scanf(\"%d%d\", &a, &b);\n    printf(\"%d\\n\", a + b);\n    return 0;\n}\n```\n\n## C++ Code\n\n```cpp\n#include <iostream>\nusing namespace std;\nint main()\n{\n    int a, b;\n    cin >> a >> b;\n    cout << a + b << endl;\n    return 0;\n}\n```\n\n## Python Code\n\n```python\na, b = [int(i) for i in raw_input().split()]\nprint(a + b)\n```\n\n## Java Code\n\n```java\nimport java.io.*;\nimport java.util.Scanner;\n\npublic class Main {\n\n    /**\n     * @param args\n     * @throws IOException \n     */\n    public static void main(String[] args) throws IOException {\n        Scanner sc = new Scanner(System.in);\n        int a = sc.nextInt();\n        int b = sc.nextInt();\n        System.out.println(a + b);\n    }\n}\n```', null, null, null, null, null, null);
 
 -- ----------------------------
 -- Table structure for oj_problem_extension
@@ -237,11 +269,12 @@ CREATE TABLE `oj_problem_extension` (
   `pe_value` text COLLATE utf8mb4_unicode_ci NOT NULL,
   PRIMARY KEY (`pe_id`),
   UNIQUE KEY `uk_p_id_key` (`p_id`,`pe_key`) USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='比赛拓展表';
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='比赛拓展表';
 
 -- ----------------------------
 -- Records of oj_problem_extension
 -- ----------------------------
+INSERT INTO `oj_problem_extension` VALUES ('1', '2020-11-30 09:05:48', '2020-11-30 09:05:48', '0', '0', '1000', 'problemCase', '[]');
 
 -- ----------------------------
 -- Table structure for oj_submission
