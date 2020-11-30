@@ -1,4 +1,4 @@
-version: "3"
+version: "2.3"
 services:
   # 中间件
   sduoj-mysql:
@@ -13,16 +13,16 @@ services:
       - ../env/mysql-conf.d:/docker-entrypoint-initdb.d
       - ../env/mysql-initdb.d:/docker-entrypoint-initdb.d
       - ./mysql:/var/lib/mysql
-    ports:
-      - "3306:3306"
+#    ports:
+#      - "3306:3306"
   sduoj-redis:
     container_name: sduoj-redis
     image: redis:alpine
     networks:
       sduoj-net:
         ipv4_address: 172.190.1.11
-    ports:
-      - "6379:6379"
+#    ports:
+#      - "6379:6379"
     restart: on-failure
   sduoj-rabbit:
     container_name: sduoj-rabbit
@@ -54,9 +54,182 @@ services:
     environment:
       WAIT_HOSTS: sduoj-mysql:3306
     restart: on-failure
-  # 前端
   # 后端
+  sduoj-auth:
+    container_name: sduoj-auth
+    image: registry.cn-beijing.aliyuncs.com/sduoj/sduoj-server
+    networks:
+      sduoj-net:
+        ipv4_address: 172.190.1.14
+#    ports:
+#      - "19010:8080"
+    depends_on:
+      - sduoj-mysql
+      - sduoj-nacos
+    mem_limit: 2048M
+    environment:
+      WAIT_HOSTS: sduoj-mysql:3306, sduoj-nacos:8848
+      NACOS_ADDR: sduoj-nacos:8848
+      ACTIVE: prod
+      SERVICE: auth
+    restart: on-failure
+  sduoj-contest:
+    container_name: sduoj-contest
+    image: registry.cn-beijing.aliyuncs.com/sduoj/sduoj-server
+    networks:
+      sduoj-net:
+        ipv4_address: 172.190.1.15
+#    ports:
+#      - "19011:8080"
+    depends_on:
+      - sduoj-mysql
+      - sduoj-nacos
+    mem_limit: 2048M
+    environment:
+      WAIT_HOSTS: sduoj-mysql:3306, sduoj-nacos:8848, sduoj-redis:6379
+      NACOS_ADDR: sduoj-nacos:8848
+      ACTIVE: prod
+      SERVICE: contest
+    restart: on-failure
+  sduoj-filesys:
+    container_name: sduoj-filesys
+    image: registry.cn-beijing.aliyuncs.com/sduoj/sduoj-server
+    networks:
+      sduoj-net:
+        ipv4_address: 172.190.1.16
+#    ports:
+#      - "19012:8080"
+    volumes:
+      - ./sduoj-filesys:/sduoj/sduoj-filesys
+    depends_on:
+      - sduoj-mysql
+      - sduoj-nacos
+    mem_limit: 2048M
+    environment:
+      WAIT_HOSTS: sduoj-mysql:3306, sduoj-nacos:8848
+      NACOS_ADDR: sduoj-nacos:8848
+      ACTIVE: prod
+      SERVICE: filesys
+    restart: on-failure
+  sduoj-gateway:
+    container_name: sduoj-gateway
+    image: registry.cn-beijing.aliyuncs.com/sduoj/sduoj-server
+    networks:
+      sduoj-net:
+        ipv4_address: 172.190.1.17
+#    ports:
+#      - "8080:8080"
+    depends_on:
+      - sduoj-nacos
+    mem_limit: 2048M
+    environment:
+      WAIT_HOSTS: sduoj-nacos:8848
+      NACOS_ADDR: sduoj-nacos:8848
+      ACTIVE: prod
+      SERVICE: gateway
+    restart: on-failure
+  sduoj-problem:
+    container_name: sduoj-problem
+    image: registry.cn-beijing.aliyuncs.com/sduoj/sduoj-server
+    networks:
+      sduoj-net:
+        ipv4_address: 172.190.1.18
+#    ports:
+#      - "19013:8080"
+    depends_on:
+      - sduoj-mysql
+      - sduoj-nacos
+    mem_limit: 2048M
+    environment:
+      WAIT_HOSTS: sduoj-mysql:3306, sduoj-nacos:8848, sduoj-redis:6379, sduoj-rabbit:5672
+      NACOS_ADDR: sduoj-nacos:8848
+      ACTIVE: prod
+      SERVICE: problem
+    restart: on-failure
+  sduoj-submit:
+    container_name: sduoj-submit
+    image: registry.cn-beijing.aliyuncs.com/sduoj/sduoj-server
+    networks:
+      sduoj-net:
+        ipv4_address: 172.190.1.19
+#    ports:
+#      - "19014:8080"
+    depends_on:
+      - sduoj-mysql
+      - sduoj-nacos
+    mem_limit: 2048M
+    environment:
+      WAIT_HOSTS: sduoj-mysql:3306, sduoj-nacos:8848, sduoj-redis:6379, sduoj-rabbit:5672
+      NACOS_ADDR: sduoj-nacos:8848
+      ACTIVE: prod
+      SERVICE: submit
+    restart: on-failure
+  sduoj-user:
+    container_name: sduoj-user
+    image: registry.cn-beijing.aliyuncs.com/sduoj/sduoj-server
+    networks:
+      sduoj-net:
+        ipv4_address: 172.190.1.20
+#    ports:
+#      - "19015:8080"
+    depends_on:
+      - sduoj-mysql
+      - sduoj-nacos
+    mem_limit: 2048M
+    environment:
+      WAIT_HOSTS: sduoj-mysql:3306, sduoj-nacos:8848, sduoj-redis:6379
+      NACOS_ADDR: sduoj-nacos:8848
+      ACTIVE: prod
+      SERVICE: user
+    restart: on-failure
+  sduoj-websocket:
+    container_name: sduoj-websocket
+    image: registry.cn-beijing.aliyuncs.com/sduoj/sduoj-server
+    networks:
+      sduoj-net:
+        ipv4_address: 172.190.1.21
+#    ports:
+#      - "19015:8080"
+    depends_on:
+      - sduoj-mysql
+      - sduoj-nacos
+    mem_limit: 2048M
+    environment:
+      WAIT_HOSTS: sduoj-mysql:3306, sduoj-nacos:8848, sduoj-redis:6379, sduoj-rabbit:5672
+      NACOS_ADDR: sduoj-nacos:8848
+      ACTIVE: prod
+      SERVICE: websocket
+    restart: on-failure
+  # 前端
+  sduoj-frontend:
+    container_name: sduoj-frontend
+    image: sduoj-frontend
+    networks:
+      sduoj-net:
+        ipv4_address: 172.190.1.22
+    ports:
+      - "80:80"
+    restart: always
   # 评测机
+  sduoj-judger:
+    container_name: sduoj-judger
+    image: registry.cn-beijing.aliyuncs.com/sduoj/sduoj-judger
+    networks:
+      sduoj-net:
+        ipv4_address: 172.190.1.23
+    depends_on:
+      - sduoj-nacos
+      - sduoj-problem
+      - sduoj-submit
+      - sduoj-rabbit
+    pids_limit: 1024
+    mem_limit: 1024M
+    cpuset: "0"
+    environment:
+      WAIT_HOSTS: sduoj-nacos:8848, sduoj-rabbit:5672
+      NACOS_ADDR: sduoj-nacos:8848
+      ACTIVE: prod
+    restart: on-failure
 networks:
   sduoj-net:
     driver: bridge
