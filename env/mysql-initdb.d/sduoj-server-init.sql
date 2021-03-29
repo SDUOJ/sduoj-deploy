@@ -127,32 +127,6 @@ INSERT INTO `oj_file` VALUES ('121295592630095891', '2020-11-30 09:05:23', '2020
 INSERT INTO `oj_file` VALUES ('121295592630095892', '2020-11-30 09:05:23', '2020-11-30 09:05:23', '', '0', '1', '7', '1', '4593acbf5e805ea41f7bd5c82dda700f', '2.out', 'out');
 
 -- ----------------------------
--- Table structure for oj_group
--- ----------------------------
-DROP TABLE IF EXISTS `oj_group`;
-CREATE TABLE `oj_group` (
-  `g_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
-  `g_gmt_create` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `g_gmt_modified` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '修改时间',
-  `g_features` varchar(512) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '特性字段',
-  `g_is_deleted` tinyint(4) unsigned NOT NULL DEFAULT '0' COMMENT '是否删除, 0.否, 1.是',
-  `g_version` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '乐观锁字段',
-  `u_id` bigint(20) unsigned NOT NULL COMMENT '创建人',
-  `g_title` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '课程标题',
-  `g_year_semester` char(16) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '年与学期, 例如2019-2020-1',
-  `g_gmt_start` datetime NOT NULL COMMENT '开始时间',
-  `g_gmt_end` datetime NOT NULL COMMENT '结束时间',
-  `g_markdown` text COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '课程说明',
-  `g_participant_num` mediumint(9) unsigned NOT NULL DEFAULT '0' COMMENT '参加人数',
-  `g_participants` text COLLATE utf8mb4_unicode_ci COMMENT '参加者集合',
-  PRIMARY KEY (`g_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='课程信息表';
-
--- ----------------------------
--- Records of oj_group
--- ----------------------------
-
--- ----------------------------
 -- Table structure for oj_judge_template
 -- ----------------------------
 DROP TABLE IF EXISTS `oj_judge_template`;
@@ -454,6 +428,8 @@ INSERT INTO `oj_url_permission` VALUES ('80', '2020-11-13 05:08:35', '2020-11-13
 INSERT INTO `oj_url_permission` VALUES ('81', '2020-11-20 11:16:16', '2020-11-20 11:16:16', '', '0', '0', '/contest/invalidateSubmission', '', 'superadmin,admin');
 INSERT INTO `oj_url_permission` VALUES ('82', '2020-11-20 11:48:08', '2020-11-20 11:48:08', '', '0', '0', '/submit/invalidateSubmission', '', 'superadmin,admin');
 INSERT INTO `oj_url_permission` VALUES ('83', '2020-11-21 11:09:15', '2020-11-21 11:09:15', '', '0', '0', '/manage/user/delete', '', 'superadmin');
+INSERT INTO `oj_url_permission` VALUES ('84', '2020-12-18 04:04:25', '2020-12-18 04:04:25', '', '0', '0', '/filesys/download/{fileId}/{filename}', '', 'all');
+INSERT INTO `oj_url_permission` VALUES ('85', '2021-01-16 07:18:30', '2021-01-16 07:18:30', '', '0', '0', '/manage/problem/deleteDescription', '', 'superadmin,admin');
 
 -- ----------------------------
 -- Table structure for oj_user
