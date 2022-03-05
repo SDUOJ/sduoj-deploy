@@ -207,6 +207,8 @@ services:
     networks:
       sduoj-net:
         ipv4_address: 172.190.1.22
+    volumes:
+      - ../env/frontend/nginx-ip.conf:/etc/nginx/nginx.conf
     ports:
       - "80:80"
     restart: always
