@@ -1,4 +1,11 @@
 version: "2.3"
+networks:
+  sduoj-net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.190.1.0/24
 services:
   # 中间件
   sduoj-mysql:
@@ -45,7 +52,7 @@ services:
     env_file:
       - ../env/nacos-standlone-mysql.env
     volumes:
-      - ./sduoj-nacos-logs/:/home/nacos/logs
+      - ./nacos-logs/:/home/nacos/logs
     ports:
       - "8848:8848"
     #      - "9555:9555"
@@ -63,6 +70,8 @@ services:
         ipv4_address: 172.190.1.14
     #    ports:
     #      - "19010:8080"
+    volumes:
+      - ./logs/:/root/sduoj/logs
     depends_on:
       - sduoj-mysql
       - sduoj-nacos
@@ -81,6 +90,8 @@ services:
         ipv4_address: 172.190.1.15
     #    ports:
     #      - "19011:8080"
+    volumes:
+      - ./logs/:/root/sduoj/logs
     depends_on:
       - sduoj-mysql
       - sduoj-nacos
@@ -100,7 +111,8 @@ services:
     #    ports:
     #      - "19012:8080"
     volumes:
-      - ./sduoj-filesys:/sduoj/sduoj-filesys
+      - ./logs/:/root/sduoj/logs
+      - ./sduoj-filesys:/root/sduoj/filesys
     depends_on:
       - sduoj-mysql
       - sduoj-nacos
@@ -119,6 +131,8 @@ services:
         ipv4_address: 172.190.1.17
     #    ports:
     #      - "8080:8080"
+    volumes:
+      - ./logs/:/root/sduoj/logs
     depends_on:
       - sduoj-nacos
     mem_limit: 2048M
@@ -136,6 +150,8 @@ services:
         ipv4_address: 172.190.1.18
     #    ports:
     #      - "19013:8080"
+    volumes:
+      - ./logs/:/root/sduoj/logs
     depends_on:
       - sduoj-mysql
       - sduoj-nacos
@@ -154,6 +170,8 @@ services:
         ipv4_address: 172.190.1.19
     #    ports:
     #      - "19014:8080"
+    volumes:
+      - ./logs/:/root/sduoj/logs
     depends_on:
       - sduoj-mysql
       - sduoj-nacos
@@ -172,12 +190,14 @@ services:
         ipv4_address: 172.190.1.20
     #    ports:
     #      - "19015:8080"
+    volumes:
+      - ./logs/:/root/sduoj/logs
     depends_on:
       - sduoj-mysql
       - sduoj-nacos
     mem_limit: 2048M
     environment:
-      WAIT_HOSTS: sduoj-mysql:3306, sduoj-nacos:8848, sduoj-redis:6379
+      WAIT_HOSTS: sduoj-mysql:3306, sduoj-nacos:8848, sduoj-redis:6379, sduoj-rabbit:5672
       NACOS_ADDR: sduoj-nacos:8848
       ACTIVE: prod
       SERVICE: user
@@ -190,6 +210,8 @@ services:
         ipv4_address: 172.190.1.21
     #    ports:
     #      - "19015:8080"
+    volumes:
+      - ./logs/:/root/sduoj/logs
     depends_on:
       - sduoj-mysql
       - sduoj-nacos
@@ -203,7 +225,7 @@ services:
   # 前端
   sduoj-frontend:
     container_name: sduoj-frontend
-    image: registry.cn-beijing.aliyuncs.com/sduoj/sduoj-frontend:latest
+    image: registry.cn-beijing.aliyuncs.com/sduoj/sduoj-frontend
     networks:
       sduoj-net:
         ipv4_address: 172.190.1.22
@@ -217,7 +239,7 @@ services:
   # 评测机
   sduoj-judger:
     container_name: sduoj-judger
-    image: registry.cn-beijing.aliyuncs.com/sduoj/sduoj-judger:latest
+    image: registry.cn-beijing.aliyuncs.com/sduoj/sduoj-judger
     networks:
       sduoj-net:
         ipv4_address: 172.190.1.23
@@ -234,10 +256,3 @@ services:
       NACOS_ADDR: sduoj-nacos:8848
       ACTIVE: prod
     restart: on-failure
-networks:
-  sduoj-net:
-    driver: bridge
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.190.1.0/24
