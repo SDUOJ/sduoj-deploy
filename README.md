@@ -8,6 +8,12 @@ This project contains a Docker image meant to facilitate the deployment of [SDUO
 - env: Environment variable file for compose yaml.
 - example: Docker compose example for SDUOJ.
 
+## How to scale
+
+```bash
+docker-compose -f pseudo-distributed-ip.yaml up -d --scale user-service=2
+```
+
 ## Credits
 
 * [nacos-docker](https://github.com/nacos-group/nacos-docker)
