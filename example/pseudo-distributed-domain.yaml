@@ -42,7 +42,8 @@ services:
     restart: on-failure
   nacos:
     container_name: "${COMPOSE_PROJECT_NAME}_nacos"
-    image: registry.cn-beijing.aliyuncs.com/sduoj/sduoj-nacos:1.4.0
+    build:
+      context: ../build/sduoj-nacos/2.1.2
     networks:
       - network
     env_file:
