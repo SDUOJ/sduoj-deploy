@@ -10,7 +10,7 @@ services:
   # 中间件
   mysql:
     container_name: "${COMPOSE_PROJECT_NAME}_mysql" # disable scalability
-    image: mysql:5.7
+    image: mysql:8
     networks:
       - network
     env_file:
@@ -18,7 +18,8 @@ services:
     volumes:
       - ../env/mysql-conf.d:/etc/mysql/conf.d
       - ../env/mysql-initdb.d:/docker-entrypoint-initdb.d
-      - ./mysql:/var/lib/mysql
+      - ./mysql/data:/var/lib/mysql
+      - ./mysql/files:/var/lib/mysql-files
 #    ports:
 #      - "3306:3306"
   redis:
