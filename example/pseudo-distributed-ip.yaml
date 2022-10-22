@@ -60,7 +60,8 @@ services:
   # 前端
   frontend:
     container_name: "${COMPOSE_PROJECT_NAME}_frontend"
-    image: registry.cn-beijing.aliyuncs.com/sduoj/sduoj-frontend
+    build:
+      context: ../build/sduoj-frontend/latest
     networks:
       - network
     volumes:
