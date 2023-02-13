@@ -1,0 +1,10 @@
+# keep this the first line in the file
+*	text=auto
+*.txt	text eol=lf
+*.env	text eol=lf
+*.cnf	text eol=lf
+*.conf	text eol=lf
+*.sql	text eol=lf
+*.yml	text eol=lf
+*.yaml	text eol=lf
+*.md	text eol=lf
