@@ -24,6 +24,7 @@ services:
       - ./mysql/files:/var/lib/mysql-files
 #    ports:
 #      - "3306:3306"
+    restart: on-failure
   redis:
     container_name: "${COMPOSE_PROJECT_NAME}_redis"
     image: redis:alpine
