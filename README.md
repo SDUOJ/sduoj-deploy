@@ -6,12 +6,12 @@ This project contains a Docker image meant to facilitate the deployment of [SDUO
 
 - build: The source code of the docker image.
 - env: Environment variable file for compose yaml.
-- example: Docker compose example for SDUOJ.
+- data: Some data files for running the service.
 
 ## How to scale
 
 ```bash
-docker-compose -f pseudo-distributed-ip.yaml up -d --scale user-service=2
+docker compose up -d --scale user-service=2
 ```
 
 ## Credits
