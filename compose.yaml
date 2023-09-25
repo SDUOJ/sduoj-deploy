@@ -224,8 +224,8 @@ services:
       ACTIVE: prod
       SERVICE: user
     networks:
-      outside: # user-service needs to connect to the SMTP server
       inside:
+      outside: # user-service needs to connect to the SMTP server
     deploy:
       resources:
         limits:
