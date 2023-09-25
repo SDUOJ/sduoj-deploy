@@ -1,7 +1,7 @@
 networks:
-  outside:
   inside:
     internal: true
+  outside:
 
 services:
   # 中间件
@@ -21,10 +21,10 @@ services:
 #    ports:
 #      - "3306:3306"
     networks:
-#      outside:
       inside:
         aliases:
           - sduoj-mysql
+#      outside:
     deploy:
       restart_policy:
         condition: any
@@ -35,10 +35,10 @@ services:
 #    ports:
 #      - "6379:6379"
     networks:
-#      outside:
       inside:
         aliases:
           - sduoj-redis
+#      outside:
     deploy:
       restart_policy:
         condition: any
@@ -52,10 +52,10 @@ services:
 #      - "5672:5672"
 #      - "15672:15672"
     networks:
-#      outside:
       inside:
         aliases:
           - sduoj-rabbit
+#      outside:
     deploy:
       restart_policy:
         condition: any
@@ -73,10 +73,10 @@ services:
 #      - "${NACOS_PORT9848}:9848"
 #      - "${NACOS_PORT9849}:9849"
     networks:
-#      outside:
       inside:
         aliases:
           - sduoj-nacos
+#      outside:
     environment:
       WAIT_HOSTS: sduoj-mysql:3306
     deploy:
@@ -99,10 +99,10 @@ services:
     # 如需暴露 https 的 443 端口，取消下面的注释
 #      - "${FRONTEND_PORT443}:443"
     networks:
-      outside:
       inside:
         aliases:
           - sduoj-frontend
+      outside:
     deploy:
       restart_policy:
         condition: any
