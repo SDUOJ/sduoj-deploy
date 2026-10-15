@@ -1,0 +1,44 @@
+# Review artifact. Sandbox execution may need a separately mediated runner;
+# do not grant this unit unrestricted Docker socket access.
+[Unit]
+Description=SDUOJ Autolab durable AI worker
+After=network-online.target sduoj-autolab-web.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sduoj-autolab
+Group=sduoj-autolab
+WorkingDirectory=/srv/sduoj-ai/current/autolab
+EnvironmentFile=/etc/sduoj/autolab.env
+Environment=PYTHONUNBUFFERED=1
+ExecStartPre=/usr/bin/python3 /opt/sduoj-deploy/scripts/ai_release.py drift --target /srv/sduoj-ai --prefix autolab
+ExecStart=/opt/sduoj-autolab-venv/bin/python -m auto_task.worker
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=90s
+TimeoutStopSec=120s
+KillSignal=SIGTERM
+UMask=0027
+
+NoNewPrivileges=true
+PrivateDevices=true
+PrivateTmp=true
+ProtectClock=true
+ProtectControlGroups=true
+ProtectHome=true
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectSystem=strict
+ReadOnlyPaths=/srv/sduoj-ai
+ReadWritePaths=/var/lib/sduoj-autolab /var/log/sduoj-autolab
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,95 @@
+name: Build Reviewed AI Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      web2_ref:
+        description: Exact reviewed Web2 commit SHA
+        required: true
+      autolab_ref:
+        description: Exact reviewed Autolab commit SHA
+        required: true
+      release_id:
+        description: Unique release identifier
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-release-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    environment: ai-release-review
+    env:
+      SDUOJ_MODE: debug
+      AUTOLAB_AI_WAKE: '0'
+      AUTOLAB_AI_VALIDATE_IDENTITY: '0'
+      SDUOJ_TOKEN: ci-isolated-fixture
+      AUTOLAB_REDIS_PASSWORD: ci-isolated-fixture
+      AUTOLAB_MYSQL_PASSWORD: ci-isolated-fixture
+      WEB2_REF: ${{ inputs.web2_ref }}
+      AUTOLAB_REF: ${{ inputs.autolab_ref }}
+      RELEASE_ID: ${{ inputs.release_id }}
+    steps:
+      - name: Validate immutable inputs
+        shell: bash
+        run: |
+          [[ "$WEB2_REF" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$AUTOLAB_REF" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$RELEASE_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$ ]]
+      - uses: actions/checkout@v4
+        with:
+          path: sduoj-deploy
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: SDUOJ/sduoj-web2
+          ref: ${{ inputs.web2_ref }}
+          path: sduoj-web2
+          token: ${{ secrets.SDUOJ_SOURCE_READ_TOKEN }}
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: SDUOJ/sduoj-autolab
+          ref: ${{ inputs.autolab_ref }}
+          path: sduoj-autolab
+          token: ${{ secrets.SDUOJ_SOURCE_READ_TOKEN }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+      - name: Install locked frontend and backend dependencies
+        shell: bash
+        run: |
+          npm install --global yarn@1.22.22
+          yarn --cwd sduoj-web2 install --frozen-lockfile --non-interactive
+          python -m pip install -r sduoj-autolab/requirements.txt pytest
+      - name: Verify backend and deployment tools
+        shell: bash
+        run: |
+          (cd sduoj-autolab && python -m pytest -q)
+          (cd sduoj-deploy && python -m pytest -q tests/test_ai_release.py)
+      - name: Prepare one versioned Web2 and Autolab artifact
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          python sduoj-deploy/scripts/ai_release.py prepare-release \
+            --web2-source "$GITHUB_WORKSPACE/sduoj-web2" \
+            --autolab-source "$GITHUB_WORKSPACE/sduoj-autolab" \
+            --node "$(command -v node)" --yarn "$(command -v yarn)" --python "$(command -v python)" \
+            --source-date-epoch "$(git -C sduoj-deploy show -s --format=%ct HEAD)" \
+            --release-id "$RELEASE_ID" --output "$GITHUB_WORKSPACE/artifacts/$RELEASE_ID.tar.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sduoj-ai-${{ inputs.release_id }}
+          path: artifacts/*
+          if-no-files-found: error
+          retention-days: 30

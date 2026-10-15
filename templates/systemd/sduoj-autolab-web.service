@@ -1,0 +1,44 @@
+# Review artifact. Adapt paths and hardening to the target host before installation.
+[Unit]
+Description=SDUOJ Autolab web API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sduoj-autolab
+Group=sduoj-autolab
+WorkingDirectory=/srv/sduoj-ai/current/autolab
+EnvironmentFile=/etc/sduoj/autolab.env
+Environment=PYTHONUNBUFFERED=1
+Environment=FORWARDED_ALLOW_IPS=
+ExecStartPre=/usr/bin/python3 /opt/sduoj-deploy/scripts/ai_release.py drift --target /srv/sduoj-ai --prefix autolab
+ExecStart=/opt/sduoj-autolab-venv/bin/gunicorn --bind 127.0.0.1:5005 --workers 4 --worker-class uvicorn.workers.UvicornWorker --access-logfile - --error-logfile - main:app
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=90s
+TimeoutStopSec=45s
+KillSignal=SIGTERM
+UMask=0027
+
+NoNewPrivileges=true
+PrivateDevices=true
+PrivateTmp=true
+ProtectClock=true
+ProtectControlGroups=true
+ProtectHome=true
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectSystem=strict
+ReadOnlyPaths=/srv/sduoj-ai
+ReadWritePaths=/var/lib/sduoj-autolab /var/log/sduoj-autolab
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

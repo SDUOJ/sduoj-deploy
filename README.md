@@ -1,5 +1,8 @@
 # sduoj-deploy
 
+Local Docker development: see [DEV.md](DEV.md). Run `./dev up`; start web2 and
+Autolab manually. The legacy Compose file below is retained separately.
+
 This project contains a Docker image meant to facilitate the deployment of [SDUOJ](https://github.com/SDUOJ/OnlineJudge).
 
 ## Project directory
@@ -18,4 +21,3 @@ docker compose up -d --scale user-service=2
 
 * [nacos-docker](https://github.com/nacos-group/nacos-docker)
 * [docker-compose-wait](https://github.com/ufoscout/docker-compose-wait)
-
