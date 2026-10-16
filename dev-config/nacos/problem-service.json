@@ -49,7 +49,7 @@
       "token": "${DEV_RPC_TOKEN}"
     },
     "run": {
-      "enabled": true,
+      "enabled": false,
       "autolab-context-url": "http://host.docker.internal:5005/internal/run/context"
     }
   },

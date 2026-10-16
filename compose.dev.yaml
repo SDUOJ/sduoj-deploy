@@ -189,6 +189,7 @@ services:
         restart: true
 
   run-worker:
+    profiles: [run]
     volumes: ["./data/dev/docker/run-worker-logs:/app/logs"]
     image: sduoj-run-worker:dev
     build:

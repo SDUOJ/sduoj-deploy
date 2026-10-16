@@ -20,7 +20,6 @@ STATE = ROOT / "data/dev"
 SERVICES = ["gateway", "user-service", "problem-service", "contest-service", "filesys-service", "websocket"]
 MIDDLEWARE = ["mysql", "redis", "rabbit", "nacos", "autolab-mysql", "autolab-redis"]
 HTTP = build_opener(ProxyHandler({}))
-DOCKER_CONTEXT = "desktop-linux" if sys.platform == "darwin" else "default"
 
 
 def read_env(path):
@@ -56,24 +55,8 @@ def initialize():
     return env
 
 
-def prepare_local_storage():
-    # A Linux-initialized MySQL data dictionary needs a case-sensitive filesystem.
-    # The image is stored on the project's disk; never create an empty data directory
-    # in place of an unmounted image.
-    image = STATE / "docker/autolab-mysql.sparsebundle"
-    if sys.platform != "darwin" or not image.exists():
-        return
-    mount = Path("/Volumes/SDUOJ-Dev-MySQL")
-    if not mount.is_mount():
-        subprocess.run(["hdiutil", "attach", "-nobrowse", str(image)], check=True,
-                       stdout=subprocess.DEVNULL)
-    if not mount.is_mount() or not (mount / "data/mysql").is_dir():
-        raise RuntimeError("The SSD MySQL data image is not mounted at " + str(mount))
-
-
 def compose_command(*args):
-    prepare_local_storage()
-    return ["docker", "--context", DOCKER_CONTEXT, "compose", "--progress", "plain", "--env-file", str(STATE / "compose.env"), "-f", str(ROOT / "compose.dev.yaml"), *args]
+    return ["docker", "compose", "--progress", "plain", "--env-file", str(STATE / "compose.env"), "-f", str(ROOT / "compose.dev.yaml"), *args]
 
 
 def compose(*args, **kwargs):
@@ -87,7 +70,7 @@ def nacos(path, data=None, method=None):
         return response.read().decode()
 
 
-def configure(env):
+def configure(env, enable_run=False):
     spaces = json.loads(nacos("console/namespaces"))["data"]
     if not any(item["namespace"] == "dev" for item in spaces):
         nacos("console/namespaces", {"customNamespaceId": "dev", "namespaceName": "dev", "namespaceDesc": "Local Docker development"})
@@ -114,7 +97,10 @@ def configure(env):
             except HTTPError as exc:
                 if exc.code != 404:
                     raise
-        content = json.dumps(expand(json.loads(path.read_text())), ensure_ascii=False)
+        config = expand(json.loads(path.read_text()))
+        if path.stem == "problem-service":
+            config["sduoj"]["run"]["enabled"] = enable_run
+        content = json.dumps(config, ensure_ascii=False)
         if nacos("cs/configs", dict(params, content=content, type="json")) != "true":
             raise RuntimeError("Nacos rejected " + data_id)
         print("Configured dev/" + data_id, flush=True)
@@ -158,25 +144,27 @@ def main():
     parser.add_argument("action", choices=["up", "down", "status", "check", "logs", "build", "configure", "middleware"])
     parser.add_argument("target", nargs="?")
     parser.add_argument("--no-build", action="store_true", help="Start cached images without contacting build registries")
+    parser.add_argument("--with-run", action="store_true", help="Enable Run only after verifying the published sandbox toolchain")
     args = parser.parse_args()
     env = initialize()
     os.chdir(ROOT)
     if args.action in ("up", "middleware"):
         compose("up", "-d", "--wait", "--wait-timeout", "600", *MIDDLEWARE)
-        configure(env)
+        configure(env, args.with_run)
         if args.action == "up":
             from run_migrate import migrate_run
             migrate_run()
             if not args.no_build:
-                compose("build", "gateway", "judger", "run-worker")
+                compose("build", "gateway", "judger", *(["run-worker"] if args.with_run else []))
 
             compose("up", "-d", "--no-build", "--wait", "--wait-timeout", "600", *SERVICES)
             compose("up", "-d", "--no-build", "--wait", "--wait-timeout", "180", "judger")
-            compose("up", "-d", "--no-build", "run-worker")
+            if args.with_run:
+                compose("up", "-d", "--no-build", "run-worker")
             check()
             print("Docker dev environment is ready. Start web2 and Autolab manually.")
     elif args.action == "down":
-        compose("down")
+        compose("--profile", "*", "down")
     elif args.action == "status":
         compose("ps")
     elif args.action == "check":
@@ -184,10 +172,10 @@ def main():
     elif args.action == "logs":
         compose("logs", "--tail", "150", *([args.target] if args.target else []))
     elif args.action == "build":
-        compose("build", "gateway", "judger", "run-worker")
+        compose("build", "gateway", "judger", *(["run-worker"] if args.with_run else []))
 
     elif args.action == "configure":
-        configure(env)
+        configure(env, args.with_run)
 
 
 
