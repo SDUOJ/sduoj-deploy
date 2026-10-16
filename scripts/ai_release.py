@@ -263,14 +263,29 @@ def _tree_digest(root: Path) -> str:
     return hashlib.sha256(json_bytes(value)).hexdigest()
 
 
-def _copy_packageable_tree(source: Path, destination: Path) -> None:
-    rows, _ = collect_tree(source, "", release_policy=True)
-    destination.mkdir(parents=True, mode=0o750)
-    for source_file, record in rows:
-        target = destination.joinpath(*PurePosixPath(record["path"]).parts)
-        target.parent.mkdir(parents=True, exist_ok=True, mode=0o750)
-        shutil.copyfile(source_file, target)
-        target.chmod(record["mode"])
+def _source_git_ref(source: Path, environment: Mapping[str, str]) -> str:
+    def read(*arguments: str) -> str:
+        try:
+            result = subprocess.run(["git", "-C", str(source), *arguments], env=dict(environment),
+                                    stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE, text=True, timeout=30, check=False)
+        except (OSError, subprocess.TimeoutExpired) as error:
+            raise ReleaseError("Web2 Git identity check could not complete") from error
+        if result.returncode:
+            raise ReleaseError("Web2 source must be a readable Git checkout")
+        return result.stdout.strip()
+
+    if Path(read("rev-parse", "--show-toplevel")).resolve() != source.resolve():
+        raise ReleaseError("Web2 source must be the Git repository root")
+    ref = read("rev-parse", "--verify", "HEAD^{commit}")
+    if not re.fullmatch(r"[a-f0-9]{40}", ref):
+        raise ReleaseError("Web2 source must resolve to a full Git SHA")
+    entries = read("ls-files", "-v", "-z").split("\0")
+    if any(entry and (entry[0].islower() or entry.startswith("S ")) for entry in entries):
+        raise ReleaseError("Web2 source must be clean without hidden index entries")
+    if read("status", "--porcelain=v1", "--untracked-files=all"):
+        raise ReleaseError("Web2 source must be clean before preparing a release")
+    return ref
 
 
 def _run_preflight(command: Sequence[str], cwd: Path, environment: Mapping[str, str],
@@ -312,7 +327,7 @@ def prepare_release(web2_source: Path, autolab_source: Path, output: Path, relea
     for path, label in ((node, "Node"), (yarn, "Yarn"), (python, "Python")):
         if not path.is_file() or not os.access(path, os.X_OK):
             raise ReleaseError(label + " executable is unavailable: " + str(path))
-    required_web = ["package.json", "yarn.lock", "src", "public"]
+    required_web = ["package.json", "yarn.lock", "src", "public", "scripts/release-artifact.cjs"]
     required_autolab = ["main.py", "requirements.txt", "auto_task/migrate.py", "auto_task/worker.py",
                         "scripts/export_ai_contracts.py", "docs/sql/20260905_auto_task_ai.sql"]
     for relative in required_web:
@@ -327,10 +342,15 @@ def prepare_release(web2_source: Path, autolab_source: Path, output: Path, relea
 
     created_utc = utc_from_epoch(source_date_epoch)
     environment = os.environ.copy()
+    # A caller's Git worktree/index overrides must not redirect the isolated build.
+    for key in list(environment):
+        if key.startswith("GIT_"):
+            del environment[key]
     environment.update({
         "PATH": str(node.parent) + os.pathsep + environment.get("PATH", ""),
         "CI": "true",
         "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
+        "COREPACK_ENABLE_NETWORK": "0",
         "npm_config_offline": "true",
         "YARN_ENABLE_NETWORK": "0",
         "SOURCE_DATE_EPOCH": str(source_date_epoch),
@@ -344,24 +364,46 @@ def prepare_release(web2_source: Path, autolab_source: Path, output: Path, relea
     if package.get("packageManager") != "yarn@" + yarn_version:
         raise ReleaseError("Yarn version does not match Web2 packageManager")
     python_version = _tool_version([str(python), "--version"], autolab_source, environment, "Python")
+    web2_ref = _source_git_ref(web2_source, environment)
+    input_sha256 = {"web2": _tree_digest(web2_source), "autolab": _tree_digest(autolab_source)}
 
     checks = []
     with tempfile.TemporaryDirectory(prefix="sduoj-ai-release-") as temporary_value:
         temporary = Path(temporary_value)
         web_build_tree = temporary / "web2"
-        _copy_packageable_tree(web2_source, web_build_tree)
+        checks.append(_run_preflight(
+            ["git", "clone", "--local", "--no-hardlinks", "--no-checkout", "--", str(web2_source), str(web_build_tree)],
+            temporary, environment, "web2-source-clone", timeout=120))
+        checks.append(_run_preflight(["git", "checkout", "--detach", web2_ref], web_build_tree,
+                                     environment, "web2-source-checkout", timeout=120))
+        if (_source_git_ref(web_build_tree, environment) != web2_ref or
+                _tree_digest(web_build_tree) != input_sha256["web2"]):
+            raise ReleaseError("Web2 source does not match its committed checkout")
         os.symlink(node_modules, web_build_tree / "node_modules", target_is_directory=True)
+        # Directory-only .gitignore rules do not match the dependency symlink.
+        with (web_build_tree / ".git/info/exclude").open("a", encoding="utf-8") as stream:
+            stream.write("\n/node_modules\n")
+        web_environment = dict(environment)
+        # Bind CI identity to the verified Web2 commit, rather than an outer deploy workflow.
+        web_environment["GITHUB_SHA"] = web2_ref
+        web_environment["SDUOJ_RELEASE_ID"] = release_id
         yarn_base = [str(yarn), "--offline", "--frozen-lockfile", "--non-interactive", "run"]
-        checks.append(_run_preflight([*yarn_base, "typecheck"], web_build_tree, environment, "web2-typecheck"))
-        checks.append(_run_preflight([*yarn_base, "lint"], web_build_tree, environment, "web2-lint"))
-        test_environment = dict(environment)
+        checks.append(_run_preflight([*yarn_base, "typecheck"], web_build_tree, web_environment, "web2-typecheck"))
+        checks.append(_run_preflight([*yarn_base, "lint"], web_build_tree, web_environment, "web2-lint"))
+        test_environment = dict(web_environment)
         if "SDUOJ_TEST_NODE_OPTIONS" in environment:
             test_environment["NODE_OPTIONS"] = environment["SDUOJ_TEST_NODE_OPTIONS"]
         checks.append(_run_preflight([*yarn_base, "test:unit", "--watch=false"], web_build_tree, test_environment, "web2-unit-tests"))
-        checks.append(_run_preflight([*yarn_base, "build"], web_build_tree, environment, "web2-production-build"))
+        checks.append(_run_preflight([*yarn_base, "build"], web_build_tree, web_environment, "web2-production-build"))
         build_output = web_build_tree / "build"
         if not (build_output / "index.html").is_file():
             raise ReleaseError("Web2 build did not produce build/index.html")
+        checks.append(_run_preflight(
+            [str(node), "scripts/release-artifact.cjs", "verify", "build", web2_ref, "/v2/"],
+            web_build_tree, web_environment, "web2-artifact-verification"))
+        if (_source_git_ref(web_build_tree, environment) != web2_ref or
+                _tree_digest(web_build_tree) != input_sha256["web2"]):
+            raise ReleaseError("Web2 build changed its source checkout")
 
         checks.append(_run_preflight([str(python), "-m", "pytest", "-q"], autolab_source,
                                      environment, "autolab-unit-tests"))
@@ -370,9 +412,14 @@ def prepare_release(web2_source: Path, autolab_source: Path, output: Path, relea
         if migration_check:
             checks.append(_run_preflight([str(python), "-m", "auto_task.migrate"], autolab_source,
                                          environment, "autolab-migration-dry-run", timeout=120))
+        if (_source_git_ref(web2_source, environment) != web2_ref or
+                _tree_digest(web2_source) != input_sha256["web2"] or
+                _tree_digest(autolab_source) != input_sha256["autolab"]):
+            raise ReleaseError("Release inputs changed during preparation")
         preflight = {
             "source_date_epoch": source_date_epoch,
-            "input_sha256": {"web2": _tree_digest(web2_source), "autolab": _tree_digest(autolab_source)},
+            "input_sha256": input_sha256,
+            "source_git_sha": {"web2": web2_ref},
             "tools": {"node": node_version, "yarn": yarn_version, "python": python_version},
             "node_options": environment.get("NODE_OPTIONS", ""),
             "test_node_options": test_environment.get("NODE_OPTIONS", ""),
@@ -509,7 +556,7 @@ def _validate_manifest(manifest: object, manifest_name: str, members: Mapping[st
             expected_keys = {"source_date_epoch", "input_sha256", "tools", "checks",
                              "migration_check", "network_policy"}
             if (not isinstance(preflight, dict) or not expected_keys.issubset(preflight)
-                    or set(preflight) - expected_keys - {"node_options", "test_node_options"}
+                    or set(preflight) - expected_keys - {"node_options", "test_node_options", "source_git_sha"}
                     or not isinstance(preflight.get("node_options", ""), str)
                     or not isinstance(preflight.get("test_node_options", ""), str)):
                 raise ReleaseError("Invalid release preflight record")
@@ -534,6 +581,12 @@ def _validate_manifest(manifest: object, manifest_name: str, members: Mapping[st
             expected_checks = {"web2-typecheck", "web2-lint", "web2-unit-tests",
                                "web2-production-build", "autolab-unit-tests",
                                "autolab-contract-and-ddl"}
+            if "source_git_sha" in preflight:
+                source_refs = preflight["source_git_sha"]
+                if (not isinstance(source_refs, dict) or set(source_refs) != {"web2"}
+                        or not re.fullmatch(r"[a-f0-9]{40}", str(source_refs["web2"]))):
+                    raise ReleaseError("Invalid release source Git identity")
+                expected_checks.update({"web2-source-clone", "web2-source-checkout", "web2-artifact-verification"})
             if not isinstance(preflight["migration_check"], bool):
                 raise ReleaseError("Invalid migration preflight state")
             if preflight["migration_check"]:

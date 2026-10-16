@@ -4,7 +4,9 @@ import io
 import json
 import os
 from pathlib import Path
+import shutil
 import stat
+import subprocess
 import tarfile
 
 import pytest
@@ -23,6 +25,17 @@ def tree(root: Path, files: dict):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
     return root
+
+
+def commit_source(root: Path) -> str:
+    environment = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+    def git(*arguments):
+        return subprocess.check_output(["git", "-C", str(root), *arguments], env=environment, text=True).strip()
+    git("init", "--quiet")
+    git("add", ".")
+    git("-c", "user.name=Release test", "-c", "user.email=release-test@example.invalid",
+        "-c", "commit.gpgsign=false", "commit", "--quiet", "-m", "fixture")
+    return git("rev-parse", "HEAD")
 
 
 def artifact(tmp_path: Path, release_id: str, web_content: str = "web") -> Path:
@@ -258,12 +271,15 @@ def test_cli_deploy_rollback_and_restore_are_dry_run_without_apply(tmp_path, cap
 
 def test_prepare_release_runs_locked_preflight_and_is_reproducible(tmp_path):
     web = tree(tmp_path / "web-source", {
+        ".gitignore": "node_modules/\nbuild/\n",
         "package.json": '{"packageManager":"yarn@1.22.22"}',
         "yarn.lock": "lock\n",
         "src/index.tsx": "export {};\n",
         "public/index.html": "<div id=root></div>\n",
         "node_modules/pkg/index.js": "module.exports = 1;\n",
+        "scripts/release-artifact.cjs": "// orchestration-only fixture\n",
     })
+    commit_source(web)
     autolab = tree(tmp_path / "autolab-source", {
         "main.py": "app = 1\n",
         "requirements.txt": "fastapi\n",
@@ -301,6 +317,115 @@ def test_prepare_release_runs_locked_preflight_and_is_reproducible(tmp_path):
     }
     assert manifest["preflight"]["migration_check"] is True
     assert release.verify_artifact(first, "release")["preflight"] == manifest["preflight"]
+
+
+def real_web_source(tmp_path: Path):
+    node = Path(os.environ.get("SDUOJ_RELEASE_TEST_NODE") or shutil.which("node") or "")
+    yarn = Path(shutil.which("yarn") or "")
+    if not node.is_file() or not yarn.is_file():
+        pytest.skip("Real release identity regression requires Node 24 and Yarn 1.22.22")
+    if subprocess.check_output([str(node), "-p", "process.versions.node"], text=True).split(".")[0] != "24":
+        pytest.skip("Real release identity regression requires Node 24")
+    artifact_script = SCRIPT.parents[2] / "sduoj-web2/scripts/release-artifact.cjs"
+    assert artifact_script.is_file(), "Web2 checkout with the artifact creator is required"
+    package = {
+        "version": "1.0.0", "packageManager": "yarn@1.22.22", "private": True,
+        "scripts": {"typecheck": "node check.cjs", "lint": "node check.cjs", "test:unit": "node check.cjs",
+                    "build": "node fixture-build.cjs && node scripts/release-artifact.cjs create build"},
+    }
+    web = tree(tmp_path / "real-web", {
+        ".gitignore": "node_modules/\nbuild/\n.env.local\n",
+        "package.json": json.dumps(package), "yarn.lock": "# yarn lockfile v1\n",
+        "src/index.tsx": "committed source", "public/index.html": "source template",
+        "scripts/release-artifact.cjs": artifact_script.read_text(),
+        "node_modules/offline-dependencies.txt": "No external dependencies are required by this fixture.",
+        "check.cjs": "process.exit(0);\n",
+        "fixture-build.cjs": r'''
+const fs = require('node:fs');
+const crypto = require('node:crypto');
+const content = 'window.Vditor={};';
+const checksum = crypto.createHash('sha256').update(content).digest('hex');
+const revision = crypto.createHash('sha256').update(`index.min.js\0${checksum}\n`).digest('hex');
+const directory = `build/vditor/${revision}/dist`;
+fs.mkdirSync(directory, { recursive: true });
+fs.mkdirSync('build/static/js', { recursive: true });
+fs.writeFileSync(`${directory}/index.min.js`, content);
+const entries = ['static/js/runtime-main.123abc.js', 'static/js/main.456def.js'];
+for (const entry of entries) fs.writeFileSync(`build/${entry}`, fs.readFileSync('src/index.tsx'));
+const deployment = { environment: 'production', apiOrigin: 'https://oj.qd.sdu.edu.cn', frontOrigin: 'https://oj.qd.sdu.edu.cn', socketOrigin: 'wss://oj.qd.sdu.edu.cn' };
+fs.writeFileSync('build/index.html', `<meta name="sduoj-environment" content="${encodeURIComponent(JSON.stringify(deployment))}"><div id="root"></div>${entries.map(entry => `<script src="/v2/${entry}"></script>`).join('')}`);
+fs.writeFileSync('build/asset-manifest.json', JSON.stringify({ files: Object.fromEntries(entries.map(entry => [entry, '/v2/' + entry])), entrypoints: entries }));
+fs.writeFileSync('build/manifest.json', JSON.stringify({ start_url: '/v2/home' }));
+''',
+    })
+    ref = commit_source(web)
+    tree(web, {".env.local": "IGNORED_LOCAL_SECRET=not-a-build-input\n"})
+    autolab = tree(tmp_path / "real-autolab", {
+        "main.py": "app = 1\n", "requirements.txt": "fastapi\n", "auto_task/migrate.py": "",
+        "auto_task/worker.py": "", "scripts/export_ai_contracts.py": "", "docs/sql/20260905_auto_task_ai.sql": "-- fixture\n",
+    })
+    python = tmp_path / "fixture-python"
+    python.write_text("#!/bin/sh\nif [ \"$1\" = --version ]; then echo 'Python fixture'; else exit 0; fi\n")
+    python.chmod(0o700)
+    return web, autolab, node, yarn, python, ref
+
+
+def test_prepare_release_executes_real_git_creator_and_verifier_and_reproduces_bytes(tmp_path, monkeypatch):
+    web, autolab, node, yarn, python, ref = real_web_source(tmp_path)
+    monkeypatch.setenv("GITHUB_SHA", "f" * 40)  # The outer deploy workflow has a different repository SHA.
+    monkeypatch.setenv("GIT_WORK_TREE", str(tmp_path / "unrelated"))
+    first, second = tmp_path / "real-one.tar.gz", tmp_path / "real-two.tar.gz"
+    manifest = release.prepare_release(web, autolab, first, "identity", 1_788_534_000, node, yarn, python)
+    release.prepare_release(web, autolab, second, "identity", 1_788_534_000, node, yarn, python)
+    assert first.read_bytes() == second.read_bytes()
+    assert manifest["preflight"]["source_git_sha"]["web2"] == ref
+    assert "web2-artifact-verification" in [check["name"] for check in manifest["preflight"]["checks"]]
+    with tarfile.open(first) as archive:
+        web_manifest = json.load(archive.extractfile("web2/release-manifest.json"))
+        assert web_manifest["sourceRef"] == ref
+        assert web_manifest["releaseId"] == "identity"
+        assert web_manifest["createdAt"] == "2026-09-04T15:00:00.000Z"
+        assert not any(".git/" in member.name or ".env.local" in member.name for member in archive.getmembers())
+    assert not (web / "build").exists()
+
+
+@pytest.mark.parametrize("dirty", ["tracked", "untracked", "hidden-by-index"])
+def test_prepare_release_rejects_source_changes_before_packaging(tmp_path, monkeypatch, dirty):
+    web, autolab, node, yarn, python, _ = real_web_source(tmp_path)
+    if dirty == "hidden-by-index":
+        subprocess.check_call(["git", "-C", str(web), "update-index", "--assume-unchanged", "src/index.tsx"])
+    if dirty == "untracked":
+        tree(web, {"src/extra.ts": "uncommitted"})
+    else:
+        (web / "src/index.tsx").write_text("uncommitted")
+    output = tmp_path / "dirty.tar.gz"
+    with pytest.raises(release.ReleaseError, match="clean|does not match"):
+        release.prepare_release(web, autolab, output, "dirty", 1_788_534_000, node, yarn, python)
+    assert not output.exists()
+
+
+def test_prepare_release_rejects_a_real_creator_with_wrong_artifact_identity(tmp_path):
+    web, autolab, node, yarn, python, _ = real_web_source(tmp_path)
+    package = json.loads((web / "package.json").read_text())
+    package["scripts"]["build"] += " && node -e \"const fs=require('fs');const p='build/release-manifest.json';const m=JSON.parse(fs.readFileSync(p));m.sourceRef='a'.repeat(40);fs.writeFileSync(p,JSON.stringify(m));\""
+    (web / "package.json").write_text(json.dumps(package))
+    commit_source(web)
+    output = tmp_path / "wrong.tar.gz"
+    with pytest.raises(release.ReleaseError, match="source ref mismatch"):
+        release.prepare_release(web, autolab, output, "wrong", 1_788_534_000, node, yarn, python)
+    assert not output.exists()
+
+
+def test_prepare_release_rejects_source_changes_during_the_isolated_build(tmp_path, monkeypatch):
+    web, autolab, node, yarn, python, _ = real_web_source(tmp_path)
+    with (web / "fixture-build.cjs").open("a") as stream:
+        stream.write("\nfs.writeFileSync(process.env.RELEASE_TEST_SOURCE, 'changed during build');\n")
+    commit_source(web)
+    monkeypatch.setenv("RELEASE_TEST_SOURCE", str(web / "src/index.tsx"))
+    output = tmp_path / "changed.tar.gz"
+    with pytest.raises(release.ReleaseError, match="clean|inputs changed"):
+        release.prepare_release(web, autolab, output, "changed", 1_788_534_000, node, yarn, python)
+    assert not output.exists()
 
 
 def test_artifact_and_release_target_symlinks_are_rejected(tmp_path):
