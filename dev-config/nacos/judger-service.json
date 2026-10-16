@@ -1,0 +1,55 @@
+{
+  "feign": {
+    "client": {
+      "config": {
+        "default": {
+          "readTimeout": 60000,
+          "connectTimeout": 3000
+        }
+      }
+    }
+  },
+  "spring": {
+    "rabbitmq": {
+      "host": "sduoj-rabbit",
+      "port": 5672,
+      "username": "${RABBITMQ_DEFAULT_USER}",
+      "password": "${RABBITMQ_DEFAULT_PASS}",
+      "virtual-host": "/sduoj",
+      "publisher-confirms": true,
+      "listener": {
+        "simple": {
+          "prefetch": 1,
+          "concurrency": 1,
+          "max-concurrency": 1,
+          "default-requeue-rejected": true,
+          "retry": {
+            "initial-interval": 3000,
+            "enabled": true,
+            "max-attempts": 3
+          }
+        }
+      }
+    }
+  },
+  "sduoj": {
+    "feign": {
+      "enableToken": true,
+      "token": "${DEV_RPC_TOKEN}"
+    }
+  },
+  "management": {
+    "endpoints": {
+      "web": {
+        "exposure": {
+          "include": "health,info"
+        }
+      }
+    },
+    "endpoint": {
+      "health": {
+        "showDetails": "never"
+      }
+    }
+  }
+}

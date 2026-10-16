@@ -1,0 +1,70 @@
+{
+  "spring": {
+    "datasource": {
+      "driver-class-name": "com.mysql.cj.jdbc.Driver",
+      "url": "jdbc:mysql://sduoj-mysql:3306/sduoj?useUnicode=true&characterEncoding=utf-8&useSSL=false",
+      "username": "${MYSQL_USER}",
+      "password": "${MYSQL_PASSWORD}",
+      "hikari": {
+        "minimum-idle": 5,
+        "maximum-pool-size": 15,
+        "idle-timeout": 30000
+      }
+    },
+    "data": {
+      "redis": {
+        "host": "sduoj-redis",
+        "password": "",
+        "port": 6379
+      }
+    },
+    "servlet": {
+      "multipart": {
+        "max-file-size": "200MB",
+        "max-request-size": "200MB"
+      }
+    },
+    "rabbitmq": {
+      "host": "sduoj-rabbit",
+      "port": 5672,
+      "username": "${RABBITMQ_DEFAULT_USER}",
+      "password": "${RABBITMQ_DEFAULT_PASS}",
+      "virtual-host": "/sduoj",
+      "publisher-confirms": true,
+      "listener": {
+        "simple": {
+          "default-requeue-rejected": true,
+          "retry": {
+            "initial-interval": 3000,
+            "enabled": true,
+            "max-attempts": 3
+          }
+        }
+      }
+    }
+  },
+  "sduoj": {
+    "feign": {
+      "enableToken": true,
+      "token": "${DEV_RPC_TOKEN}"
+    },
+    "run": {
+      "enabled": true,
+      "autolab-context-url": "http://host.docker.internal:5005/internal/run/context"
+    }
+  },
+  "management": {
+    "endpoints": {
+      "web": {
+        "exposure": {
+          "include": "health,info"
+        }
+      }
+    },
+    "endpoint": {
+      "health": {
+        "showDetails": "never"
+      }
+    }
+  }
+}

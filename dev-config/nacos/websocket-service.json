@@ -1,0 +1,48 @@
+{
+  "spring": {
+    "data": {
+      "redis": {
+        "host": "sduoj-redis",
+        "password": "",
+        "port": 6379,
+        "lettuce": {
+          "pool": {
+            "max-active": 15,
+            "max-idle": 8,
+            "max-wait": "-1ms",
+            "min-idle": 1
+          }
+        },
+        "timeout": 5000
+      }
+    },
+    "rabbitmq": {
+      "host": "sduoj-rabbit",
+      "port": 5672,
+      "username": "${RABBITMQ_DEFAULT_USER}",
+      "password": "${RABBITMQ_DEFAULT_PASS}",
+      "virtual-host": "/sduoj",
+      "publisher-confirms": true
+    }
+  },
+  "management": {
+    "endpoints": {
+      "web": {
+        "exposure": {
+          "include": "health,info"
+        }
+      }
+    },
+    "endpoint": {
+      "health": {
+        "showDetails": "never"
+      }
+    }
+  },
+  "sduoj": {
+    "feign": {
+      "enable-token": true,
+      "token": "${DEV_RPC_TOKEN}"
+    }
+  }
+}

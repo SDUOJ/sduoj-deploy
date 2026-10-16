@@ -1,0 +1,215 @@
+{
+  "spring": {
+    "session": {
+      "timeout": 10800,
+      "redis": {
+        "namespace": "cache"
+      }
+    },
+    "data": {
+      "redis": {
+        "host": "sduoj-redis",
+        "password": "",
+        "port": 6379,
+        "lettuce": {
+          "pool": {
+            "max-active": 8,
+            "max-idle": 8,
+            "max-wait": "-1ms",
+            "min-idle": 1
+          }
+        },
+        "timeout": 5000
+      }
+    },
+    "cloud": {
+      "gateway": {
+        "discovery": {
+          "locator": {
+            "enabled": false
+          }
+        },
+        "globalcors": {
+          "cors-configurations": {
+            "[/**]": {
+              "allowedOriginPatterns": [
+                "*"
+              ],
+              "allowedMethods": [
+                "OPTIONS",
+                "GET",
+                "POST",
+                "HEAD"
+              ],
+              "allowedHeaders": [
+                "*"
+              ],
+              "allowCredentials": true,
+              "maxAge": 86400
+            }
+          }
+        },
+        "routes": [
+          {
+            "id": "user-service",
+            "uri": "lb://user-service",
+            "predicates": [
+              "Path=/api/manage/user/**, /api/judger/user/**, /api/user/**, /api/site/**, /api/group/**, /api/manage/group/**, /api/notice/**, /api/manage/notice/**"
+            ],
+            "filters": [
+              "StripPrefix=1"
+            ]
+          },
+          {
+            "id": "problem-service",
+            "uri": "lb://problem-service",
+            "predicates": [
+              "Path=/api/manage/problem/**, /api/judger/problem/**, /api/problem/**, /api/manage/checkpoint/**, /api/judger/checkpoint/**, /api/checkpoint/**, /api/manage/tag/**, /api/judger/tag/**, /api/tag/**, /api/manage/judgetemplate/**, /api/judgetemplate/**, /api/manage/submit/**, /api/judger/submit/**, /api/submit/**, /api/run/**, /api/ide/**"
+            ],
+            "filters": [
+              "StripPrefix=1"
+            ]
+          },
+          {
+            "id": "websocket-service",
+            "uri": "lb://websocket-service",
+            "predicates": [
+              "Path=/ws/**"
+            ],
+            "filters": [
+              "StripPrefix=1"
+            ]
+          },
+          {
+            "id": "contest-service",
+            "uri": "lb://contest-service",
+            "predicates": [
+              "Path=/api/manage/contest/**, /api/judger/contest/**, /api/contest/**"
+            ],
+            "filters": [
+              "StripPrefix=1"
+            ]
+          },
+          {
+            "id": "filesys-service",
+            "uri": "lb://filesys-service",
+            "predicates": [
+              "Path=/api/filesys/**"
+            ],
+            "filters": [
+              "StripPrefix=1"
+            ]
+          },
+          {
+            "id": "ext-problem-set",
+            "uri": "http://host.docker.internal:5005",
+            "predicates": [
+              "Path=/api/ps/**"
+            ],
+            "filters": [
+              "StripPrefix=2"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "sduoj": {
+    "cookie": {
+      "maxAge": 31536000
+    },
+    "filter": {
+      "globalLimitPaths": {
+        "[/api/user/login]": 4000,
+        "[/api/user/logout]": 5000,
+        "[/api/user/sduCasLogin]": 3500,
+        "[/api/user/CasBinding]": 3500,
+        "[/api/user/register]": 200,
+        "[/api/user/updateProfile]": 3500,
+        "[/api/user/forgetPassword]": 200,
+        "[/api/user/sendVerificationEmail]": 200,
+        "[/api/user/getProfile]": 4500,
+        "[/api/user/queryParticipateContest]": 4500,
+        "[/api/user/getCaptcha]": 3500,
+        "[/api/user/isExist]": 5000,
+        "[/api/group/query]": 3500,
+        "[/api/group/my]": 3500,
+        "[/api/group/page]": 3500,
+        "[/api/submit/query]": 3500,
+        "[/api/submit/list]": 3500,
+        "[/api/submit/queryACProblem]": 3500,
+        "[/api/submit/invalidateSubmission]": 3500,
+        "[/api/submit/create]": 30,
+        "[/api/problem/query]": 3500,
+        "[/api/problem/list]": 3500,
+        "[/api/filesys/upload]": 200,
+        "[/api/filesys/download]": 1000,
+        "[/api/contest/invalidateSubmission]": 4000,
+        "[/api/contest/queryProblem]": 4000,
+        "[/api/contest/queryACProblem]": 4000,
+        "[/api/contest/participate]": 4000,
+        "[/api/contest/createSubmission]": 200,
+        "[/api/contest/query]": 4000,
+        "[/api/contest/queryUpcomingContest]": 4000,
+        "[/api/contest/rejudge]": 100,
+        "[/api/contest/rank]": 5000,
+        "[/api/contest/querySubmission]": 4000,
+        "[/api/exam/getInfo]": 4000,
+        "[/api/exam/getExamResult]": 4000,
+        "default": 4000,
+        "[/api/run/cases]": 30
+      },
+      "userLimitPaths": {
+        "[/api/user/login]": 300,
+        "[/api/user/logout]": 60,
+        "[/api/user/sduCasLogin]": 300,
+        "[/api/user/CasBinding]": 300,
+        "[/api/user/forgetPassword]": 120,
+        "[/api/user/sendVerificationEmail]": 120,
+        "[/api/user/register]": 60,
+        "[/api/user/updateProfile]": 300,
+        "[/api/user/getProfile]": 4000,
+        "[/api/user/queryParticipateContest]": 300,
+        "[/api/user/getCaptcha]": 300,
+        "[/api/user/isExist]": 300,
+        "[/api/group/query]": 300,
+        "[/api/group/my]": 300,
+        "[/api/group/page]": 300,
+        "[/api/submit/create]": 20,
+        "[/api/problem/query]": 300,
+        "[/api/problem/list]": 300,
+        "[/api/filesys/upload]": 60,
+        "[/api/filesys/download]": 60,
+        "[/api/contest/invalidateSubmission]": 300,
+        "[/api/contest/queryProblem]": 300,
+        "[/api/contest/queryACProblem]": 300,
+        "[/api/contest/participate]": 300,
+        "[/api/contest/createSubmission]": 30,
+        "[/api/contest/query]": 300,
+        "[/api/contest/queryUpcomingContest]": 300,
+        "[/api/contest/rank]": 120,
+        "[/api/manage/problem/queryDescriptionList]": 6000,
+        "[/api/manage/exam/choiceProblem/queryChoiceProblem]": 6000,
+        "[/api/manage/contest/exportComprehensiveReport]": 5,
+        "[/api/exam/getInfo]": 1200,
+        "[/api/exam/createSubmission]": 1200,
+        "[/api/exam/getExamResult]": 1200,
+        "default": 300
+      }
+    }
+  },
+  "management": {
+    "endpoints": {
+      "web": {
+        "exposure": {
+          "include": "health,info"
+        }
+      }
+    },
+    "endpoint": {
+      "health": {
+        "showDetails": "never"
+      }
+    }
+  }
+}

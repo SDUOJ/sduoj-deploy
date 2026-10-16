@@ -1,0 +1,42 @@
+{
+  "spring": {
+    "datasource": {
+      "driver-class-name": "com.mysql.cj.jdbc.Driver",
+      "url": "jdbc:mysql://sduoj-mysql:3306/sduoj?useUnicode=true&characterEncoding=utf-8&useSSL=false",
+      "username": "${MYSQL_USER}",
+      "password": "${MYSQL_PASSWORD}",
+      "hikari": {
+        "minimum-idle": 5,
+        "maximum-pool-size": 15,
+        "idle-timeout": 30000
+      }
+    },
+    "data": {
+      "redis": {
+        "host": "sduoj-redis",
+        "password": "",
+        "port": 6379
+      }
+    }
+  },
+  "sduoj": {
+    "feign": {
+      "enableToken": true,
+      "token": "${DEV_RPC_TOKEN}"
+    }
+  },
+  "management": {
+    "endpoints": {
+      "web": {
+        "exposure": {
+          "include": "health,info"
+        }
+      }
+    },
+    "endpoint": {
+      "health": {
+        "showDetails": "never"
+      }
+    }
+  }
+}

@@ -1,0 +1,90 @@
+{
+  "spring": {
+    "datasource": {
+      "driver-class-name": "com.mysql.cj.jdbc.Driver",
+      "url": "jdbc:mysql://sduoj-mysql:3306/sduoj?useUnicode=true&characterEncoding=utf-8&useSSL=false",
+      "username": "${MYSQL_USER}",
+      "password": "${MYSQL_PASSWORD}",
+      "hikari": {
+        "minimum-idle": 5,
+        "maximum-pool-size": 15,
+        "idle-timeout": 30000
+      }
+    },
+    "data": {
+      "redis": {
+        "host": "sduoj-redis",
+        "password": "",
+        "port": 6379
+      }
+    },
+    "rabbitmq": {
+      "host": "sduoj-rabbit",
+      "port": 5672,
+      "username": "${RABBITMQ_DEFAULT_USER}",
+      "password": "${RABBITMQ_DEFAULT_PASS}",
+      "virtual-host": "/sduoj",
+      "publisher-confirms": true,
+      "listener": {
+        "simple": {
+          "prefetch": 1,
+          "concurrency": 2,
+          "max-concurrency": 4,
+          "default-requeue-rejected": true,
+          "retry": {
+            "initial-interval": 5000,
+            "enabled": true,
+            "max-attempts": 3
+          }
+        }
+      }
+    }
+  },
+  "sduoj": {
+    "feign": {
+      "enableToken": true,
+      "token": "${DEV_RPC_TOKEN}"
+    },
+    "site": {
+      "copyright": "SDUOJ local development"
+    },
+    "mail": {
+      "enable": false,
+      "host": "127.0.0.1",
+      "username": "",
+      "password": ""
+    },
+    "user": {
+      "enableThirdPartySduCas": false,
+      "sduCasServiceUrl": "http://test.sduoj.com:3000/v2/thirdPartyLogin?thirdParty=SDUCAS",
+      "enableEmailVerification": false,
+      "enableSendingEmailCode": false,
+      "allowEmailPatternList": [
+        ".*?@.*?"
+      ],
+      "sendEmailInterval": 60,
+      "verificationExpire": 300,
+      "verifyEmailSubject": "[SDUOJ] 账号注册邮箱验证码，请及时查收",
+      "verifyEmailPattern": "<html>\n  <head></head>\n  <body> \n    <h2>Dear SDUOJ用户, </h2> \n    <br /> 以下是你的邮箱验证码: \n    <br /> \n    <div style=\"padding: 12px; background-color: #E0E0E0; color: #000000; font-weight: bold; font-size: 16px;\" align=\"center\">%s</div>\n    <div style=\"text-align: center;padding: 50px 50px 24px;color: #515a6e;font-size: 14px;\">\n    2020-2021 &copy; Shandong University\n    <br />[本邮件为系统自动发送，请勿直接回复]\n    </div>  \n  </body>\n</html>\n",
+      "forgetPasswordUrlPrefix": "http://test.sduoj.com:3000/v2/resetPass",
+      "forgetPasswordEmailSubject": "[SDUOJ] 账号忘记密码邮件，你的账号申请重置密码成功，请及时进行重置",
+      "forgetPasswordPattern": "<html>\n  <head></head>\n  <body> \n    <h2>Dear %s, </h2> \n    <br /> 请点击以下链接对你的账号进行重置密码 \n    <br /> \n    <div style=\"padding: 12px; background-color: #E0E0E0; color: #000000; font-weight: bold; font-size: 16px;\" align=\"center\"> \n    <a href=\"%s\">%s</a> \n    </div>\n    <div style=\"text-align: center;padding: 50px 50px 24px;color: #515a6e;font-size: 14px;\">\n    2020-2021 &copy; Shandong University\n    <br />[本邮件为系统自动发送，请勿直接回复]\n    </div>  \n  </body>\n</html>\n",
+      "resetEmailSubject": "[SDUOJ] 账号重置邮箱，请及时进行验证",
+      "resetEmailPattern": "<html>\n  <head></head>\n  <body> \n    <h2>Dear %s, </h2> \n    <br /> 请点击以下链接对你的账号进行重设邮箱验证 \n    <br /> \n    <div style=\"padding: 12px; background-color: #E0E0E0; color: #000000; font-weight: bold; font-size: 16px;\" align=\"center\"> \n    <a href=\"%s\">%s</a> \n    </div>\n    <div style=\"text-align: center;padding: 50px 50px 24px;color: #515a6e;font-size: 14px;\">\n    2020-2021 &copy; Shandong University\n    <br />[本邮件为系统自动发送，请勿直接回复]\n    </div>  \n  </body>\n</html>\n"
+    }
+  },
+  "management": {
+    "endpoints": {
+      "web": {
+        "exposure": {
+          "include": "health,info"
+        }
+      }
+    },
+    "endpoint": {
+      "health": {
+        "showDetails": "never"
+      }
+    }
+  }
+}
