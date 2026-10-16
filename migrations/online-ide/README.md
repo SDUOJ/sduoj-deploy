@@ -1,13 +1,7 @@
-# Online IDE additive schema
+# Task and operations migrations
 
-Review these ten migrations with the matching server-private interface/service change. They are copies of the schema verified in the local development environment; apply to the caller-selected problem/filesys database before enabling the new protocol. No production execution is included here.
+These ten additive migrations cover separate capabilities: Run, context lookup, public-case automation, global submission queries, private outputs, shared provenance, retention, and historical review. Select and review the files for the intended release; local editing and the original formal submission do not require this schema.
 
-Order: V20261008__run_task_and_prefix.sql, V20261014__run_request_dedup.sql, V20261014__public_auto_config.sql, V20261014__global_submission_indexes.sql, V20261014__contest_run_context_index.sql, V20261014__run_retention.sql. Apply V20261014__task_output_files.sql to the filesys database. The request table must exist before its retention index is added. Apply V20261015__shared_output_provenance.sql to filesys and V20261015__legacy_output_ledger.sql to problem before deploying the updated promotion/claim protocol. Apply V20261015__legacy_output_clearance.sql to filesys before the optional legacy review workflow. Existing formal result bytes remain unchanged. Repeated application was tested against MySQL in the local development environment.
+The maintained [release and operations guide](../../../OnlineJudge/website/docs/deployment/release-operations.md) describes database ownership, ordering, feature gates, verification and rollback. This directory is the canonical SQL source; application repos must not copy it.
 
-The Run worker uses a separate queue and sduoj.run.worker=true. Every Snowflake producer needs its own node; all internal callers need a non-empty RPC token. Run task-row and private output retention default off. Enable new creation only after schema, compatible interface artifacts, filesys, context services and the Run worker are ready.
-
-For rollback, disable new creation, drain existing tasks, preserve query/cancel and keep additive schema. Do not delete shared CAS files based only on task age. Unproven historical assets remain retained. Individually reviewed legacy outputs can be reclaimed through the maintenance tool.
-
-The development Dockerfiles are optional overlays and require named build contexts and their base images. compose.run-local.yaml and local Nacos configuration are environment-specific and are not a publishable production configuration.
-
-Shared promotion maintenance is documented in [the operator guide](../../build/sduoj-run/maintenance/README.md). Historical files with incomplete provenance remain protected.
+The MySQL test uses an isolated networkless, temporary-data container and verifies repeatability, preserved values and NOT NULL. No production execution is included. Never import a production dump through the local bootstrap path or replace the toolchain producer with consumer-side patches.
