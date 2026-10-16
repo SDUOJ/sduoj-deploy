@@ -1,0 +1,218 @@
+name: sduoj-dev
+
+x-java: &java
+  image: sduoj-server:dev
+  build:
+    context: ../sduoj-server
+    dockerfile: Dockerfile
+  restart: unless-stopped
+  mem_limit: 1200m
+  networks: [dev]
+  extra_hosts:
+    - host.docker.internal:host-gateway
+  volumes:
+    - ./data/dev/logs:/app/logs
+  depends_on:
+    nacos:
+      condition: service_healthy
+      restart: true
+    mysql:
+      condition: service_healthy
+      restart: true
+    redis:
+      condition: service_healthy
+      restart: true
+    rabbit:
+      condition: service_healthy
+      restart: true
+
+services:
+  mysql:
+    image: mysql:8.0.43
+    env_file: ./env/mysql/mysql.env
+    ports: ["127.0.0.1:3306:3306"]
+    volumes:
+      - ./env/mysql/conf:/etc/mysql/conf.d:ro
+      - ./env/mysql/initdb:/docker-entrypoint-initdb.d:ro
+      - ./data/mysql/data:/var/lib/mysql
+      - ./data/mysql/files:/var/lib/mysql-files
+    networks:
+      dev:
+        aliases: [sduoj-mysql]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, 'MYSQL_PWD="$$MYSQL_PASSWORD" mysql -u "$$MYSQL_USER" -h 127.0.0.1 -e "SELECT 1" "$$MYSQL_DATABASE" >/dev/null']
+      interval: 5s
+      timeout: 5s
+      retries: 120
+      start_period: 30s
+
+  redis:
+    image: redis:7.4-alpine
+    ports: ["127.0.0.1:6379:6379"]
+    command: [redis-server, --appendonly, "yes"]
+    volumes: ["./data/dev/docker/redis:/data"]
+    networks:
+      dev:
+        aliases: [sduoj-redis]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  rabbit:
+    image: rabbitmq:3.13-management
+    hostname: sduoj-dev-rabbit
+    env_file: ./env/rabbitmq/rabbitmq.env
+    ports: ["127.0.0.1:5672:5672", "127.0.0.1:15672:15672"]
+    volumes: ["./data/dev/docker/rabbit:/var/lib/rabbitmq"]
+    networks:
+      dev:
+        aliases: [sduoj-rabbit]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, -q, ping]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+
+  nacos:
+    image: nacos/nacos-server:v2.1.2-slim
+    env_file: ./env/nacos/nacos.env
+    ports: ["127.0.0.1:8848:8848", "127.0.0.1:9848:9848", "127.0.0.1:9849:9849"]
+    volumes:
+      - ./data/dev/nacos-logs:/home/nacos/logs
+      - ./data/dev/docker/nacos:/home/nacos/data
+    networks:
+      dev:
+        aliases: [sduoj-nacos]
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, bash, -ec, "exec 3<>/dev/tcp/127.0.0.1/8848; printf 'GET /nacos/v1/console/health/readiness HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3; head -n 1 <&3 | grep -q ' 200 '"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+
+  autolab-mysql:
+    image: mysql:8.0.43
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DEV_AUTOLAB_ROOT_PASSWORD:?Run ./dev up first}
+      MYSQL_DATABASE: sduoj_ext_problem_set
+      MYSQL_USER: sduoj_ext_ps
+      MYSQL_PASSWORD: ${DEV_AUTOLAB_MYSQL_PASSWORD:?Run ./dev up first}
+      TZ: Asia/Shanghai
+    ports: ["127.0.0.1:7360:3306"]
+    volumes:
+      - type: bind
+        source: ${DEV_AUTOLAB_MYSQL_DATA:-./data/dev/docker/autolab-mysql}
+        target: /var/lib/mysql
+        bind:
+          create_host_path: false
+    networks: [dev]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, 'MYSQL_PWD="$$MYSQL_PASSWORD" mysql -u "$$MYSQL_USER" -h 127.0.0.1 -e "SELECT 1" "$$MYSQL_DATABASE" >/dev/null']
+      interval: 5s
+      timeout: 5s
+      retries: 60
+
+  autolab-redis:
+    image: redis:7.4-alpine
+    environment:
+      REDIS_PASSWORD: ${DEV_AUTOLAB_REDIS_PASSWORD:?Run ./dev up first}
+    command: [sh, -c, 'exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"']
+    ports: ["127.0.0.1:7361:6379"]
+    volumes: ["./data/dev/docker/autolab-redis:/data"]
+    networks: [dev]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  gateway:
+    <<: *java
+    environment: {NACOS_ADDR: sduoj-nacos:8848, ACTIVE: dev, SERVICE: gateway}
+    ports: ["127.0.0.1:8080:8080"]
+  user-service:
+    <<: *java
+    environment: {NACOS_ADDR: sduoj-nacos:8848, ACTIVE: dev, SERVICE: user-service}
+    ports: ["127.0.0.1:18081:8080"]
+  problem-service:
+    <<: *java
+    environment: {NACOS_ADDR: sduoj-nacos:8848, ACTIVE: dev, SERVICE: problem-service, SDUOJ_SNOWFLAKE_NODE: 1}
+    ports: ["127.0.0.1:18082:8080"]
+  contest-service:
+    <<: *java
+    environment: {NACOS_ADDR: sduoj-nacos:8848, ACTIVE: dev, SERVICE: contest-service}
+    ports: ["127.0.0.1:18083:8080"]
+  filesys-service:
+    <<: *java
+    environment: {NACOS_ADDR: sduoj-nacos:8848, ACTIVE: dev, SERVICE: filesys-service, SDUOJ_SNOWFLAKE_NODE: 2}
+    ports: ["127.0.0.1:18084:8080"]
+    volumes:
+      - ./data/dev/logs:/app/logs
+      - ./data/sduoj/filesys:/app/filesys
+  websocket:
+    <<: *java
+    environment: {NACOS_ADDR: sduoj-nacos:8848, ACTIVE: dev, SERVICE: websocket}
+    ports: ["127.0.0.1:18085:8080"]
+
+  judger:
+    volumes: ["./data/dev/docker/judger-logs:/app/logs"]
+    image: sduoj-judger:dev
+    build:
+      context: ../sduoj-judger
+      dockerfile: Dockerfile
+    environment:
+      WAIT_HOSTS: sduoj-nacos:8848,sduoj-rabbit:5672
+      NACOS_ADDR: sduoj-nacos:8848
+      ACTIVE: dev
+      CPU_PER_JUDGER: 1
+    mem_limit: 1536m
+    pids_limit: 1024
+    networks: [dev]
+    restart: unless-stopped
+    depends_on:
+      problem-service:
+        condition: service_healthy
+        restart: true
+      filesys-service:
+        condition: service_healthy
+        restart: true
+
+  run-worker:
+    volumes: ["./data/dev/docker/run-worker-logs:/app/logs"]
+    image: sduoj-run-worker:dev
+    build:
+      context: ../sduoj-judger
+      dockerfile: Dockerfile
+    environment:
+      WAIT_HOSTS: sduoj-nacos:8848,sduoj-rabbit:5672
+      NACOS_ADDR: sduoj-nacos:8848
+      ACTIVE: dev
+      CPU_PER_JUDGER: 1
+      JAVA_OPT_EXT: --sduoj.run.worker=true
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx768m
+    mem_limit: 1536m
+    pids_limit: 256
+    cpus: 1.0
+    cpuset: "${DEV_RUN_CPUSET:-1}"
+    cpu_shares: 256
+    networks: [dev]
+    restart: unless-stopped
+    depends_on:
+      problem-service:
+        condition: service_healthy
+
+
+networks:
+  dev:
+
