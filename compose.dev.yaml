@@ -147,7 +147,7 @@ services:
     ports: ["127.0.0.1:18081:8080"]
   problem-service:
     <<: *java
-    environment: {NACOS_ADDR: sduoj-nacos:8848, ACTIVE: dev, SERVICE: problem-service, SDUOJ_SNOWFLAKE_NODE: 1}
+    environment: {NACOS_ADDR: sduoj-nacos:8848, ACTIVE: dev, SERVICE: problem-service}
     ports: ["127.0.0.1:18082:8080"]
   contest-service:
     <<: *java
@@ -155,7 +155,7 @@ services:
     ports: ["127.0.0.1:18083:8080"]
   filesys-service:
     <<: *java
-    environment: {NACOS_ADDR: sduoj-nacos:8848, ACTIVE: dev, SERVICE: filesys-service, SDUOJ_SNOWFLAKE_NODE: 2}
+    environment: {NACOS_ADDR: sduoj-nacos:8848, ACTIVE: dev, SERVICE: filesys-service}
     ports: ["127.0.0.1:18084:8080"]
     volumes:
       - ./data/dev/logs:/app/logs
