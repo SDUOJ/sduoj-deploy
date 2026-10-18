@@ -23,3 +23,5 @@
 ## 剩余范围
 
 这里验证 Linux 子解释器，不运行 AutoLab Web/worker，也不覆盖父进程组清理、MySQL、Redis、Java 身份、模型预留或真实供应商。20 的网关业务链仍在 macOS 父 worker 上执行，不能拼接成完整 Linux worker 部署证明。Linux amd64、长期独立 worker、运行中取消/恢复、真实浏览器和真实供应商组合仍待验收。原 48 项任务不改 done。
+
+后续实际完成的 macOS 独立 worker 与真 API 浏览器见 [22](22-独立worker与真实浏览器dev验收.md)，Linux arm64 完整原 worker、运行中取消及锁序修复见 [23](23-Linux完整worker与取消锁序dev验收.md)。这些不改写本页子运行时范围；amd64、最终制品和真实提供商浏览器组合仍未完成。

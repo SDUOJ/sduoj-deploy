@@ -57,4 +57,4 @@ AutoLab `1d5af82` 完整 `pytest tests` 在真实随机自有 MySQL 和真实 SD
 
 本机仓库外 `platform-v2-implementation-20261018` 保存：`gateway-standalone-worker-{initial,fixed}.log`、`audit-standalone-worker-gateway.*`、`gateway-browser-harness{,-fixed}.log`、`browser-harness-fixed-20261019/result.json`、`browser-cli-records/`、`audit-document-readiness*` 与 `audit-browser-harness.*`。web2 的忽略目录 `output/playwright/` 保存 `platform-v2-document-{candidate,adopted,mobile-top}.png`。这些含本机验收细节，不加入源码或公共产品文档。
 
-仍需完整 Linux worker/amd64、真实供应商与浏览器组合、原生题目锁竞争和剩余组件迁移。运行中取消已有本轮独立 worker 证据，未把它说成浏览器点击取消已验收。48 项任务状态不因此改 done；所有实际安装、受控探测、运营视图及原发布门禁仍要分别完成。
+完整 Linux arm64 worker 后续已见 [23](23-Linux完整worker与取消锁序dev验收.md)；仍需 amd64、最终制品、真实供应商与浏览器组合、原生题目锁竞争和剩余组件迁移。运行中取消已有本轮独立 worker 证据，未把它说成浏览器点击取消已验收。48 项任务状态不因此改 done；所有实际安装、受控探测、运营视图及原发布门禁仍要分别完成。

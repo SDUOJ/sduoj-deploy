@@ -47,3 +47,5 @@ SDK 环境使用独立 Python 3.13，原 Web/worker 保留 Python 3.9/Pydantic 1
 Linux arm64 子解释器的安装、平台依赖锁和协议验证见 [21](21-Linux子进程dev验收.md)，完整 Linux worker 与其他架构仍未验收。
 
 独立原 worker 的运行中取消/对账/继续执行，以及当前前端走原网关的创建至人工采用链，已补于 [22](22-独立worker与真实浏览器dev验收.md)。这轮模型与安装投影仍 synthetic，不替代完整 Linux 服务或真实供应商浏览器组合。
+
+完整 Linux arm64 worker 的后续定向验收、实际取消死锁及修复、当前后端回归见 [23](23-Linux完整worker与取消锁序dev验收.md)；它不等于完整 Linux Web 站点或最终生产制品验收。
