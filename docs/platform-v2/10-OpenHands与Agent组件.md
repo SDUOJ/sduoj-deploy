@@ -96,7 +96,7 @@ class AgentComponent:
 
 manifest 至少含 id/version、input/output schema、actions、允许工具、资源种类、所需模型能力、执行 profile、预算/迭代/时间上限、旧任务绑定、前端入口和历史读取策略。每次只能从服务端静态注册表加载；未知 ID/版本拒绝。M 端不能上传 Python/任意 import path、安装市场插件、任意 MCP 或放开 shell。组件升级保留在途任务的旧版本；未排空不能卸载。
 
-工具、技能和业务组件不是同一层：组件组合工具/提示词/校验；OpenHands Skill 不获得业务权限，LLM 返回的组件名或 tools 参数不能扩权。跨组件调用也检查被调用组件/action 开关，不能借 management 绕过 grading 或 authoring 的禁用。
+工具、技能和业务组件不是同一层：组件组合工具/提示词/校验；OpenHands Skill 不获得业务权限，LLM 返回的组件名或 tools 参数不能扩权。工具集合必须按当前 action/profile 投影，组件级 tools 仅是上限；execution.validate_bounded 只在已启用且放行的 verify_execute 或编程题 solution/tests/validator/checker action 下可用，服务端 dispatcher 再核对 action/profile，不能由 chat/verify/statement/review 调用或以参数切换。跨组件调用也检查被调用组件/action 开关，不能借 management 绕过 grading 或 authoring 的禁用。
 
 ### 4.2 不应被 Agent 开关关闭的能力
 
