@@ -41,3 +41,5 @@ SDK 结束后先关闭代理并等待已准入的模型/工具事务完成；记
 普通文档候选前端已完成 mock API 隔离验收，见 [14](14-普通文档Agent前端dev验收.md)。尚缺完整旧 AI 入口 gate/迁移、其余业务组件、其他实际端点费率及验收、真实 Gateway/Java RPC/Redis/完整站点浏览器、Linux SDK 安装验证。本人端点页面已有 mock API 浏览器回归，见 13。原 Run、云保存、正式提交和手工功能沿用原流程。
 
 SDK 环境使用独立 Python 3.13，原 Web/worker 保留 Python 3.9/Pydantic 1。worker 通过 `AUTOLAB_OPENHANDS_PYTHON` 指向独立解释器，安装与锁文件见 AutoLab `agent_runner/README.md`。MySQL 测试仅使用校验过的 loopback 配置及随机自有库；不得把 fixture 指向生产或现有业务库。
+
+后续真实 Gateway、Java 身份、自有 MySQL/Redis、SDK 与本人端点隔离的定向验收见 [20](20-真实网关身份与端点dev验收.md)。本文中的旧待验收表述是此前检查点，新的范围和仍未覆盖项以 20 为准。

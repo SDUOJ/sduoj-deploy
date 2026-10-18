@@ -32,3 +32,5 @@ native-finalize 原 checkpoint 文件/hash、顺序/分值、judge template、�
 ## 下一步
 
 以上关闭已定位的旧候选写入入口，不代表全体业务组件已迁移。继续真实 Gateway/身份 RPC/Redis、Linux 安装、浏览器与取消恢复整链，之后按组件逐步适配。INSTALLED_COMPONENTS 仍为空，原 48 项任务不改 done，当前不能启用为发布候选。专用测试端点“免费但限量”的授权持续有效，本轮未消耗其额度，其他端点不得自动按免费处理。
+
+后续真实 Gateway、Java 身份、自有 MySQL/Redis、SDK 与本人端点隔离的定向验收见 [20](20-真实网关身份与端点dev验收.md)。本文中的旧待验收表述是此前检查点，新的范围和仍未覆盖项以 20 为准。
