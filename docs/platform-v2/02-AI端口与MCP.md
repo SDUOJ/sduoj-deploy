@@ -4,6 +4,8 @@
 
 ## 1. 产品边界
 
+OpenHands 的自定义端点接入和组件开关见 [10](10-OpenHands与Agent组件.md)。SDK 只连接 AutoLab ModelProxy 和任务短期 token，实际上游仍是用户端点；一次调用、压缩、子 Agent 和 SDK 自重试均逐请求准入。
+
 - v2 不提供隐式模型服务。解析：任务显式端口 → 本人 active 默认端口 → 503 port_not_configured；显式错误端口直接失败，不能换成站点端口。
 - 原站点 settings 仅保留给兼容旧任务。切换时显式迁移配置/密钥、说明付费主体、保持可回退；不能给所有新用户自动选择站点 provider。
 - 所有 AI 功能需有效端口；JPlag、本地文档提取、材料渲染等确定性任务无需模型。可选 AI 解释失败时仍提供确定性结果并标记解释不可用。
@@ -20,7 +22,7 @@ DDL 唯一来源为 [06](06-数据库变更汇总.md)。v1 端口均为本人所
 | base_url / model / wire_api | HTTPS Responses；能力差异按端口记录，不宣称所有 provider 等价 |
 | api_key_cipher | 受控密钥加密；不出现在列表、日志、事件、任务快照或 harness 环境 |
 | key_fingerprint / has_key | 显示不可逆摘要和“已配置”，不是原 key 的尾号或伪装 key |
-| harness / release_id | 从批准 registry 选择，不接任意二进制或版本路径 |
+| harness / release_id | 一期固定 OpenHands SDK 的已验证 release；用户不选择其它引擎、任意二进制或版本路径 |
 | max_concurrency | [1,32] 只是提议范围，还受站点与用户上限约束 |
 | max_job_cost_usd / monthly_budget_usd | 非负 Decimal；零代表不限时须显式确认，不能默认为不限 |
 | version / status | CAS 更新，active/disabled/invalid/deleted；禁用默认端口同时清默认 |
@@ -38,7 +40,7 @@ DDL 唯一来源为 [06](06-数据库变更汇总.md)。v1 端口均为本人所
   "api_key": "<provider-key>",
   "model": "<provider-model-id>",
   "wire_api": "responses",
-  "harness": "codex",
+  "harness": "openhands",
   "release_id": "<approved-release>",
   "max_concurrency": 2,
   "max_job_cost_usd": "2.000000000",
@@ -65,7 +67,7 @@ DDL 唯一来源为 [06](06-数据库变更汇总.md)。v1 端口均为本人所
 
 ## 4. 队列、额度与预算
 
-入队时解析并固定 port_id、port_version、model、release_id、价格版本、预算上限与输入 manifest；旧任务和重试不能静默改用用户后来设置的默认端口。配置改变时旧 secret 不能自动送往新 endpoint；旧 key 版本若不能安全保留则任务明确 blocked，重新授权/创建新作业。
+入队时解析并固定 component_id/version、action、policy_version、port_id、port_version、model、OpenHands release_id、价格版本、预算上限与输入 manifest；旧任务和重试不能静默改用用户后来设置的默认端口。配置改变时旧 secret 不能自动送往新 endpoint；旧 key 版本若不能安全保留则任务明确 blocked，重新授权/创建新作业。
 
 ### 4.1 claim 与容量
 

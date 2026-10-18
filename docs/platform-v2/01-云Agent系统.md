@@ -1,150 +1,84 @@
-# 01 云 Agent 系统
+# 01 基于 OpenHands 的 AutoLab Agent 执行
 
-> 目标：保留既有持久任务与人工审批流程，增加多 harness、隔离 Runner、多节点和 S3 工作区。当前事实以 [09](09-审计与实施门禁.md) 的 reviewed 基线为准；新能力均为设计提案。
+> 最新决策以 [10](10-OpenHands与Agent组件.md) 为准：OpenHands Software Agent SDK + 原 AutoLab Task worker + 用户端点。AI 平台实现归 AutoLab；Java 保留业务权威与既有接口。一期不建设独立云 Agent 平台或多 Harness 调度器。
 
-## 1. 已有能力与真实缺口
+## 1. 已有基础与新增工作
 
-| 项 | reviewed 代码事实 | v2 工作 |
+| 项 | reviewed 基线 | 本次实施 |
 | --- | --- | --- |
-| 智能管理会话 | AiResource(kind=management_session) 持久保存事件、动作及当前 task_id | 扩展事件游标和运行位置，不另造进程内权威 |
-| 执行 | management.turn 由 TaskJob worker 执行，租约与 max_attempts=1 防止不确定写重放 | 增加 Runner 节点归属、执行 attempt 与 fencing |
-| 人工确认 | 当前请求 Cookie 仅在 decide/execute_action 使用，结果持久化；可跨 Web worker 确认 | 保留；自动委托路径另经 AUTH 门禁 |
-| 模型准入 | ModelProxy 隔离真实 provider key，逐请求预留与结算 AiRun | 按端口固定配置/价格和额度，不能绕开代理 |
-| Harness | 当前实现为 Codex app-server 适配 | 抽离接口，再接经实测的 DSH |
-| Docker 执行沙箱 | sandbox.py 给编译/命令子任务加容器限制 | 不等于整个 harness 已隔离，需验证进程、网络和工作区边界 |
+| 业务会话 | AiResource 保存管理/业务资源、事件、待确认动作 | 继续作为业务权威，关联 OpenHands conversation/checkpoint |
+| 异步执行 | TaskJob + auto_task.worker，claim/心跳/lease/fenced complete | worker 加组件 dispatcher 和 OpenHands SDK adapter |
+| 当前引擎 | 管理助手和部分模型链使用 Codex 适配 | 分组件迁移到 OpenHands，不把旧代码标为已经迁移 |
+| 模型调用 | ModelProxy/AiRun 逐请求准入与结算 | 用户端点固定到任务，覆盖 SDK 重试/辅助调用 |
+| 当前浏览器确认 | Cookie 仅用于当次确认，动作/receipt 持久化 | 保留；不能让模型直接获得用户会话或内部 RPC token |
+| 执行工具 | 原 sandbox.py 支持受控命令子任务 | 按 profile 验证；不能直接给 SDK 注册宿主 Terminal/FileEditor |
 
-旧副本的 RUNTIMES 描述不再作为架构前提。16 个 Web worker 与多节点 Runner 是不同问题；前者已有持久任务方案，后者仍需调度和恢复设计。
+16 个 Web worker 与 Task worker 是不同概念。Agent 只由领取该任务的 Task worker 调起；Web 请求只提交/查询，Redis 只唤醒，不增加另一套进程内任务权威。
 
-## 2. 执行模型
+## 2. 一次任务的生命周期
 
 ```text
-Web/API -> 既有 TaskJob -> claim + 原 runtime 稳定锁
-                         -> 节点容量/用户/通道/端口额度
-                         -> execution(attempt, lease_token, node_id)
-                         -> 隔离 harness
-                            |-- 受限模型代理（真实 key 留在服务侧）
-                            |-- MCP Broker（工具与资源授权）
-                            `-- 作业专用 /work + 只读输入快照
-                         -> fenced 完成/失败 + 用量结算 + 产物清单
+用户输入 / 某组件 action
+  -> AutoLab：开关 + 主体/源对象权限 + 本人端点/预算
+  -> 原 TaskJob / TaskInput：冻结组件、版本、端点和输入
+  -> auto_task.worker：claim / heartbeat / Context
+  -> 组件 dispatcher -> OpenHands SDK Agent / Conversation
+     -> ModelProxy -> 用户实际端点
+     -> 受限 AutoLab 工具 / 经批准的隔离执行工具
+  -> 原日志与候选结果 -> fenced complete / 用量结算
 ```
 
-- TaskJob 是唯一任务权威；Redis 只唤醒，不保存并发事实。不要在 Web 进程中另做调度器或可变会话路由。
-- Runner 控制面在私有网络/独立监听入口，不经公共 SPA 网关开放。节点身份和 job lease 必须同时验证。
-- 节点 heartbeat/in_flight 是观测值，不能据其自报绕过 DB 额度。
-- 所有完成、工具副作用和产物登记绑定 attempt/lease_token；租约过期的旧节点不能提交结果。
-- 状态和取消延迟都可观察；请求断开不表示后台作业成功取消。
+一次 turn 一个 TaskJob，多次模型调用共享任务预算。同一会话串行变更；下个 turn 是新 TaskJob，不能让一个交互会话长期占满 worker。新的统一入口用 agent.run，旧 task_type/API 通过固定映射分批迁移；旧批量、串联、重试和确认也必须经过组件/action gating。
 
-## 3. Harness 契约
+组件不是任意 Python 插件安装器。服务端登记 id/version、action、工具、输入输出 schema、执行 profile 与上限；前端/M 端只选择已安装且允许的能力。机器目录、开关语义和 13 个组件见 [10](10-OpenHands与Agent组件.md) 及 [清单](agent-components.yaml)。
 
-```python
-class HarnessSpec:
-    name: str                  # 从管理员批准的 registry 选择
-    release_id: str             # 精确版本 + 二进制/镜像 digest
-    protocol_profile: str       # 实测协议配置，不按版本号猜测
-    capabilities: dict         # multi_turn, tools, resume, cancel, events
+### 2.1 人工确认与恢复
 
-class HarnessSession:
-    async def start(self, execution, input_manifest, tools, model_proxy): ...
-    async def send(self, turn_id, text): ...
-    async def events(self, after_event_id=None): ...
-    async def cancel(self, reason): ...
-    async def export_checkpoint(self): ...
-    async def resume(self, checkpoint): ...
-    async def close(self): ...
-```
+一期 propose_action 生成候选后结束当前 turn，原任务可 success、结果 requires_confirmation。本人在有效浏览器会话确认，保存 receipt，需要继续再创建 turn。等待期间不占 worker，不持久化 Cookie；不是把浏览器确认值直接传给模型当作授权。
 
-`resume`、`send` 等能力可不支持，必须显式失败；不能用新进程重跑旧提示词来伪装恢复。用户只能选择获准的 release，不能传 binary 路径、环境变量名、任意镜像或 Docker 参数。
+发布/写成绩/创建账号等外部动作若结果未知，先读回对账；max_attempts、旧 lease、组件版本和资源版本共同约束恢复。不能用 SDK checkpoint、VM 快照或保存了 conversation_id 宣称外部 exactly-once。旧版确认在关闭/撤权/ABA 后不得复活。
 
-事件至少包含 execution_id、turn_id、递增 sequence、kind、data。kind 为 text_delta/message/tool_call/plan/turn_done/error/cancelled。事件去重与有界存储需独立测试，输出大小和日志条数受限。工具调用返回必须关联原 call_id，迟到回复不得送入另一个 turn。
+## 3. SDK 与执行位置
 
-### 3.1 Codex 适配
+[OpenHands 架构](https://docs.openhands.dev/sdk/arch/overview)提供 SDK、工具、工作区与可选 Agent Server 的边界。SDUOJ 选自己的前端/业务 API/Task worker，Agent Canvas 和其调度不作为一期依赖。
 
-迁移 reviewed management_agent 的 initialize、thread/start/resume、turn/start 和工具回复代码，保留本地 fake model + 真实 app-server 的原协议回归。原稿记载的 `0.154.0-alpha.6.2` 只能作为历史证据，不能当作今日安装版本或广泛兼容区间。
+- **business_tools**：worker 内运行可信 SDK 循环，只装本组件经审核的业务工具。模型只能提交结构化数据或动作建议；不得执行宿主 shell、任意路径/HTTP/SQL。读取/写入仍由原业务权限与工具 schema 决定。
+- **sandbox_tools**：不可信代码、通用终端与文件工具只能在任务专属隔离工作区执行。worker 负责生命周期；若 SDK 将循环放在沙箱内 Agent Server，必须记录实际进程位置、网络和凭据路径，不能把“worker 调起”误写为所有代码都在宿主执行。
+- PoC 固定 SDK/release/依赖和接口样本，不从 main/版本号猜兼容。已读取的 SDK Python >=3.12 要求须与 AutoLab 环境核对，不能顺带升级其它业务依赖或改原供应链。
+- 接入第二种外部 Harness 是以后独立需求；早稿 Codex/DSH 对比只作历史证据，不再阻塞当前 OpenHands 交付。
 
-恢复验收包含 CLI 自身的会话数据库/文件、工作区、配置和权限状态。只保存 thread_id 或把 session_id 放到 S3，不证明另一节点可以 thread/resume。恢复不了则明确失败，不重新执行已确认写动作。
+## 4. 隔离和网络合同
 
-### 3.2 DSH 能力探测（S2-07）
-
-DSH headless 的多轮、结构化事件、MCP、取消及跨节点恢复尚未验证。原稿记录的 CLI 路径和版本只作线索。
-
-探测在临时隔离 profile/工作目录中完成，记录实际版本、digest、完整命令、退出状态和脱敏协议样本；先用假模型和无副作用工具，付费模型另确认费用。不得修改用户真实配置或以 sudo 绕过 profile 权限。
-
-| 能力 | 正向测试 | 反例 |
-| --- | --- | --- |
-| 多轮 | 第二轮能引用第一轮确定性标记 | 不支持时返回明确 capability error |
-| 工具 | 受限工具参数和结果正确往返 | 未列出工具被拒，不能退化成任意 HTTP/shell |
-| 结构化事件 | tool_call 与最终结果可区分 | 混入普通 stdout、坏 JSON、缺 final 均不判成功 |
-| 取消/超时 | 终止子进程树并释放租约和额度 | 挂起子进程、断线、重复 cancel |
-| 恢复 | 新节点+相同输入/checkpoint 成功 | 缺文件/版本变更失败，禁止写重放 |
-
-若只支持单轮，则只能发布 single_turn 能力；调度器多次调用不等同原生多轮。DSH 未通过不阻塞 Codex 路径，不能在文档或 UI 宣称两者等价。
-
-## 4. 隔离与网络
-
-OJ 的 sduoj-sandbox 继续服务正式评测，不把它改成 Agent 执行器。v2 不修改其 JSON/seccomp 或 judger 构建链。
+正式提交继续使用原 judger/sduoj-sandbox 与发布链，不把判题沙箱修改为通用 Agent 平台。
 
 | 边界 | 要求 |
 | --- | --- |
-| 进程 | 每作业独立沙箱，非 root、no-new-privileges、cap-drop、进程/CPU/内存/磁盘限额 |
-| 文件 | 只读根、独立 /tmp 和 /work；不挂宿主目录、Docker socket、其它租户卷、密钥目录 |
-| 网络 | 默认无公网/内网访问；只允许指定模型代理/MCP Broker 的必要通道 |
-| 凭据 | 不注入 provider 原 key、Cookie、内部 RPC token 或 S3 长期 key；短期代理 token 仅绑定当前执行 |
-| 工具 | 模型只请求受限业务工具；shell 与工具返回均为不可信数据，不能据提示词授予新权限 |
-| 宿主服务 | FUSE/对象存储凭据在 Runner 受控挂载服务，容器不因挂载获得 privileged 或 CAP_SYS_ADMIN |
+| 执行 | 不可信程序非 root、cap-drop、no-new-privileges，CPU/内存/进程/磁盘/输出和时长有限额 |
+| 文件 | 一作业/attempt 独立可写目录；只读输入，不挂 Docker socket、宿主工作目录、其它租户目录和真实配置 |
+| 网络 | 非可信工作区默认拒绝出网/内网；仅允许经核准的模型代理和工具中继，实测 DNS/IP/IPv6/redirect/元数据旁路 |
+| 凭据 | SDK/工作区只获得 task/attempt/lease 绑定短期能力；provider key、Cookie、内部 RPC token、长期 S3 key 留在可信侧 |
+| 控制 | 能力/开关/权限丢失停止新调用；取消只作用于本任务所拥有的进程和环境 |
 
-`--network none` 与“通过 HTTP 访问模型/MCP”不能同时假定成立：选择受控 stdio/Unix socket 中继，或经批准的独立网络代理，并实测 DNS、IPv4/IPv6、redirect、元数据地址与旁路访问。具体 runtime（runc/gVisor/Firecracker）由 PoC 决定，不先声明隔离合格或可承载公开不可信多租户。
+network none 与 HTTP 模型访问不能同时凭空成立；采用受控 stdio/socket 中继或实际受限代理 profile。引入 OpenSandbox/E2B 等执行后端是 AutoLab adapter 后面的部署选择，须独立验证并遵循原发布规范，不新增面向用户的 Agent 平台。
 
-验收至少包含跨租户目录遍历、符号/硬链接、压缩包路径、资源耗尽、进程逃逸、套接字、恶意工具结果与凭据探测。通过有限反例不等于证明绝无逃逸。涉及隔离策略的实际变更先过 SANDBOX/SECRETS 门禁。
+## 5. 工作区、持久化和版本
 
-## 5. S3 工作区与持久化
-
-### 5.1 语义与选型
-
-Harness 需要普通路径，但不等于必须直接把整个 bucket 当 POSIX 文件系统。保留“对象存储支持标准文件操作”的目标，先比较：
-
-| 路径 | 用途 | 验收关注 |
-| --- | --- | --- |
-| 作业专用本地卷 + 快照/显式上传 | 可先交付的兼容路径 | 新节点重建、输入不可变、成功登记前上传完整 |
-| s3fs/rclone 等挂载 | 必须经 PoC 才开放 | rename、锁、小文件、断网、flush 与多客户端语义 |
-| JuiceFS 等独立元数据文件系统 | 多节点共享候选 | 元数据可用性、备份恢复、挂载隔离、具体版本能力 |
-
-[s3fs 官方限制](https://github.com/s3fs-fuse/s3fs-fuse#limitations)指出其缺少原子 rename 和多客户端协调。因此本方案不把“挂载成功”等同于源码仓库、SQLite 或会话数据库可安全共享，也不把 S3 一致性简单描述为所有提供商均最终一致。
-
-### 5.2 唯一目录约定
+工作区优先任务专用本地卷 + 不可变输入/产物清单 + 显式对象上传。S3 FUSE 不是先决条件；[s3fs 限制](https://github.com/s3fs-fuse/s3fs-fuse#limitations)也不支持把 bucket 直接当跨节点会话数据库。
 
 ```text
-tenants/<tenant>/agent-workspace/<job_id>/inputs/<manifest_sha>/
-tenants/<tenant>/agent-workspace/<job_id>/attempts/<attempt>/artifacts/
-tenants/<tenant>/agent-workspace/<job_id>/checkpoints/<checkpoint_id>/
-tenants/<tenant>/problem-asset/<uid>/
-tenants/<tenant>/exam-material/<exam_id>/<material_version>/
-tenants/<tenant>/plagiarism-report/<scan_id>/<revision>/
-tenants/<tenant>/submission-archive/<snapshot_id>/
+tenants/<tenant>/agent-workspace/<job>/inputs/<manifest_sha>/
+tenants/<tenant>/agent-workspace/<job>/attempts/<attempt>/artifacts/
+tenants/<tenant>/agent-workspace/<job>/checkpoints/<checkpoint_id>/
 ```
 
-- tenant 由认证主体推导，不能信任客户端提供的前缀；授权按作业和前缀限制。
-- inputs 在执行前冻结哈希和字节数，只读挂入。工具/用户输入变化产生新 manifest。
-- 一个作业同一时刻只有一个有效写租约；不同 attempt 不能写同一可变目录。
-- 登记 artifact 前校验大小、媒体类型、相对路径、哈希及上传完成；先上传临时对象，再由 DB 事务提交清单。无对应清单的对象是待回收孤儿，不是成功结果。
-- 缓存不能跨租户暴露可写层；checkpoint 不含可重用密钥，不能用 seccomp 声称能够识别文件内容中的秘密。
-- 保留/回收按数据分类设置，带 pending-upload、活跃租约及法律/业务保留标记；删除前检查引用。S3 和元数据均需恢复演练。
+其余 problem-asset/exam-material/plagiarism-report/submission-archive 目录仍按原领域约定。tenant 由服务端主体推导；只有清单、字节数和 hash 验证/登记完成的对象才是成功产物。checkpoint 不保存可重用凭据，恢复时重新授权，不复活旧批准。
 
-## 6. 调度、会话与故障恢复
+TaskJob、AiResource、AiRun 与原日志足以承载一期业务/配置引用；不能为 SDK 复制一套任务、账本或正文。06 中 auto_agent_node/session/execution 等是早稿保留的扩展评审对象，**不作为一期必须建表的依赖**。需要新增列或迁移时先按实际适配结果提出最小 SCHEMA 提案。
 
-数据模型只在 [06](06-数据库变更汇总.md) 定义。auto_agent_session 是现有 AiResource 的运行位置扩展，不再存第二份独立业务会话；execution 绑定 job、attempt、node、lease。原事件与审批仍由原会话资源承载。
+组件与 SDK 的精确 release、输入/输出/checkpoint schema 一起冻结。在途任务固定旧版本，新任务才用新 release；未排空禁止卸载，旧数据/账本和必要的 checkpoint 读取能力保留。恢复不了应明确失败，不能自动重新生成/发布。
 
-claim 在原 runtime 稳定行锁下检查全局/用户/通道/端口/节点容量，领取与额度变更同事务；新增端口锁保持全路径一致锁顺序。仅在 Web 内统计 active 列表或只依赖 SKIP LOCKED 不保证跨进程额度。
+## 6. 验收和落地顺序
 
-节点定期心跳，过期不立即重放外部副作用。租约到期后：只读、具可验证 checkpoint 的操作可经授权恢复；存在 executing/unknown 的写操作先读回对账，未证明幂等则人工处置。人工确认动作绑定原 call_id、参数 hash、resource_version、subject 和当前 lease。
+先在隔离环境用假模型 + 真实 SDK 跑通一次 TaskJob，再验用户端点/用量/重试，然后组件开关和 capabilities、分批迁移业务；shell profile 在隔离验证前关闭。详细实施包 OH-01–OH-06 见 10。
 
-取消、权限撤销、会话失效后撤销新模型请求和工具授权；在途外部请求可能已生效，记录结果或 unknown。租约 fencing 不能撤销已发出的网络写操作。
-
-## 7. 版本、性能与发布
-
-registry 使用精确 release_id、binary/image digest、协议样本和通过的契约测试 ID。原稿的宽 SemVer 区间与虚构 app-server/1.0、headless/1.0 不作为兼容依据。
-
-启动自检失败则拒绝该版本；灰度期间存量会话继续固定旧 release，新会话才用新 release。checkpoint schema 标版本；回滚必须保留旧二进制与 checkpoint 读能力，不能称会话外置后“天然可回滚”。
-
-PoC 报告记录固定输入、文件数量/大小、并发、冷/热启动 p50/p95、挂载读写、取消延迟和资源回收；未经基准测试不宣称高性能。容量及验收阈值需在部署资源和 S3 实现确定后冻结。
-
-顺序：现有 Codex 回归 → Harness 抽象 → 精确版本契约 → 节点/execution fencing → 工作区 PoC → 隔离验收 → 小范围灰度。DSH 探测可并行，第二适配器仅在能力验收后开放。
+验证 worker 不在 Web 中启动模型、跨 worker 幂等/额度、关闭/撤权/旧 lease、SDK 取消/断线/坏结果、真实 MySQL 锁、产物/状态恢复、跨租户文件/凭据、模型代理可达与出口限制。未经测量不宣称启动延迟、吞吐或多节点恢复可用；本轮不表示 SDK/服务集成已通过。
