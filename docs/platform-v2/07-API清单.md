@@ -108,6 +108,8 @@ API key 只出现在受控 HTTPS 写入请求，不能放 URL/审计参数/错�
 | GET | A/authoring/packages/{id}/audit | 按版本读结果，不显示旧版本绿勾 |
 | POST | A/authoring/packages/{id}/publish | 人工确认、manifest/version、原 native-plan/finalize、partial/unknown 对账 |
 | POST | A/authoring/packages/{id}/trials | 生成限定版本邀请；secret 只显示一次 |
+| GET | A/authoring/packages/{id}/trials | 原包管理者；邀请元数据/状态及受权结果投影，不返回 secret/hash/会话凭据 |
+| POST | A/authoring/packages/{id}/trials/{trialId}/revoke | 原包管理者，校验 package/trial 关联、expected_version、operation_key；重复撤销幂等，立即拒绝全部该邀请子会话 |
 | POST | T/links/{id}/join | secret 在 body，交换受限会话，不能获取完整 author 详情 |
 | GET | T/session | 当前试做快照、次数与状态，无隐藏答案 |
 | POST | T/submit | 限次隔离执行/作答，记录完整 attempt，不写正式成绩 |
