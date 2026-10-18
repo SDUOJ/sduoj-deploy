@@ -567,8 +567,8 @@ tasks:
   approval_gates:
   - AUTH
   - SCHEMA
-  execution_status: pending_approval
-  source_basis: reviewed-20261018; see 09
+  execution_status: in_progress
+  source_basis: reviewed-20261018; first-phase approval covers plain document candidates only; other write adapters remain gated; see 11
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
   - 02-AI端口与MCP.md
