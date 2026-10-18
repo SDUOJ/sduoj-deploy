@@ -28,6 +28,7 @@ runtime_policy:
   host_config_autoload: false
   dependency_generations: freeze_transitive_dependencies_and_allowed_cross_component_targets
   tools_projection: current_action_and_profile_allowlist_with_server_gate
+  sandbox_requires_original_deployment_permission: true
 components:
 - id: content.review
   title: 内容审核（内部组件）

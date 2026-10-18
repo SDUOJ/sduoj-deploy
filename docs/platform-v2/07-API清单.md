@@ -67,7 +67,7 @@
 
 API key 只出现在受控 HTTPS 写入请求，不能放 URL/审计参数/错误回显。显式端口失败不回退默认；没有默认返回 503。并发满返回已创建任务 pending，不当成 429。
 
-agent.run 的接口 202/任务句柄不表示执行成功。创建、旧 API 映射/串联/批量/重试、claim、每次模型/工具准入和最终写入均重新检查同一组件/action；任务、候选固定 global/component/action 三元 generation；关闭再开启也不能复活。客户端提交的 policy_version 仅用于诊断，不能作为权限。disabled 用 409 component_disabled、实现/依赖不可用用 503 component_unavailable；源权限不足仍 403。错误不回传私有配置。
+agent.run 的接口 202/任务句柄不表示执行成功。创建、旧 API 映射/串联/批量/重试、claim、每次模型/工具准入和最终写入均重新检查同一组件/action；任务、候选固定 global/component/action 三元 generation；关闭再开启也不能复活。客户端提交的 policy_version 仅用于诊断，不能作为权限。disabled 用 409 component_disabled、实现/依赖不可用（含 sandbox_tools 的原 AUTOLAB_SANDBOX_ENABLED 部署许可关闭）用 503 component_unavailable；源权限不足仍 403。错误不回传私有配置。
 
 GET capabilities 的 scope 可指定 course/ps/resource，但必须先验证当前主体能访问该 scope。缺上下文用 requires_context，未配端点用 port_not_configured，引导配置；组件/总开关关闭时不运行模型。历史和取消继续沿原权限读取，不因业务开关关闭形成无法清理的任务。
 

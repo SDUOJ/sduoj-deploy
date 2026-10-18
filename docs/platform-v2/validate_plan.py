@@ -62,6 +62,7 @@ def validate_catalog(catalog: dict, docs: Path) -> list[str]:
         'approval_lifecycle': 'durable_candidate_independent_of_active_worker_lease',
         'host_config_autoload': False,
         'tools_projection': 'current_action_and_profile_allowlist_with_server_gate',
+        'sandbox_requires_original_deployment_permission': True,
     }
     for key, value in required_policy.items():
         require(key in policy and type(policy[key]) is type(value) and policy[key] == value,

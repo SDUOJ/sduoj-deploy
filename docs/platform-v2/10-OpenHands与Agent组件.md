@@ -23,7 +23,7 @@ flowchart TB
 - Agent 由领取该任务的 **Task worker 进程**调起。Web 请求只建任务/读状态；不运行模型循环，也不在每个 Web worker 常驻一个 Agent。
 - 原 Task worker 是调用与生命周期的唯一 owner；SDK 在 **worker 启动/监控的独立解释器 runner 子进程**中运行。已读 SDK 要 Python >=3.12/Pydantic >=2.13.5，现 AutoLab 固定 Pydantic 1.10.2/FastAPI 0.86；不在原解释器直接 import，也不顺带全栈升级。runner/协议代码仍归 AutoLab，发布依赖按原流程另实施。
 - `business_tools` profile 的 runner 只装 SDK 和登记的窄工具客户端，无通用 Terminal/FileEditor、任意 SQL/HTTP 或宿主文件工具。禁用宿主 HOME 配置、自动加载 skills/MCP/plugins 和 provider 凭据发现；以环境白名单启动，不继承其它端点密钥或 SDK fallback。用有界 schema JSON IPC 向 worker 请求工具/事件；worker 原权限 dispatcher 执行已登记动作。不要反序列化 pickle 或接受客户端 import path。模型输出只成为经校验的数据。question.assistant 的普通 verify 只做静态建议；旧 allow_execution=true 必须显式映射 verify_execute 和 sandbox_tools，未安装/未放行执行工具时 unavailable，不能静默忽略执行或在宿主运行。
-- 需要 shell/编译的 `sandbox_tools` profile，由 worker 管理隔离工作区；工具不能在 worker 宿主直接执行不可信代码。若选定 SDK 的 RemoteConversation 要求沙箱内 Agent Server，它只是该任务的受控执行进程，不是第二套业务 API、队列或用户系统。两种 profile 的实际执行位置须有 PoC 证据。
+- 需要 shell/编译的 `sandbox_tools` profile，由 worker 管理隔离工作区；工具不能在 worker 宿主直接执行不可信代码。若选定 SDK 的 RemoteConversation 要求沙箱内 Agent Server，它只是该任务的受控执行进程，不是第二套业务 API、队列或用户系统。两种 profile 的实际执行位置须有 PoC 证据。sandbox_tools 还必须满足既有 AUTOLAB_SANDBOX_ENABLED 部署许可及原执行器限制；关闭时相关执行 action unavailable，M 组件开关不能覆盖。确定性 JPlag/AutoLab ide.execute 保留自己的原 sandbox flag，Java Run 保留原判题/Run 链，不以 Agent 开关替代。
 - 全部新增平台逻辑在 AutoLab。正式提交、判题、Java 数据权威继续走原业务链。没有安全可用的既有 Java API 时先禁用对应动作/返回 unavailable，列出最小接口缺口；不直连 Java 数据库、不伪造用户头或重用超管 token。
 - S1-04 等已确认的既有 Java 安全修复仍单独处理；“减少 Java 改动”不意味着忽略已有权限问题。
 
@@ -154,7 +154,7 @@ enabled 是管理配置；available 是实现/依赖状态；visible 是面向�
 - 未加载先显示骨架，不短暂渲染全部 Agent 功能；全局/组件关闭时隐藏业务入口；端点未配仍可显示入口和配置引导。
 - 直达 URL、刷新、账号/题目/考试切换都重新校验；旧请求返回不能覆盖新作用域结果。关闭后已打开页转禁用态，但允许按原权限查历史/取消任务。
 - 登出清空状态；配置更新可用现有事件/刷新触发失效，30s 为 UI 缓存上限。客户端缓存和 policy_version 都不是后端授权凭据。
-- 保留 devOnly、原角色守卫和考试限制；可运行 = 发布许可 ∧ 已安装 ∧ 管理开关 ∧ 当前资源权限 ∧ 运行依赖 ∧ 端点/预算。关闭 AI 不隐藏手工和确定性路径。
+- 保留 devOnly、原角色守卫和考试限制；可运行 = 发布许可 ∧ 已安装 ∧ 管理开关 ∧ 当前资源权限 ∧ 运行依赖（含原 sandbox 部署许可）∧ 端点/预算。关闭 AI 不隐藏手工和确定性路径。
 
 ## 7. 实施包与验收
 
