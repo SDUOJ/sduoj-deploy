@@ -97,6 +97,11 @@ meta:
     - oj_invigilator_link
     - oj_invigilator_session
     - oj_invigilator_action
+    alter_task_owners:
+      auto_task_job: S2-05
+      auto_task_ai_run: S2-05
+      problem_objective: S4-02
+      problem_subjective: S4-02
     alter_columns:
       auto_task_job: 2
       auto_task_ai_run: 1
@@ -849,6 +854,7 @@ tasks:
   - sduoj-autolab
   - sduoj-server-private
   - sduoj-web2
+  - sduoj-deploy
   approval_gates:
   - SCHEMA
   - AUTH
@@ -1111,14 +1117,17 @@ tasks:
   - S5-01
   repositories:
   - sduoj-autolab
-  approval_gates: []
-  execution_status: not_started
+  - sduoj-deploy
+  approval_gates:
+  - SCHEMA
+  execution_status: pending_approval
   source_basis: reviewed-20261018; see 09
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
   - 04-查重系统.md
   - 07-API清单.md
   - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
   verification:
     required:
     - positive
@@ -1202,14 +1211,17 @@ tasks:
   repositories:
   - sduoj-autolab
   - sduoj-web2
-  approval_gates: []
-  execution_status: not_started
+  - sduoj-deploy
+  approval_gates:
+  - SCHEMA
+  execution_status: pending_approval
   source_basis: reviewed-20261018; see 09
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
   - 04-查重系统.md
   - 07-API清单.md
   - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
   verification:
     required:
     - positive
@@ -1232,6 +1244,7 @@ tasks:
   repositories:
   - sduoj-autolab
   - sduoj-web2
+  - sduoj-deploy
   approval_gates:
   - SCHEMA
   - AUTH

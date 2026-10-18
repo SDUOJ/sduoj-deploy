@@ -84,7 +84,28 @@ def validate(data: dict, docs: Path) -> list[str]:
         verification = task.get('verification', {})
         require(set(verification.get('required', [])) >= {'positive', 'negative', 'failure_recovery'}, f'{key}: missing verification dimensions')
         if task.get('execution_status') == 'done':
-            require(bool(verification.get('evidence')), f'{key}: cannot claim done without evidence')
+            evidence = verification.get('evidence', [])
+            require(isinstance(evidence, list) and bool(evidence), f'{key}: cannot claim done without evidence')
+            covered = set()
+            for item in evidence if isinstance(evidence, list) else []:
+                valid = (isinstance(item, dict) and item.get('kind') in verification.get('required', []) and
+                         isinstance(item.get('artifact'), str) and bool(item['artifact'].strip()) and
+                         isinstance(item.get('sha256'), str) and bool(re.fullmatch(r'[0-9a-f]{64}', item['sha256'])) and
+                         isinstance(item.get('source_commit'), str) and bool(re.fullmatch(r'[0-9a-f]{40}', item['source_commit'])) and
+                         isinstance(item.get('tested_at'), str) and
+                         bool(re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z', item['tested_at'])) and
+                         item.get('result') == 'pass')
+                require(valid, f'{key}: invalid evidence record')
+                if valid:
+                    covered.add(item['kind'])
+            require(set(verification.get('required', [])) <= covered, f'{key}: incomplete evidence dimensions')
+            require(all(by_id[d].get('execution_status') in {'done', 'not_applicable'} for d in deps if d in by_id),
+                    f'{key}: unfinished prerequisite')
+            approvals = verification.get('approval_refs', {})
+            require(isinstance(approvals, dict) and all(isinstance(approvals.get(g), str) and approvals[g].strip()
+                    for g in task.get('approval_gates', [])), f'{key}: missing recorded approval references')
+        if task.get('execution_status') == 'not_applicable':
+            require(bool(task.get('not_applicable_reason')), f'{key}: missing non-applicability reason')
         require(bool(task.get('doc_refs')), f'{key}: missing document references')
         for ref in task.get('doc_refs', []):
             require((docs / ref).is_file(), f'{key}: missing doc {ref}')
@@ -153,10 +174,21 @@ def validate(data: dict, docs: Path) -> list[str]:
     require(len(create) == 17 and len(set(create)) == 17, 'DDL must contain 17 distinct new tables')
     inventory = meta.get('sql_inventory', {})
     require(set(create) == set(inventory.get('create_tables', [])), 'DDL/table inventory mismatch')
-    altered = {name: len(re.findall(r'ADD\s+COLUMN', body, re.I))
-               for name, body in re.findall(r'ALTER\s+TABLE\s+(\w+)(.*?);', sql_text, re.I | re.S)}
+    altered = {}
+    for name, body in re.findall(r'ALTER\s+TABLE\s+(\w+)(.*?);', sql_text, re.I | re.S):
+        altered[name] = altered.get(name, 0) + len(re.findall(r'ADD\s+COLUMN', body, re.I))
     require(altered == inventory.get('alter_columns'), 'ALTER column inventory mismatch')
     require(len(altered) == 4 and sum(altered.values()) == 11, 'expect 4 existing tables / 11 added columns')
+    ddl_doc = '06-数据库变更汇总.md'
+    owners = dict(re.findall(r'###\s+(\w+)（[^\n]*?\b(S[1-6]-\d{2})）', (docs / ddl_doc).read_text(encoding='utf-8')))
+    require(set(owners) == set(create), 'new table task ownership missing')
+    alter_owners = inventory.get('alter_task_owners', {})
+    require(set(alter_owners) == set(altered), 'ALTER task ownership missing')
+    for table, task_id in list(owners.items()) + list(alter_owners.items()):
+        task = by_id.get(task_id, {})
+        require('SCHEMA' in task.get('approval_gates', []), f'{table}: owning task needs SCHEMA')
+        require('sduoj-deploy' in task.get('repositories', []) and ddl_doc in task.get('doc_refs', []),
+                f'{table}: owning task needs migration repository and DDL reference')
     require('default_owner_id' in sql_text and 'UNIQUE KEY uq_port_default (default_owner_id)' in sql_text,
             'missing nullable active-default uniqueness')
     require(not re.search(r'UNIQUE[^\n]+\(owner_id,\s*is_default,\s*status\)', sql_text), 'default index blocks multiple non-default ports')
