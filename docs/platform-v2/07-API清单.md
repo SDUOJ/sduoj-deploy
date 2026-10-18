@@ -1,192 +1,181 @@
-# 07 API 清单
+# 07 API 清单与合同
 
-> 全部新增与变更接口。约定：网关前缀 `/api`；Autolab 侧挂 `/api/ps/...`；包体 `{code, data, msg}`，成功 `code==0`。
->
-> 图标：🆕 新增　✏️ 变更　⚠️ 需安全加固
+> 这是 v2 路径唯一清单，除标“已有”外均为待实现/批准的合同，不表示现有路由已经存在。保持原 GET/POST 约束，不新增 DELETE/PATCH/PUT。数据库见 [06](06-数据库变更汇总.md)，审批见 [09](09-审计与实施门禁.md)。
 
-## 1. 鉴权与身份
+## 1. 前缀、包体和通用规则
 
-| 通道 | 凭证 | 适用 |
-| --- | --- | --- |
-| 前端 → 网关 | `SESSION` Cookie（`withCredentials`） | 所有管理端/学生端接口 |
-| Autolab → Java | `sduoj-token` 内部 RPC | 现有，不变 |
-| Agent → MCP → OJ | 作业令牌（绑定 `job_id + owner_id`） | 见 02 §5 |
-| 监考端 → Autolab | 链接令牌 + 会话令牌 | 见 05 §4 |
-
-**P0 安全修复**（先于所有新功能）：
-
-| 项 | 现状 | 修复 |
-| --- | --- | --- |
-| ⚠️ 网关对等校验范围 | `main.py:31` 只匹配 `/auto-task`，`/management-agent` 未被覆盖 | 扩展为 `/auto-task`、`/management-agent`、`/invigilate` 的统一前缀判定 |
-| ⚠️ `/ps/objective/info` | 只按 `pid` 查，**无归属校验**，可读答案 | 增加可见性判定（详见 03 §2.1） |
-| ⚠️ `/ps/subjective/info` | 同构 | 同上 |
-| ⚠️ 题组可引用他人私有题 | 无 `isPublic` 校验 | 入组校验 |
-
-## 2. 01 · 云 Agent（Runner 内部控制面）
-
-| 方法 | 路径 | 权限 | 说明 |
-| --- | --- | --- | --- |
-| 🆕 `POST` | `/api/ps/internal/agent/nodes/register` | 内部令牌 | 节点注册 |
-| 🆕 `POST` | `/api/ps/internal/agent/nodes/{id}/heartbeat` | 内部令牌 | 心跳 + `in_flight` |
-| 🆕 `POST` | `/api/ps/internal/agent/jobs/claim` | 内部令牌 | 领取作业（含端口额度） |
-| 🆕 `POST` | `/api/ps/internal/agent/jobs/{id}/complete` | 内部令牌 | 完成 |
-| 🆕 `POST` | `/api/ps/internal/agent/jobs/{id}/fail` | 内部令牌 | 失败 |
-| 🆕 `GET` | `/api/ps/internal/agent/versions` | 内部令牌 | 版本清单（`versions.yaml` 渲染） |
-
-> 内部控制面**不对公网暴露**，仅 Runner 网络可达。
-
-## 3. 02 · AI 端口
-
-| 方法 | 路径 | 权限 | 说明 |
-| --- | --- | --- | --- |
-| 🆕 `GET` | `/api/ps/auto-task/ai/ports` | USER | 我的端口（不含密钥） |
-| 🆕 `POST` | `/api/ps/auto-task/ai/ports/create` | USER | 新建 |
-| 🆕 `POST` | `/api/ps/auto-task/ai/ports/{id}/update` | 属主 | 更新 |
-| 🆕 `POST` | `/api/ps/auto-task/ai/ports/{id}/delete` | 属主 | 软删 |
-| 🆕 `POST` | `/api/ps/auto-task/ai/ports/{id}/default` | 属主 | 设为唯一默认 |
-| 🆕 `POST` | `/api/ps/auto-task/ai/ports/{id}/test` | 属主 | 连通性探测（不回响应体） |
-| 🆕 `GET` | `/api/ps/auto-task/ai/ports/{id}/usage` | 属主 | 近 30 天用量 |
-| 🆕 `GET` | `/api/ps/auto-task/ai/admin/ports` | ADMIN | 全站总览 |
-| 🆕 `POST` | `/api/ps/auto-task/ai/admin/ports/{id}/disable` | ADMIN | 禁用 |
-| ✏️ `GET` | `/api/ps/auto-task/ai/jobs/{task_id}` | 属主 | 增加 `queue_position`、`port`、`harness`、`blocked_reason` |
-| ✏️ `GET` | `/api/ps/auto-task/ai/admin/queue` | ADMIN | 增加按端口聚合 |
-
-**端口请求体**见 02 §3.1；校验规则见 02 §3.2。
-
-## 4. 02 · MCP 工具（不是 REST，列在此处便于对照）
-
-| 工具 | 风险级 | 说明 |
-| --- | --- | --- |
-| `oj.user.profile` | L0 | 读当前身份与权限 |
-| `oj.problem.search` / `oj.problem.get` | L0 | 检索/读题 |
-| `oj.exam.list` / `oj.exam.get` | L0 | 读考试 |
-| `oj.submission.list` | L0 | 读提交（按权限裁剪） |
-| `oj.problem.upload_testcase` | L1 | 上传单个测试点 |
-| `oj.problem.set_checkpoints` | L1 | 设置测试点分值 |
-| `oj.problem.create` / `oj.problem.update_description` | L2 | 建题/写题面 |
-| `oj.group.add_members` | L2 | 加组员 |
-| `oj.exam.prepare` / `oj.exam.publish` | L3 | 组卷/发布（二次确认） |
-| `oj.seat.assign` | L3 | 座位写回 |
-| `oj.plagiarism.scan` | L3 | 发起查重 |
-
-## 5. 03 · 出题平台
-
-### 5.1 统一题目
-
-| 方法 | 路径 | 权限 | 说明 |
-| --- | --- | --- | --- |
-| 🆕 `GET` | `/api/problem/unified/list` | USER | `source=public\|group\|mine\|all`、`kind`、`tag`、`keyword`、分页 |
-| 🆕 `GET` | `/api/problem/unified/{uid}` | 按可见性 | 统一详情 |
-| 🆕 `POST` | `/api/problem/unified/{uid}/visibility` | 属主/超管 | 改可见性 |
-| 🆕 `POST` | `/api/problem/unified/{uid}/report` | USER | 举报（可选） |
-
-### 5.2 出题工作台
-
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| 🆕 `POST` | `/api/ps/auto-task/ai/authoring/packages` | 新建出题包 |
-| 🆕 `GET` | `/api/ps/auto-task/ai/authoring/packages` | 我的出题包 |
-| 🆕 `GET` | `/api/ps/auto-task/ai/authoring/packages/{id}` | 详情 |
-| 🆕 `POST` | `/api/ps/auto-task/ai/authoring/packages/{id}/stage` | 推进/回退 |
-| 🆕 `POST` | `/api/ps/auto-task/ai/authoring/packages/{id}/generate` | `kind=statement\|programs\|data` |
-| 🆕 `POST` | `/api/ps/auto-task/ai/authoring/packages/{id}/audit` | 七项终检 |
-| 🆕 `GET` | `/api/ps/auto-task/ai/authoring/packages/{id}/audit` | 终检报告 |
-| 🆕 `POST` | `/api/ps/auto-task/ai/authoring/packages/{id}/publish` | 发布（高危） |
-| 🆕 `POST` | `/api/ps/auto-task/ai/authoring/packages/{id}/trials` | 生成实测链接 |
-| 🆕 `POST` | `/api/ps/auto-task/ai/trials/{token}/submit` | 实测提交（令牌） |
-| 🆕 `POST` | `/api/ps/auto-task/ai/trials/{token}/feedback` | 实测意见（令牌） |
-
-### 5.3 文档解析与翻译
-
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| ✅ `POST` | `/api/ps/auto-task/ai/files/upload` | 已存在（≤50MiB，白名单后缀） |
-| ✅ `POST` | `/api/ps/auto-task/ai/documents/{id}/parse` | 解析为块与题目（扩展） |
-| 🆕 `GET` | `/api/ps/auto-task/ai/documents/{id}/blocks` | 块列表（页码/坐标） |
-| 🆕 `POST` | `/api/ps/auto-task/ai/documents/{id}/translate` | 翻译 |
-| 🆕 `POST` | `/api/ps/auto-task/ai/documents/{id}/import` | 导入出题包/题组 |
-
-## 6. 04 · 查重
-
-| 方法 | 路径 | 权限 | 说明 |
-| --- | --- | --- | --- |
-| 🆕 `POST` | `/api/ps/auto-task/ai/plagiarism/scans` | 题单/比赛管理 | 建扫描 |
-| 🆕 `GET` | `/api/ps/auto-task/ai/plagiarism/scans` | 同上 | 历史扫描 |
-| 🆕 `GET` | `/api/ps/auto-task/ai/plagiarism/scans/{id}` | 同上 | 详情+进度 |
-| 🆕 `POST` | `/api/ps/auto-task/ai/plagiarism/scans/{id}/cancel` | 同上 | 取消 |
-| 🆕 `POST` | `/api/ps/auto-task/ai/plagiarism/scans/{id}/threshold` | 同上 | 后期调阈值重筛 |
-| 🆕 `POST` | `/api/ps/auto-task/ai/plagiarism/scans/{id}/rescan` | 同上 | 新快照重扫 |
-| 🆕 `GET` | `/api/ps/auto-task/ai/plagiarism/scans/{id}/pairs` | 同上 | 配对列表 |
-| 🆕 `GET` | `/api/ps/auto-task/ai/plagiarism/scans/{id}/pairs/{pairId}` | 同上 | 单对详情 |
-| ✅ `POST` | `/api/ps/auto-task/ai/plagiarism/{rid}/pairs/review` | 同上 | 已存在，语义沿用 |
-| ✅ `POST` | `/api/ps/auto-task/ai/plagiarism/{rid}/writeback` | 同上 | 已存在 |
-| ✅ `GET` | `/api/ps/auto-task/ai/plagiarism/{rid}/report` | 同上 | 已存在 |
-| 🆕 `GET` | `/api/ps/auto-task/ai/plagiarism/scans/{id}/export` | 同上 | CSV/Excel |
-| 🆕 `POST` | `/api/ps/auto-task/ai/plagiarism/bindings` | 同上 | 绑定 |
-| 🆕 `DELETE` | `/api/ps/auto-task/ai/plagiarism/bindings/{id}` | 同上 | 解绑 |
-| 🆕 `GET` | `/api/ps/plagiarism/self/{kind}/{refId}` | USER | **学生自查** |
-
-**学生自查返回**：
+- 下表 `A` = `/api/ps/auto-task/ai`，`I` = `/api/ps/invigilate`，`T` = `/api/ps/trial`。Autolab 注册时去掉网关 `/api/ps`，不能重复拼前缀。
+- Runner 的 `C=/internal/agent` 只在私有控制监听入口，不注册为公共 `/api/ps/internal/*`。Java `/internal/*` 沿原 RPC 认证与服务间路由，公共 Gateway 必须拒绝。
+- 主体 ID 和 Java Long 用十进制字符串；提交 hex ID 保留。路径参数 encodeURIComponent，uid 不当作 problemCode。
+- 新写请求有 operation_key 与 expected_version（创建无既有版本时只需 key）；批量操作固定清单 hash。幂等结果原样返回，输入变化 409；外部结果不确定返回操作句柄和 unknown，不静默重发。
+- 列表有界分页/cursor、稳定排序；files/rows/events/code 均有字节与数量上限。带版本的轮询响应标明 updated_at/last_observed_at，不能凭客户端时钟判业务已完成。
 
 ```json
-{"bound": true, "scan_title": "...", "show_similarity": true,
- "items": [{"problem_uid":"prog:123","problem_title":"...","similarity":0.92,
-            "decision":"CONFIRMED","counterpart_display":"匿名 A",
-            "matches":[{"left_lines":[12,18],"right_lines":[45,52]}],
-            "my_code":"...","other_code":"..."}]}
+{"code":0,"message":"","data":{"id":"123","version":1},"timestamp":0}
 ```
 
-未绑定时返回 `{"bound": false, "items": []}`，前端显示为空。
+主字段 message；旧 msg 由 request.ts 兼容读取，不复制成新标准。HTTP 状态与业务错误都要测试。MCP 与此 REST 包体不同，见 §5。
 
-## 7. 05 · 考务
+## 2. 身份与公共入口
 
-| 方法 | 路径 | 权限 | 说明 |
-| --- | --- | --- | --- |
-| 🆕 `POST` | `/api/ps/auto-task/ai/exams/{id}/accounts/generate` | 管理组 | 生成账号（幂等） |
-| 🆕 `GET` | `/api/ps/auto-task/ai/exams/{id}/accounts` | 管理组 | 列表（脱敏） |
-| 🆕 `GET` | `/api/ps/auto-task/ai/exams/{id}/accounts/export` | 管理组 | 导出（审计） |
-| 🆕 `POST` | `/api/ps/auto-task/ai/exams/{id}/accounts/import` | 管理组 | 导入 OJ |
-| 🆕 `POST` | `/api/ps/auto-task/ai/exams/{id}/materials/render` | 管理组 | 生成材料 |
-| 🆕 `GET` | `/api/ps/auto-task/ai/exams/{id}/materials/{kind}` | 管理组 | 下载 |
-| 🆕 `POST` | `/api/ps/auto-task/ai/exams/{id}/invigilator-links` | 管理组 | 生成链接 |
-| 🆕 `GET` | `/api/ps/auto-task/ai/exams/{id}/invigilator-links` | 管理组 | 链接列表 |
-| 🆕 `POST` | `/api/ps/auto-task/ai/exams/{id}/invigilator-links/{lid}/revoke` | 管理组 | 吊销 |
-| 🆕 `GET` | `/api/ps/auto-task/ai/exams/{id}/rooms/{room}/status` | 管理组 | 考场实时状态（含在线） |
-| 🆕 `GET` | `/api/ps/invigilate/links/{token}` | 令牌 | 校验链接 |
-| 🆕 `POST` | `/api/ps/invigilate/links/{token}/join` | 令牌 | `{name}` → 会话 |
-| 🆕 `GET` | `/api/ps/invigilate/sessions/{sid}/rooms/{room}/status` | 会话 | 实时状态 |
-| 🆕 `POST` | `/api/ps/invigilate/sessions/{sid}/actions` | 会话 | 记录动作 |
+| 通道 | 要求 |
+| --- | --- |
+| 用户管理/学生业务 | 原 SESSION + Gateway 可信身份 + 服务端角色/对象检查 |
+| 敏感 Agent 写操作 | 保留当前浏览器确认，或经 AUTH 批准的受限委托；owner_id 不能冒充会话 |
+| MCP | audience/job/execution/lease/scope/有效期/撤销检查；不得透传内部 RPC token |
+| 监考/实测 | 独立能力 Cookie + CSRF/Origin + 当前 link/资源/有效期，sid 不是凭证 |
+| Runner | 私有 listener + 节点认证 + TaskJob lease fencing，用户 Cookie 不适用 |
 
-**监考端状态返回**：
+新匿名例外仅限以下精确方法/路径，仍受 Gateway 到 Autolab 的 peer 边界保护，新增前缀也须纳入：
 
-```json
-{"rows":[{"seat":3,"name":"张三","username":"ytm27abc...","online":true,
-          "submission":"SUBMITTED","last_active_at":"2026-10-18T14:05:12+08:00",
-          "actions":[{"action":"present","at":"..."}]}],
- "summary":{"total":216,"online":213,"submitted":180,"exceptions":2}}
-```
+| 入口 | 对象边界 |
+| --- | --- |
+| GET A/library/problems；GET A/library/problems/{uid} | 仅公开 learner 投影，禁止 anonymous source=mine/group/all、view=author |
+| POST T/links/{id}/join；GET T/session；POST T/submit；POST T/feedback | 邀请交换后限定同一 package/manifest/attempt 上限 |
+| POST I/links/{id}/preview；POST I/links/{id}/join；GET I/session；GET I/rooms/{room}/status；POST I/actions | 当前 link/session 与明确 exam/room scope |
 
-## 8. Java 侧需要的新增/改造
+以上是**待批准白名单**，不是直接豁免建议；未放行前入口关闭。无效能力会话不触发普通 OJ 登录重定向，也不改变同浏览器的 OJ SESSION。
 
-| 项 | 类型 | 说明 |
+原 `/objective/info/edit`、`/subjective/info/edit` 的安全修复需校验 gid/type/pid 关系，不能删掉已有 group_manager。management-agent/question-bank peer 保护和 Internal RPC 拦截器已有实现，任务是核对基线/配置和补回归，不重写原权限角色。
+
+## 3. 用户端口和作业
+
+| 方法 | 路径 | 权限 / 结果 |
 | --- | --- | --- |
-| 🆕 `GET /api/problem/unified/list` | 新 | 三题型统一检索，权限在服务层判定 |
-| ✏️ `GET /api/manage/user/getOnlineSessions` | 改 | 增加批量 `usernames` 参数（供监考端一次查询 216 人） |
-| 🆕 `GET /api/internal/user/onlineSessions` | 新 | 内部 RPC 批量版，供 Autolab 调用 |
-| ✏️ `ProblemManageDTO` | 改 | 增加 `difficulty`、`visibility`（若采纳统一模型） |
-| ⚠️ `ProblemInternalController.listJudgerCheckpoints` | 加固 | 现无 `@Auth`，依赖网络边界 |
-| ✏️ `ProblemCommonService` | 改 | `managerGroups` 变更后**显式清除** Redis 缓存（现未找到清理点） |
+| GET | A/ports | 本人列表，has_key/fingerprint，无 key/cipher |
+| POST | A/ports/create | 本人；创建但不隐式设默认 |
+| POST | A/ports/{id}/update | 属主 + version；endpoint 改变需新 key |
+| POST | A/ports/{id}/delete | 属主；运行中拒绝删除，默认标记原子清除 |
+| POST | A/ports/{id}/default | 属主；稳定账户行锁 + 唯一约束 |
+| POST | A/ports/{id}/test | 属主 + 限频；计费探测需确认上限，返回有限能力状态 |
+| GET | A/ports/{id}/usage | 属主；结算/预留/未知用量和 UTC 周期 |
+| GET | A/admin/ports | 原 SUPERADMIN/明确平台运营授权；仅脱敏元数据 |
+| POST | A/admin/ports/{id}/disable | 同上；停止新请求，在途对账 |
+| GET | A/jobs/{task_id} | 已有，扩展 port、release、queued_reason、blocked_reason、attempt |
+| GET | A/jobs/{task_id}/events | 已有，保留授权/游标，扩展关联 execution/sequence |
+| POST | A/jobs/{task_id}/cancel | 已有，取消新调用；在途写结果可能 unknown |
+| POST | A/jobs/{task_id}/retry | 已有，按原规则；unknown 写不得通用重试 |
+| GET | A/admin/queue | 扩展端口聚合，不能回传其它用户 key 或正文 |
 
-## 9. 错误码约定
+API key 只出现在受控 HTTPS 写入请求，不能放 URL/审计参数/错误回显。显式端口失败不回退默认；没有默认返回 503。并发满返回已创建任务 pending，不当成 429。
 
-| 码 | 含义 | 场景 |
+## 4. Runner 私有控制面
+
+| 方法 | 私有路径 | 验收 |
 | --- | --- | --- |
-| `400` | 参数非法 | 校验失败 |
-| `401` | 未登录 | 会话失效 |
-| `403` | 无权限 | 越权、令牌无效 |
-| `404` | 不存在 | — |
-| `409` | 冲突 | 版本冲突、已有默认端口、重复绑定 |
-| `413` | 过大 | 文件/批量超限 |
-| `429` | 限额 | 端口并发满、队列满 |
-| `502` | 上游失败 | 模型/评测服务异常 |
-| `503` | 未配置 | 未配置 AI 端口（**必须给出引导，不回退内置模型**） |
+| POST | C/nodes/register | 节点预登记身份，endpoint 不能指向任意内网 URL |
+| POST | C/nodes/{id}/heartbeat | 同节点，容量为已批准配置，不信任任意 in_flight |
+| POST | C/jobs/claim | 原权威锁/队列分配，不能由 caller 指定他人 owner/端口 |
+| POST | C/jobs/{id}/heartbeat | 当前 execution/attempt/lease |
+| POST | C/jobs/{id}/complete | fencing + 输入/产物 hash + 幂等完成 |
+| POST | C/jobs/{id}/fail | fencing + 错误分类 + 用量结算/未知状态 |
+| GET | C/releases | 已批准版本/digest/能力，无密钥 |
+
+控制面认证凭证轮换、日志脱敏和网络白名单需 SECRETS/AUTH 批准，不能用“路径里有 internal”代替验证。
+
+## 5. MCP 工具合同
+
+协议握手、tools/list、tools/call 与 CallToolResult 按 [MCP tools 规范快照](https://modelcontextprotocol.io/specification/2025-11-25/server/tools)。业务结构放 structuredContent，错误 isError=true；JSON-RPC 错误仅用于协议/未知方法等。自动工具授权未完成前，保留当前人工确认 Broker。
+
+| 工具 | 风险 | 约束 |
+| --- | --- | --- |
+| oj.user.profile | L0 | 本人最小权限视图 |
+| oj.problem.search/get | L0 | source ACL + learner/author 投影，include_tests 不能提升权限 |
+| oj.exam.list/get、oj.submission.list | L0 敏感读 | 先授权场次/题项，代码/个人信息裁剪 |
+| oj.problem.create/update_description/upload_testcase/set_checkpoints | L2 | 源编辑权限、逐次确认、版本/清单/幂等 |
+| oj.group.add_members | L3 | 会改变可见范围，审核人员和目标组 |
+| oj.exam.prepare/publish、oj.seat.assign | L3 | 原 TEST/FORMAL、hash/版本与二次确认 |
+| oj.plagiarism.scan | L2 | 固定范围/预算，只扫描，不隐含写回或发布 |
+| oj.plagiarism.writeback | L3 | 复查齐备、目标版本和 receipt；contest 写成绩不在 v1 |
+
+任何工具都不接受任意 method/path/SQL/文件路径。readOnlyHint、description 与模型提示不是授权证据。以已批准工具注册表为唯一 schema，02 的风险级别与此相同。
+
+## 6. 题库、出题和实测
+
+统一索引由 Autolab 聚合，Java 原数据仍走原服务；不再同时提议 Java 新 /api/problem/unified 与 Autolab 新同功能接口。
+
+| 方法 | 路径 | 权限 / 行为 |
+| --- | --- | --- |
+| GET | A/library/problems | source=public/group/mine/all，kind、tags、difficulty、keyword；all 仅超管 |
+| GET | A/library/problems/{uid} | learner/author 投影逐字段校验，陈旧索引回源 |
+| POST | A/library/problems/{uid}/visibility | 属主/原有可改 ACL 者，不改变角色语义；多组、版本与影响清单 |
+| POST | A/authoring/packages | 创建绑定原 AiResource 的阶段壳，固定类型 |
+| GET | A/authoring/packages | 本人/获授权协作包，有界分页 |
+| GET | A/authoring/packages/{id} | 当前版本及阶段产物/失效检查 |
+| POST | A/authoring/packages/{id}/stage | 服务端准入，不允许跳过终检/实测 |
+| POST | A/authoring/packages/{id}/generate | kind=statement/programs/data；AI 和确定性路径区分 |
+| POST | A/authoring/packages/{id}/audit | 对固定 manifest 运行七项检查，返回任务句柄 |
+| GET | A/authoring/packages/{id}/audit | 按版本读结果，不显示旧版本绿勾 |
+| POST | A/authoring/packages/{id}/publish | 人工确认、manifest/version、原 native-plan/finalize、partial/unknown 对账 |
+| POST | A/authoring/packages/{id}/trials | 生成限定版本邀请；secret 只显示一次 |
+| POST | T/links/{id}/join | secret 在 body，交换受限会话，不能获取完整 author 详情 |
+| GET | T/session | 当前试做快照、次数与状态，无隐藏答案 |
+| POST | T/submit | 限次隔离执行/作答，记录完整 attempt，不写正式成绩 |
+| POST | T/feedback | 当前 invitation，意见与结果版本关联 |
+
+| 方法 | 文档路径 | 状态 |
+| --- | --- | --- |
+| POST | A/files/upload | 已有；复用属主/大小/类型校验 |
+| POST | A/documents/{id}/parse | 新增包装现有解析任务，不宣称此 REST 已存在 |
+| GET | A/documents/{id}/blocks | 新增，源文件/页/bbox/版本 |
+| POST | A/documents/{id}/translate | 新增，所选端口、费用确认，保留原文 |
+| POST | A/documents/{id}/import | 新增，人工修订版本显式导入草稿 |
+
+## 7. 查重
+
+| 方法 | 路径 | 行为 |
+| --- | --- | --- |
+| POST | A/plagiarism/scans | 源场次管理权限，固定 scope、selection、languages、floor、预算 |
+| GET | A/plagiarism/scans | 授权历史，不把 operation_key 当历史查询 |
+| GET | A/plagiarism/scans/{id} | 进度/完整性/失败分片/版本 |
+| POST | A/plagiarism/scans/{id}/cancel | 当前权威任务取消 |
+| POST | A/plagiarism/scans/{id}/threshold | expected_version；低于 floor 返回 requires_rescan |
+| POST | A/plagiarism/scans/{id}/rescan | 新 operation_key/new snapshot，不覆盖旧 scan |
+| GET | A/plagiarism/scans/{id}/pairs | 分片/语言/阈值/decision 分页 |
+| GET | A/plagiarism/scans/{id}/pairs/{pairId} | 关联校验及双方代码，仅授权管理者 |
+| POST | A/plagiarism/scans/{id}/pairs/{pairId}/review | CAS+追加决策日志，绑定原 resource 复查语义 |
+| POST | A/plagiarism/scans/{id}/writeback | 复用原原生题单写回门禁；未知结果先对账 |
+| GET | A/plagiarism/scans/{id}/export | revision+filter 固定，CSV/Excel 防注入 |
+| POST | A/plagiarism/bindings | 冻结发布，默认 visible=false/show_code=false |
+| POST | A/plagiarism/bindings/{id}/unbind | 失效新读取，保留旧发布审计/manifest |
+| GET | /api/ps/plagiarism/self/{kind}/{refId} | 本人+场次资格+已发布 revision，默认无 other_code/对方身份 |
+
+原 A/plagiarism/{resource_id}/pairs/review、writeback、report 已存在。新 scan 包装必须保存 resource_id 映射并调用原规则，不能让 scanId 冒充 resourceId。自查返回格式以 04 为准；无绑定 bound=false，不完整扫描禁止以“无异常”发布。
+
+## 8. 考务与监考
+
+| 方法 | 路径 | 权限 / 行为 |
+| --- | --- | --- |
+| POST | A/exams/{id}/accounts/generate | 考试管理者，冻结名单、幂等生成、不得重新随机 |
+| GET | A/exams/{id}/accounts | 同上，密码/密文都不回传 |
+| GET | A/exams/{id}/accounts/export | 额外保密材料权限/确认、审计、私有下载 |
+| POST | A/exams/{id}/accounts/import | 幂等编排、不覆盖原账号，unknown 先核查 |
+| POST | A/exams/{id}/materials/render | 台账/seat/roster revision 一致，反向校验全批 |
+| GET | A/exams/{id}/materials/{kind} | 授权短期下载、no-store，监考会话不可用 |
+| POST | A/exams/{id}/invigilator-links | 明确 room/actions/expiry/uses，仅一次返回 secret |
+| GET | A/exams/{id}/invigilator-links | 元数据/撤销状态，不返回 secret |
+| POST | A/exams/{id}/invigilator-links/{linkId}/revoke | 当前资源/版本，子会话立即失效 |
+| GET | A/exams/{id}/rooms/{room}/status | 管理者，最小化聚合；unknown/stale 与断网区分 |
+| POST | I/links/{id}/preview | body secret，有效才返回最小考试/考场信息，不消耗次数 |
+| POST | I/links/{id}/join | 原子兑换受限 Cookie + CSRF token |
+| GET | I/session | 验证独立会话，返回作用域及过期时间 |
+| GET | I/rooms/{room}/status | Cookie+当前 link+room 范围，不靠 sid/path 授权 |
+| POST | I/actions | request_id/version/CSRF/Origin，补时只是 extension_request |
+
+Java 保留原 SUPERADMIN getOnlineSessions。若新增内部考试在线聚合，只返回经 Autolab 认证的场次名单所需布尔/采样时间，不提供任意 usernames 的广域代理；认证合同另经 AUTH 批准。占位邮箱、是否覆盖已有账号及导入原子性不能只凭 DTO 注解断言。
+
+## 9. 错误与负向合同
+
+| HTTP/业务码 | 子码示例 | 语义 |
+| --- | --- | --- |
+| 400 / 422 | invalid_parameters、unsupported_kind | 保留原校验错误兼容，拒绝多余字段/非法 ID |
+| 401 | session_expired、capability_expired | 普通会话与能力会话分别引导，不交叉登录 |
+| 402 | account_admission_denied | 保留原账户计费准入，不新改角色 |
+| 403 / 必要时404 | permission_denied、scope_mismatch | 防止私有对象枚举，响应策略按源业务冻结 |
+| 409 | version_conflict、operation_changed、requires_rescan、outcome_unknown | 不自动覆盖或重放 |
+| 413 | payload_too_large | 文件/代码/展开/批量上限 |
+| 429 | queue_full、rate_limited | 创建拒绝或请求限频；并发排队不是此码 |
+| 502 | upstream_failed | 脱敏，不暴露响应体/栈/凭据 |
+| 503 | port_not_configured、service_unavailable | 未配置与暂时不可用分别引导，不隐式回退 |
+
+每条写接口至少覆盖：未登录、本人/异人、合法父对象+非法子对象、撤权、stale version、重复 key、参数变化、超时后结果未知。内部入口测伪造节点/过期 lease；能力入口测无 Cookie、sid 猜测、跨房间和跨 package。07 中未列的通用任意 HTTP/SQL 工具不进入 v1。
