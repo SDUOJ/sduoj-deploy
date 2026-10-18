@@ -1,0 +1,548 @@
+# SDUOJ 平台 v2 实施任务清单（机器可读）
+# 配套文档：00-总纲.md ~ 08-前端改造方案.md
+schema_version: 1
+generated_for: "SDUOJ 平台 v2：云 Agent / AI 端口与 MCP / 出题平台 / 查重系统 / 考务系统"
+
+meta:
+  delivery_stages:
+    - id: S1
+      name: 安全与底座
+      goal: 修复越权、统一身份入口、打通队列端口维度
+    - id: S2
+      name: AI 端口与 Harness
+      goal: 用户自建端口可跑通、harness 可插拔、替代旧批阅
+    - id: S3
+      name: 云沙箱与工作区
+      goal: 多节点并发、S3 工作区、版本管理
+    - id: S4
+      name: 出题平台
+      goal: 三题型统一、完整出题流水线、人类实测
+    - id: S5
+      name: 查重系统
+      goal: 批量扫描、阈值复核、绑定与学生自查
+    - id: S6
+      name: 考务系统
+      goal: 账号台账、材料渲染、监考端
+
+  executors:
+    - id: auto
+      desc: 已有接口/脚本可全自动
+    - id: agent
+      desc: 智能体经 MCP 发起，按风险分级审批
+    - id: hybrid
+      desc: 智能体产出草案，人工审定
+    - id: manual
+      desc: 必须人工（决策/验收/现场）
+
+  statuses:
+    - id: existing
+      desc: 现有能力可直接用
+    - id: partial
+      desc: 部分具备，需扩展
+    - id: missing
+      desc: 完全缺失，需新建
+
+# ============================================================
+tasks:
+
+# ---------- S1 安全与底座 ----------
+- id: S1-01
+  stage: S1
+  title: 扩展网关对等校验覆盖范围
+  executor: auto
+  status: missing
+  priority: P0
+  because: "main.py:31 只匹配 /auto-task，/management-agent 未被保护，可被绕过"
+  files: [sduoj-autolab/main.py]
+  acceptance: "/auto-task、/management-agent、/invigilate 统一走 gateway_allowed；直连测试被拒"
+  risk: 低
+
+- id: S1-02
+  stage: S1
+  title: 修复 /ps/objective/info 与 /ps/subjective/info 越权
+  executor: auto
+  status: missing
+  priority: P0
+  because: "只按 pid 查询，任何登录用户可读题干与正确答案"
+  files:
+    - sduoj-autolab/server/objective.py
+    - sduoj-autolab/server/subjective.py
+    - sduoj-autolab/model/objective.py
+  acceptance: "非属主/非管理组读取他人脚本返回 403；管理组内可读"
+  risk: 中
+
+- id: S1-03
+  stage: S1
+  title: 题组入组校验（禁止引用他人私有题）
+  executor: auto
+  status: missing
+  priority: P1
+  because: "任何 admin 可把别人 isPublic=0 的题塞进自己的题组"
+  acceptance: "入组需 isPublic=1 或属主或管理组成员"
+  risk: 中
+
+- id: S1-04
+  stage: S1
+  title: managerGroups 变更后清除 Redis 缓存
+  executor: auto
+  status: partial
+  priority: P1
+  because: "ProblemCommonService 有缓存，update 时未见显式 evict"
+  files: [sduoj-server-private/sduoj-problem/.../service/ProblemManageService.java]
+  acceptance: "改管理组后立即生效，无需等缓存过期"
+  risk: 低
+
+- id: S1-05
+  stage: S1
+  title: 统一 ID 语义（native_id vs position）
+  executor: hybrid
+  status: missing
+  priority: P1
+  because: "(psid,gid,pid) 在学生侧是下标、管理侧是主键"
+  acceptance: "接口显式区分 native_id 与 position，并写入 03 文档"
+  risk: 中
+
+# ---------- S2 AI 端口与 Harness ----------
+- id: S2-01
+  stage: S2
+  title: 建立 auto_ai_port 表与唯一默认约束
+  executor: auto
+  status: missing
+  priority: P0
+  ddl_ref: "06 §2"
+  acceptance: "并发设默认只成功一个；删除默认后无默认"
+  risk: 低
+
+- id: S2-02
+  stage: S2
+  title: 端口 CRUD 接口（含加密与脱敏）
+  executor: auto
+  status: missing
+  priority: P0
+  api_ref: "07 §3"
+  acceptance: "密钥永不回传；改端点必须换 key；SSRF 校验生效"
+  risk: 中
+
+- id: S2-03
+  stage: S2
+  title: 端口连通性测试与模型列表探测
+  executor: auto
+  status: partial
+  priority: P1
+  because: "现有 /settings/health 只支持站点单例"
+  acceptance: "不回响应体；禁止重定向；内网地址被拒"
+  risk: 中
+
+- id: S2-04
+  stage: S2
+  title: 端口解析优先级（任务→用户默认→站点兜底→503）
+  executor: auto
+  status: missing
+  priority: P0
+  acceptance: "未配置时 503 且前端给引导，不回退内置模型"
+  risk: 低
+
+- id: S2-05
+  stage: S2
+  title: auto_task_job 增加 port_id 并在 claim 中加入端口限额
+  executor: auto
+  status: missing
+  priority: P0
+  files: [sduoj-autolab/auto_task/store.py]
+  acceptance: "端口并发 1 时第二个作业排队；跨端口互不阻塞"
+  risk: 中
+
+- id: S2-06
+  stage: S2
+  title: 抽出 Harness 接口，Codex 适配器行为不变
+  executor: auto
+  status: missing
+  priority: P1
+  files: [sduoj-autolab/auto_task/management_agent.py]
+  acceptance: "现有智能管理测试全绿，协议逐字保持一致"
+  risk: 中
+
+- id: S2-07
+  stage: S2
+  title: DSH headless 能力探测（多轮/MCP/事件结构）
+  executor: auto
+  status: missing
+  priority: P1
+  because: "DSH 0.2.1-rc.2 的 headless 是否支持多轮与外部工具未验证"
+  acceptance: "结论写入 01 文档；不支持则明确降级方案，不得假装等价"
+  risk: 高
+
+- id: S2-08
+  stage: S2
+  title: MCP 工具网关 v1（L0/L1 工具 + 作业令牌）
+  executor: auto
+  status: missing
+  priority: P0
+  api_ref: "07 §4"
+  acceptance: "模型可读题；越权返回 403；令牌不能跨作业复用"
+  risk: 中
+
+- id: S2-09
+  stage: S2
+  title: 工具风险分级审批与审计表
+  executor: auto
+  status: missing
+  priority: P1
+  acceptance: "L3 动作需二次确认；全部调用入 auto_agent_tool_audit"
+  risk: 中
+
+- id: S2-10
+  stage: S2
+  title: 主观题批阅迁移到 agent（保留旧实现开关）
+  executor: hybrid
+  status: partial
+  priority: P1
+  files: [sduoj-autolab/auto_task/subjective_review.py]
+  acceptance: "双跑差异率低于阈值；批阅结果先入草稿，教师 adopt 才写成绩"
+  risk: 高
+
+# ---------- S3 云沙箱与工作区 ----------
+- id: S3-01
+  stage: S3
+  title: 会话外部化（auto_agent_session）与节点注册
+  executor: auto
+  status: missing
+  priority: P1
+  ddl_ref: "06 §3"
+  acceptance: "杀掉节点后作业能被他节点接管或明确失败，不静默重跑写操作"
+  risk: 高
+
+- id: S3-02
+  stage: S3
+  title: S3/JuiceFS 工作区挂载与输入快照
+  executor: auto
+  status: missing
+  priority: P1
+  acceptance: "两节点读同一作业输入结果一致；产物显式上传"
+  risk: 高
+
+- id: S3-03
+  stage: S3
+  title: 沙箱强化（seccomp、出站白名单、可选 gVisor）
+  executor: auto
+  status: partial
+  priority: P1
+  files: [sduoj-autolab/auto_task/sandbox.py]
+  acceptance: "逃逸测试用例全部失败；agent 容器不能访问内网"
+  risk: 高
+
+- id: S3-04
+  stage: S3
+  title: 版本清单与启动自检
+  executor: auto
+  status: missing
+  priority: P1
+  acceptance: "版本不在允许区间时 Runner 拒绝启动"
+  risk: 中
+
+- id: S3-05
+  stage: S3
+  title: Harness 契约测试
+  executor: auto
+  status: missing
+  priority: P2
+  acceptance: "握手/工具回调/取消/超时/恢复 五项均通过"
+  risk: 低
+
+# ---------- S4 出题平台 ----------
+- id: S4-01
+  stage: S4
+  title: 建立 oj_unified_problem 视图表与同步任务
+  executor: auto
+  status: missing
+  priority: P0
+  ddl_ref: "06 §4"
+  acceptance: "三题型均出现；对账任务能发现并修正漂移"
+  risk: 中
+
+- id: S4-02
+  stage: S4
+  title: 客观/主观题补齐 visibility/difficulty/title
+  executor: auto
+  status: missing
+  priority: P0
+  acceptance: "历史题 visibility=0 且 manage_group_id 回填，行为不变"
+  risk: 中
+
+- id: S4-03
+  stage: S4
+  title: 统一检索接口与四档可见性判定
+  executor: auto
+  status: missing
+  priority: P0
+  api_ref: "07 §5.1"
+  acceptance: "私有题不出现在公开 tab；超管可见全部"
+  risk: 中
+
+- id: S4-04
+  stage: S4
+  title: 出题包表与九阶段工作台后端
+  executor: auto
+  status: missing
+  priority: P1
+  acceptance: "可完成一次端到端出题并发布"
+  risk: 中
+
+- id: S4-05
+  stage: S4
+  title: 文档/图片解析管线（PDF/DOCX/图片 → 结构化题目）
+  executor: auto
+  status: partial
+  priority: P1
+  because: "documents.py 已支持 pptx/docx/pdf/md/txt，缺题块切分与结构化"
+  acceptance: "一份 PDF 能切成结构化题目，保留页码与 bbox"
+  risk: 中
+
+- id: S4-06
+  stage: S4
+  title: 翻译能力（按块、保留原文、双语对照）
+  executor: agent
+  status: missing
+  priority: P2
+  because: "现只有 extract 时附带中文，无独立翻译接口"
+  acceptance: "不覆盖原文；术语不一致给警告"
+  risk: 中
+
+- id: S4-07
+  stage: S4
+  title: 七项终检作业
+  executor: auto
+  status: partial
+  priority: P1
+  because: "authoring 已有 generator/validator/标程与 Docker 沙箱，缺题面逻辑与数据分布校验"
+  acceptance: "故意引入七类错误各自能被检出"
+  risk: 中
+
+- id: S4-08
+  stage: S4
+  title: 人类实测（专用链接、计时、得分、留码、意见）
+  executor: manual
+  status: missing
+  priority: P1
+  because: "全仓无任何实现；这是唯一能发现题意歧义的手段"
+  acceptance: "免登录可做、记录完整、意见必填"
+  risk: 中
+
+- id: S4-09
+  stage: S4
+  title: 题组支持混合题型（题项级 kind）
+  executor: auto
+  status: missing
+  priority: P2
+  because: "problem_group.type 是组级枚举，一组建一题型"
+  acceptance: "同一题组含三题型可正常作答；旧数据按组类型回退"
+  risk: 高
+
+- id: S4-10
+  stage: S4
+  title: 客观/主观题 AI 命题
+  executor: agent
+  status: missing
+  priority: P3
+  because: "authoring.generate 只产编程题包"
+  acceptance: "可按知识点生成客观/主观题草案并经人工审定"
+  risk: 中
+
+# ---------- S5 查重系统 ----------
+- id: S5-01
+  stage: S5
+  title: 扫描任务表与单题/题组范围
+  executor: auto
+  status: partial
+  priority: P0
+  because: "已有按 pid 的 JPlag 链路，缺独立扫描实体"
+  ddl_ref: "06 §5"
+  acceptance: "能建扫描并跑完，结果入库"
+  risk: 中
+
+- id: S5-02
+  stage: S5
+  title: 题单级批量扫描（多题 × 按语言分组）
+  executor: auto
+  status: missing
+  priority: P0
+  acceptance: "一个题单一次跑完；不同语言分别比对"
+  risk: 中
+
+- id: S5-03
+  stage: S5
+  title: contest 提交取数路径
+  executor: auto
+  status: missing
+  priority: P1
+  because: "查重链路只认 Autolab 题单，Java contest 提交不在路径上"
+  acceptance: "比赛提交可被扫描"
+  risk: 中
+
+- id: S5-04
+  stage: S5
+  title: 阈值后期调整（不重跑 JPlag）
+  executor: auto
+  status: missing
+  priority: P1
+  because: "JPlag 用 -n -1 保留全部配对，可本地重筛"
+  acceptance: "改阈值即时重筛；threshold=1 表示不查重"
+  risk: 低
+
+- id: S5-05
+  stage: S5
+  title: 配对并排 diff 与相似度矩阵
+  executor: auto
+  status: missing
+  priority: P1
+  because: "matches 已存但前端不渲染"
+  acceptance: "高亮命中的行区间；矩阵可点击跳转"
+  risk: 低
+
+- id: S5-06
+  stage: S5
+  title: 人工复查改判与决策历史
+  executor: hybrid
+  status: partial
+  priority: P1
+  because: "已有 CLEAR/SUSPICIOUS/CONFIRMED，缺改判与历史"
+  acceptance: "改判记入 decision_log；改判后写回一致性校验通过"
+  risk: 中
+
+- id: S5-07
+  stage: S5
+  title: 导出 CSV/Excel
+  executor: auto
+  status: missing
+  priority: P2
+  acceptance: "导出内容与界面一致，含人工决策与理由"
+  risk: 低
+
+- id: S5-08
+  stage: S5
+  title: 绑定到 contest/题单（唯一约束）
+  executor: auto
+  status: missing
+  priority: P0
+  acceptance: "同一 ref 只能绑一份；改绑需先解绑"
+  risk: 中
+
+- id: S5-09
+  stage: S5
+  title: 学生自查接口与回显卡片
+  executor: auto
+  status: missing
+  priority: P0
+  because: "answer_sheet.py:724 只有 # TODO 接入查重，无读取路径"
+  acceptance: "学生只看到自己的；未绑定返回空且不报错"
+  risk: 中
+
+- id: S5-10
+  stage: S5
+  title: 多次扫描历史与并列展示
+  executor: auto
+  status: missing
+  priority: P2
+  acceptance: "同一题单多次扫描可并列查看；不覆盖历史"
+  risk: 低
+
+# ---------- S6 考务系统 ----------
+- id: S6-01
+  stage: S6
+  title: 考生在线状态批量查询
+  executor: auto
+  status: missing
+  priority: P1
+  because: "monitor_data 只判断提交状态；getOnlineSessions 需按 216 人批量"
+  acceptance: "一次查询 < 500ms"
+  risk: 中
+
+- id: S6-02
+  stage: S6
+  title: 账号生成与持久化台账（幂等）
+  executor: auto
+  status: missing
+  priority: P0
+  because: "OJ 无生成与台账；本地脚本在 cs25problem/*/pass"
+  acceptance: "重复生成密码不变；台账先落盘再渲染"
+  risk: 高
+
+- id: S6-03
+  stage: S6
+  title: 账号批量导入 OJ
+  executor: auto
+  status: partial
+  priority: P0
+  because: "/manage/user/addUsers 已存在，缺服务端编排与占位邮箱验证"
+  acceptance: "抽样登录成功后再全量"
+  risk: 中
+
+- id: S6-04
+  stage: S6
+  title: 密码条/签到表渲染与五项反向校验
+  executor: auto
+  status: missing
+  priority: P0
+  acceptance: "页数/溢出/缺字/唯一/越界 任一失败则整批作废"
+  risk: 中
+
+- id: S6-05
+  stage: S6
+  title: 监考链接与免密会话
+  executor: auto
+  status: missing
+  priority: P1
+  acceptance: "令牌只存哈希；过期/吊销即失效；不授予任何 OJ 权限"
+  risk: 高
+
+- id: S6-06
+  stage: S6
+  title: 监考端页面（移动优先）
+  executor: auto
+  status: missing
+  priority: P1
+  acceptance: "真机 375px 可用；触控目标 ≥44px；15s 轮询"
+  risk: 中
+
+- id: S6-07
+  stage: S6
+  title: 监考动作与异常台账
+  executor: hybrid
+  status: missing
+  priority: P1
+  acceptance: "关键动作二次确认；全部落库可追溯"
+  risk: 中
+
+- id: S6-08
+  stage: S6
+  title: 考务准备工作台（名单→账号→考场→材料→链接）
+  executor: auto
+  status: partial
+  priority: P2
+  because: "ExaminationWorkbench 已有名单/考场/座位/prepare/publish"
+  acceptance: "一条主线走完，断点处给出明确提示"
+  risk: 中
+
+# ============================================================
+blockers:
+  - id: B-01
+    text: 网关对等校验未覆盖 /management-agent
+    until: S1-01 完成
+  - id: B-02
+    text: 客观/主观题可按 pid 越权读取答案
+    until: S1-02 完成
+  - id: B-03
+    text: DSH 能力未探测，不得宣称「多 harness 等价」
+    until: S2-07 有结论
+  - id: B-04
+    text: 沙箱未做多租户隔离强化，不得面向公开用户开放 agent
+    until: S3-03 完成
+  - id: B-05
+    text: 账号台账未落地，不得开启「重印密码条」
+    until: S6-02 完成
+
+change_control:
+  - rule: 涉及既有表中已有语义的改动（如 problem_group.type）必须先读后写、两步上线（先读兼容再放开写）
+  - rule: 新增列一律可空或带默认值，保证旧版本代码可继续运行
+  - rule: 任何 P0 安全项未完成前，对应功能不得对外开放
+  - rule: 前端路由与后端能力同批上线；oj_unified_problem 不可单独回滚
