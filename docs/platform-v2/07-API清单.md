@@ -49,7 +49,7 @@
 | POST | A/ports/{id}/delete | 属主；运行中拒绝删除，默认标记原子清除 |
 | POST | A/ports/{id}/default | 属主；稳定账户行锁 + 唯一约束 |
 | POST | A/ports/{id}/test | 属主 + 限频；计费探测需确认上限，返回有限能力状态 |
-| GET | A/ports/{id}/usage | 属主；结算/预留/未知用量和 UTC 周期 |
+| GET | A/ports/{id}/usage | 属主；结算/预留/未知用量和 UTC 周期；dev 已接，offset 分页/固定 20 条，见 [25](25-本人端点用量dev验收.md)；不代表相邻探测/运营接口已实现 |
 | GET | A/admin/ports | 原 SUPERADMIN/明确平台运营授权；仅脱敏元数据 |
 | POST | A/admin/ports/{id}/disable | 同上；停止新请求，在途对账 |
 | GET | A/capabilities | 已有，扩展 v2 的 policy_version、catalog_revision、组件/action 投影；保留原 admin/sandbox_enabled/task_types/resource_kinds 字段，按当前主体/作用域裁剪，不访问 provider |
