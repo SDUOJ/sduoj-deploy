@@ -31,13 +31,13 @@ SDK 结束后先关闭代理并等待已准入的模型/工具事务完成；记
 ## 验证及剩余范围
 
 - `test_real_sdk_worker_review_translation_and_human_adoption_chain`：实际 ASGI admission、原 worker/claim、两个真实 SDK 进程阶段、六次代理请求、真实 MySQL AiRun、候选和人工采用/重放。提供商和 fresh Java 身份 RPC 是 fake，不是完整真实站点验收。
-- runner 和 SDK/worker 测试现会检查模型下一次请求实际收到工具观察值，避免固定步骤的 fake provider 掩盖反馈错误。最终代码组合回归为 447 通过、2 跳过（78.47 秒）；跳过的固定库锁测试及限制见 11。
+- runner 和 SDK/worker 测试现会检查模型下一次请求实际收到工具观察值，避免固定步骤的 fake provider 掩盖反馈错误。0bf775c 检查点组合回归为 447 通过、2 跳过（78.47 秒）；后续旧模型出口退役改变测试集合，f856af0 为 439 通过、3 跳过，范围及替代覆盖见 [15](15-旧模型出口dev验收.md)。
 - workflow 回归覆盖缺 usage、原审核惩戒、阶段间取消/撤权、显式重新冻结、审核/候选后崩溃与旧 attempt 拒绝；独立审计保留中间失败 SHA，不能把失败旧提交当成已通过。
 - MySQL 验证包含端口并发预算、默认/价格旧 RR、配置 CAS、claim、父 ACL 撤销/删除、用量当前读、候选并发采用及回执。原生题目来源锁等尚未覆盖项仍列于 11。
 - 早期手动探针只按 finish 和调用名判定通过，实际工具反馈失败；该错误判据和失败记录保留。修正 SDK 具体 observation 类型后，两指定模型各 3 次 Responses 请求通过合成 Hello 测试：父侧读取/提候选成功，后续模型输入收到实际结果，finish 精确匹配临时随机候选回执。与平台 ledger 分开记录，不含真实业务权限/数据；不能外推所有模型、组件或账务验收。
 
 `test_opt_in_free_provider_worker_usage_and_human_adoption` 另经明确 opt-in，对两个专用免费模型验证了真实 SDK/HTTPS/ModelProxy/MySQL AiRun、候选与人工采用/重放，2 项通过，各 6 次模型请求。观察 wrapper 原样转发，不替代提供商；身份 RPC 和安装状态仍是测试替身。初次失败和诊断边界见 11，不据此声称全部稳定。
 
-尚缺：候选前端、完整旧 AI 入口 gate/迁移、其余业务组件、其他实际端点费率及验收、真实 Gateway/Java RPC/Redis/完整站点浏览器、Linux SDK 安装验证。本人端点页面已有 mock API 浏览器回归，见 13。原 Run、云保存、正式提交和手工功能沿用原流程。
+普通文档候选前端已完成 mock API 隔离验收，见 [14](14-普通文档Agent前端dev验收.md)。尚缺完整旧 AI 入口 gate/迁移、其余业务组件、其他实际端点费率及验收、真实 Gateway/Java RPC/Redis/完整站点浏览器、Linux SDK 安装验证。本人端点页面已有 mock API 浏览器回归，见 13。原 Run、云保存、正式提交和手工功能沿用原流程。
 
 SDK 环境使用独立 Python 3.13，原 Web/worker 保留 Python 3.9/Pydantic 1。worker 通过 `AUTOLAB_OPENHANDS_PYTHON` 指向独立解释器，安装与锁文件见 AutoLab `agent_runner/README.md`。MySQL 测试仅使用校验过的 loopback 配置及随机自有库；不得把 fixture 指向生产或现有业务库。
