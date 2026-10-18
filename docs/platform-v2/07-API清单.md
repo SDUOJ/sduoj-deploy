@@ -57,6 +57,8 @@
 | POST | A/components/{componentId}/update | 同上；policy_version CAS + operation_key/reason；只能更新已登记组件/action，不能安装代码/任意工具 |
 | POST | A/components/policy/update | 同上；总开关 CAS 与同一原审计链，关闭不影响治理/历史/取消/对账 |
 | POST | A/agent/runs/create | 登录主体 + 原资源权限；component_id/version、action、resource_id/version、port_id（可省略用本人默认）、operation_key、受 schema 限制的 input；新建原 TaskJob(agent.run)，返回 taskId/session_id |
+| GET | A/agent/candidates/{action_id} | 新增；原源资源读取权限，读已成功 fenced 登记的候选/版本/receipt，不提供执行凭据 |
+| POST | A/agent/candidates/{action_id}/decide | 新增适配；当前本人浏览器会话 + 原源写权限，expected_version/action_hash/decision/operation_key，检查冻结的三元 generation、有效期，以 CAS 执行一次；不要求原 TaskJob 仍 running，不接收 Cookie/owner 作为 payload |
 | GET | A/jobs/{task_id} | 已有，扩展 port、release、queued_reason、blocked_reason、attempt |
 | GET | A/jobs/{task_id}/events | 已有，保留授权/游标，扩展关联 execution/sequence |
 | POST | A/jobs/{task_id}/cancel | 已有，取消新调用；在途写结果可能 unknown |
@@ -65,7 +67,7 @@
 
 API key 只出现在受控 HTTPS 写入请求，不能放 URL/审计参数/错误回显。显式端口失败不回退默认；没有默认返回 503。并发满返回已创建任务 pending，不当成 429。
 
-agent.run 的接口 202/任务句柄不表示执行成功。创建、旧 API 映射/串联/批量/重试、claim、每次模型/工具准入和最终写入均重新检查同一组件/action；客户端提交的 policy_version 仅用于诊断，不能作为权限。disabled 用 409 component_disabled、实现/依赖不可用用 503 component_unavailable；源权限不足仍 403。错误不回传私有配置。
+agent.run 的接口 202/任务句柄不表示执行成功。创建、旧 API 映射/串联/批量/重试、claim、每次模型/工具准入和最终写入均重新检查同一组件/action；任务、候选固定 global/component/action 三元 generation；关闭再开启也不能复活。客户端提交的 policy_version 仅用于诊断，不能作为权限。disabled 用 409 component_disabled、实现/依赖不可用用 503 component_unavailable；源权限不足仍 403。错误不回传私有配置。
 
 GET capabilities 的 scope 可指定 course/ps/resource，但必须先验证当前主体能访问该 scope。缺上下文用 requires_context，未配端点用 port_not_configured，引导配置；组件/总开关关闭时不运行模型。历史和取消继续沿原权限读取，不因业务开关关闭形成无法清理的任务。
 

@@ -21,6 +21,12 @@ runtime_policy:
   ipc: bounded_schema_json
   component_generation: monotonic_including_global_disable_and_reenable
   approval_lifecycle: durable_candidate_independent_of_active_worker_lease
+  generation_tuple:
+  - global
+  - component
+  - action
+  host_config_autoload: false
+  dependency_generations: freeze_transitive_dependencies_and_allowed_cross_component_targets
 components:
 - id: content.review
   title: 内容审核（内部组件）
@@ -44,6 +50,13 @@ components:
   - collection
   - question
   - authoring
+  - conversation
+  - grading
+  - plagiarism
+  - ide
+  - course
+  - interview
+  - exam
   frontend_surfaces:
   - manage
   visibility: internal_service
@@ -52,7 +65,7 @@ components:
   java_strategy: autolab_only
   result_policy: pending_review_until_validated_policy_decision
   source_authorization: fresh_original_resource_permission
-  legacy_hook: moderation_in_handlers_including_course.index
+  legacy_hook: handlers.moderation_and_legacy_bridge.moderation_including_course.index
   disabled_behavior: required_reviewed_outputs_remain_private_pending_review
   doc_refs:
   - 10-OpenHands与Agent组件.md
@@ -102,6 +115,7 @@ components:
   - structured_output
   actions:
   - extract
+  - vision_ocr
   tools:
   - document.read_owned
   - question.propose_items
@@ -121,6 +135,12 @@ components:
   dependencies:
   - content.review
   visibility: business_entry
+  action_capabilities:
+    vision_ocr:
+    - vision
+  legacy_hooks:
+  - question.extract_image_input
+  - course.index_visual_pdf_ctx.ask
 - id: document.translate
   title: 题目与文档翻译
   version: 1
@@ -150,7 +170,8 @@ components:
   source_authorization: fresh_original_resource_permission
   doc_refs:
   - 10-OpenHands与Agent组件.md
-  dependencies: []
+  dependencies:
+  - content.review
   visibility: business_entry
 - id: question.assistant
   title: 题目解答与核验
@@ -168,9 +189,11 @@ components:
   - solve
   - verify
   - chat
+  - verify_execute
   tools:
   - question.read_author_projection
   - question.propose_answer
+  - execution.validate_bounded
   resource_kinds:
   - question
   - conversation
@@ -188,8 +211,11 @@ components:
   source_authorization: fresh_original_resource_permission
   doc_refs:
   - 10-OpenHands与Agent组件.md
-  dependencies: []
+  dependencies:
+  - content.review
   visibility: business_entry
+  action_profiles:
+    verify_execute: sandbox_tools
 - id: authoring.programming
   title: 编程题出题助手
   version: 1
@@ -334,7 +360,8 @@ components:
   source_authorization: fresh_original_resource_permission
   doc_refs:
   - 10-OpenHands与Agent组件.md
-  dependencies: []
+  dependencies:
+  - content.review
   visibility: business_entry
 - id: plagiarism.explain
   title: 查重解释助手
@@ -367,7 +394,8 @@ components:
   source_authorization: fresh_original_resource_permission
   doc_refs:
   - 10-OpenHands与Agent组件.md
-  dependencies: []
+  dependencies:
+  - content.review
   visibility: business_entry
 - id: ide.tutor
   title: IDE 学习辅导
@@ -400,7 +428,8 @@ components:
   source_authorization: fresh_original_resource_permission
   doc_refs:
   - 10-OpenHands与Agent组件.md
-  dependencies: []
+  dependencies:
+  - content.review
   visibility: business_entry
 - id: course.assistant
   title: 课程资料问答
@@ -433,7 +462,8 @@ components:
   source_authorization: fresh_original_resource_permission
   doc_refs:
   - 10-OpenHands与Agent组件.md
-  dependencies: []
+  dependencies:
+  - content.review
   visibility: business_entry
 - id: interview.assistant
   title: AI 面试助手
@@ -466,7 +496,8 @@ components:
   source_authorization: fresh_original_resource_permission
   doc_refs:
   - 10-OpenHands与Agent组件.md
-  dependencies: []
+  dependencies:
+  - content.review
   visibility: business_entry
 - id: exam.assistant
   title: 组卷与考务方案建议
@@ -496,7 +527,8 @@ components:
   source_authorization: fresh_original_resource_permission
   doc_refs:
   - 10-OpenHands与Agent组件.md
-  dependencies: []
+  dependencies:
+  - content.review
   visibility: business_entry
 non_agent_operations:
 - id: formal_submission
@@ -506,7 +538,7 @@ non_agent_operations:
 - id: plagiarism_scan
   behavior: deterministic_scan_does_not_require_explanation_plugin
 - id: document_parse_and_course_index
-  behavior: deterministic_processing_remains_available
+  behavior: deterministic_text_processing_available_but_ocr_and_moderation_are_gated_private_pending_review
 - id: exam_accounts_materials_invigilation
   behavior: deterministic_operations_keep_original_gates
 - id: task_history_cancel_and_reconciliation
