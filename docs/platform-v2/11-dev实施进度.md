@@ -40,8 +40,9 @@
 - observation 修正前的 28 个相关测试文件组合：447 项通过、2 项既有跳过（78.27 秒）；其中 SDK 测试未断言工具观察值，不能据此宣称工具反馈成功。跳过的是 `test_mysql_concurrent_claims_respect_global_limit` 和 `test_concurrent_requests_cannot_reserve_past_the_same_turn_budget`；需要原专用真实 MySQL fixture，不能用本轮新增随机库用例冒充已覆盖。该组合不是全仓库或完整站点验收。
 - 0bf775c 补强观察值断言后的定向回归 14 项通过（24.54 秒）；随后对最终代码重新运行同 28 文件组合，447 项通过、2 项跳过、0 失败（78.47 秒）。供应商和身份 RPC 仍为 fake，MySQL 使用随机自有库；两项固定库锁测试仍跳过。
 - MySQL 审计修正了父课程/题单 ACL 的旧 RR 和弱 identity-map 读取、已删除父记录、旧视图幂等重放；保留中间失败 SHA。治理写 CAS/receipt 也补了真实旧 RR 反例。候选/claim/账务/SDK 代理逐笔独立审计，不把合成 port-only 合同中显式 mock 的 claim gate 当成完整 claim 证明。
-- 本人端点前端 13 suites/165 项通过（39.877 秒），TypeScript/目标 ESLint 通过。独立 client 审计最终 82 项通过，页面冻结归档反例 7/7、弹窗修正后 8/8；逐笔保留失败与修复。Chromium 普通 USER/mock API 完成新增、编辑、默认、停用、启用、删除，375/1440px 无横滚，预算文本可读；这是端点页面验证，不能外推全站或真实 Gateway。
-- 已授权免费提供商平台内测试新增于 c94e05a：两个模型各一次新任务完成 ASGI → claim/worker → 两阶段真实 SDK/真实 HTTPS/ModelProxy → 各 6 条已结算 AiRun → 持久候选 → 人工采用及 receipt 重放，2 项通过（85.247 秒）。零费率和免费确认显式保存，预留 token 与 usage_complete 均检查，积分未扣。身份 RPC 和组件安装集仍为 fixture，MySQL 为真实随机自有库。初次 Qwen 任务失败（3 条调用已结算）原因未证实；初次 DeepSeek 任务成功但测试将单位字段当 Decimal 检查，尚未采用。修正测试断言并加入仅观察诊断后的新任务成功，不能据此抹去初次失败或声称模型稳定性完成验收。
+- 本人端点前端在 069c5f2 上 13 suites/165 项通过（39.877 秒）；弹窗修正后的 c4ef1cc 再跑 3 suites/56 项通过（22.909 秒），TypeScript/目标 ESLint 通过。独立 client 审计最终 82 项通过，页面冻结归档反例 7/7、弹窗修正后 8/8；逐笔保留失败与修复。Chromium 普通 USER/mock API 完成新增、编辑、默认、停用、启用、删除，375/1440px 无横滚，预算文本可读；这是端点页面验证，不能外推全站或真实 Gateway。
+- 已授权免费提供商平台内测试新增于 c94e05a：c94e05a 上两个模型各一次新任务完成 ASGI → claim/worker → 两阶段真实 SDK/真实 HTTPS/ModelProxy → 各 6 条已结算 AiRun → 持久候选 → 人工采用及 receipt 重放，2 项通过（85.247 秒）。零费率和免费确认显式保存，预留 token 与 usage_complete 均检查，积分未扣。身份 RPC 和组件安装集仍为 fixture，MySQL 为真实随机自有库。初次 Qwen 任务失败（3 条调用已结算）原因未证实；初次 DeepSeek 任务成功但测试将单位字段当 Decimal 检查，尚未采用。修正测试断言并加入仅观察诊断后的新任务成功，不能据此抹去初次失败或声称模型稳定性完成验收。
+- 真实提供商测试的路径/诊断代码随后经 83f0bda 硬化：key 与报告路径在调用前必须位于源码/Git 仓库外，诊断只保存固定分类；离线回归 9 项通过，无 opt-in 时两项 live 测试跳过，没有为此再次调用模型。
 - 每笔提交交独立 agent 审计；保留中间失败和修复 SHA。审计和组合回归不替代下一节列出的完整业务验收。
 
 原生题目来源刷新反例仍不证明 MySQL 的真实锁调度；本人端点、冻结、预算、claim、文档来源和候选另有真实 MySQL 证据。本人端点已有组件及 Chromium/mock API 浏览器回归；其余前端仍以组件/API mock 为主。尚未完成完整 dev 站点的真实网关/身份业务链或全站浏览器验收。新文档适配只接普通文本，不代表题目翻译、OCR 或其余 12 个业务组件已迁移。
