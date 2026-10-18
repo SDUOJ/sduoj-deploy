@@ -124,6 +124,7 @@ components:
   resource_kinds:
   - document
   - collection
+  - question
   frontend_surfaces:
   - manage
   legacy_bindings:

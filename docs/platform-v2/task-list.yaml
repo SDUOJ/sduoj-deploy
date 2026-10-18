@@ -174,7 +174,7 @@ tasks:
   - sduoj-autolab
   approval_gates:
   - AUTH
-  execution_status: pending_approval
+  execution_status: in_progress
   source_basis: reviewed-20261018; see 09
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
@@ -187,6 +187,8 @@ tasks:
     - negative
     - failure_recovery
     evidence: []
+    approval_refs:
+      AUTH: 2026-10-18 用户明确同意第一阶段dev实施提案；仅本地/隔离测试，不含生产。
 - id: S1-03
   stage: S1
   title: 逐项验证题组新增/修改的引用权限
@@ -205,7 +207,7 @@ tasks:
   - sduoj-server-private
   approval_gates:
   - AUTH
-  execution_status: pending_approval
+  execution_status: in_progress
   source_basis: reviewed-20261018; see 09
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
@@ -218,6 +220,8 @@ tasks:
     - negative
     - failure_recovery
     evidence: []
+    approval_refs:
+      AUTH: 2026-10-18 用户明确同意第一阶段dev实施提案；仅本地/隔离测试，不含生产。
 - id: S1-04
   stage: S1
   title: 修复管理组缓存键与撤权失效边界
@@ -489,7 +493,7 @@ tasks:
   - sduoj-web2
   approval_gates:
   - AUTH
-  execution_status: pending_approval
+  execution_status: in_progress
   source_basis: reviewed-20261018; see 09
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
@@ -504,6 +508,8 @@ tasks:
     - negative
     - failure_recovery
     evidence: []
+    approval_refs:
+      AUTH: 2026-10-18 用户明确同意第一阶段dev实施提案；仅本地/隔离测试，不含生产。
 - id: S2-08
   stage: S2
   title: AutoLab受限工具Broker与既有Java接口适配
