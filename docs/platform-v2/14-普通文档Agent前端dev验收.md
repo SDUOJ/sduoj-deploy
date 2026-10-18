@@ -52,3 +52,5 @@ web2 检查点 `c703cfb` 提供 dev-only `/v2/workspace/document-translations`�
 ## 后续真实网关检查点
 
 本页以上保留 c703cfb 的 mock 检查点。后续 web2 3615267 已走当前原 Gateway、Java 身份、自有 MySQL/Redis 和独立 worker 完成真 API 创建/候选/人工采用，见 [22](22-独立worker与真实浏览器dev验收.md)。该验收发现后端 capabilities 固定 can_start=false 的阻塞，现以 5f69f9e 修复；模型响应和安装集仍是测试投影。没有将独立 worker 的取消证明冒充浏览器取消，其他组件和全站验收仍未完成。
+
+后续 956fd23 配合未改动的 web2 3615267，已用实际安装目录、真实免费 Qwen Responses、原 Java 身份和 Linux worker 完成同一浏览器任务至人工保存，见 [24](24-首批组件与真实模型浏览器dev验收.md)。这不覆盖其他组件、全站或所有模型。

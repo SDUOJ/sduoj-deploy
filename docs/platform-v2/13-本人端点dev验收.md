@@ -22,7 +22,7 @@
 
 ## 专用免费提供商测试
 
-用户明确“免费但有限量”后，在随机自有 MySQL 库中为专用端点保存 `confirmed=true`、`free_confirmed=true` 和三项零价。原 Task worker 经真实 SDK、ModelProxy 和 HTTPS 完成两个模型各 6 条 AiRun；预留 token、usage 完整、零费用、不扣平台积分、候选采用与 receipt 重放均验证。Java 身份 RPC 和 installed 集合只在 fixture 中替换，实际组件安装集仍为空。
+用户明确“免费但有限量”后，在随机自有 MySQL 库中为专用端点保存 `confirmed=true`、`free_confirmed=true` 和三项零价。原 Task worker 经真实 SDK、ModelProxy 和 HTTPS 完成两个模型各 6 条 AiRun；预留 token、usage 完整、零费用、不扣平台积分、候选采用与 receipt 重放均验证。这次早期检查点的 Java 身份 RPC 和 installed 集合只在 fixture 中替换，当时源码安装集为空。后续不替换身份、安装或模型的实际浏览器/Linux worker 组合见 [24](24-首批组件与真实模型浏览器dev验收.md)。
 
 测试位于 AutoLab `tests/test_agent_workflow_sdk_mysql.py::test_opt_in_free_provider_worker_usage_and_human_adoption`。默认 skip；运行需单独 SDK、已校验的 loopback MySQL 随机库 fixture，以及显式设置：
 

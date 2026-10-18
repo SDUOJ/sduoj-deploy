@@ -1,6 +1,6 @@
 # Linux 完整 worker 与取消锁序 dev 验收
 
-2026-10-19，承接 [21](21-Linux子进程dev验收.md) 的子解释器和 [22](22-独立worker与真实浏览器dev验收.md) 的 macOS 独立 worker。这里实际运行 Linux 的原 Task worker，不把两份独立证据拼接为完整 Linux 全站部署。仅 dev，不 push、不改生产、Java、镜像或 CI 发布链；组件安装集仍为空。
+2026-10-19，承接 [21](21-Linux子进程dev验收.md) 的子解释器和 [22](22-独立worker与真实浏览器dev验收.md) 的 macOS 独立 worker。这里实际运行 Linux 的原 Task worker，不把两份独立证据拼接为完整 Linux 全站部署。仅 dev，不 push、不改生产、Java、镜像或 CI 发布链；本页当时安装集仍为空，后续首批源码登记及真实供应商浏览器组合见 [24](24-首批组件与真实模型浏览器dev验收.md)。
 
 ## 双解释器环境
 
