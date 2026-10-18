@@ -31,4 +31,4 @@ execute_action 同时用于手工编程题组引用的来源校验，因此保�
 
 ## 剩余
 
-旧管理入口已关闭，其历史队列记录仍可能先 claim 后在 worker 明确失败一次；这不是统一 claim 前治理检查。其他旧任务的入队/批量/重试、claim、完成与候选采用仍需接入统一 gate；普通文档新 SDK 链保持原实现。INSTALLED_COMPONENTS 仍为空，原 48 项任务状态未修改，platform v2 不作为可以启用的发布候选。
+旧管理入口已关闭，其历史队列记录仍可能先 claim 后在 worker 明确失败一次；这不是统一 claim 前治理检查。后续旧任务入队/批量/重试和共享持久化已在 [17](17-旧任务入队dev验收.md) 收口；claim、完成与候选采用仍待接入统一 gate，普通文档新 SDK 链保持原实现。INSTALLED_COMPONENTS 仍为空，原 48 项任务状态未修改，platform v2 不作为可以启用的发布候选。
