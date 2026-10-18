@@ -51,6 +51,8 @@ def validate(data: dict, docs: Path) -> list[str]:
     canonical_ids = {f'{stage}-{number:02d}' for stage, count in expected.items()
                      for number in range(1, count + 1)}
     require(set(ids) == canonical_ids, 'original task ID set changed')
+    if set(ids) != canonical_ids or len(set(ids)) != len(ids):
+        return errors
     require(meta.get('expected_tasks_per_stage') == expected, 'stage count manifest changed')
     stages = {x['id'] for x in meta.get('delivery_stages', [])}
     executors = {x['id'] for x in meta.get('executors', [])}
