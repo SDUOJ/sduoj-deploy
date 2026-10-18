@@ -125,11 +125,11 @@ API key 只出现在受控 HTTPS 写入请求，不能放 URL/审计参数/错�
 
 | 方法 | 路径 | 行为 |
 | --- | --- | --- |
-| POST | A/plagiarism/scans | 源场次管理权限，固定 scope、selection、languages、floor、预算 |
+| POST | A/plagiarism/scans | 源场次管理权限，固定 scope、selection、languages、capture_metric/floor、review_metric/threshold、预算；当前 MAX 复查用 AVG floor=0 |
 | GET | A/plagiarism/scans | 授权历史，不把 operation_key 当历史查询 |
 | GET | A/plagiarism/scans/{id} | 进度/完整性/失败分片/版本 |
 | POST | A/plagiarism/scans/{id}/cancel | 当前权威任务取消 |
-| POST | A/plagiarism/scans/{id}/threshold | expected_version；低于 floor 返回 requires_rescan |
+| POST | A/plagiarism/scans/{id}/threshold | expected_version；指标不暗改，阈值十进制字符串最多四位；超出指标覆盖/低于同指标 floor 返回 requires_rescan |
 | POST | A/plagiarism/scans/{id}/rescan | 新 operation_key/new snapshot，不覆盖旧 scan |
 | GET | A/plagiarism/scans/{id}/pairs | 分片/语言/阈值/decision 分页 |
 | GET | A/plagiarism/scans/{id}/pairs/{pairId} | 关联校验及双方代码，仅授权管理者 |
@@ -141,6 +141,8 @@ API key 只出现在受控 HTTPS 写入请求，不能放 URL/审计参数/错�
 | GET | /api/ps/plagiarism/self/{kind}/{refId} | 本人+场次资格+已发布 revision，默认无 other_code/对方身份 |
 
 原 A/plagiarism/{resource_id}/pairs/review、writeback、report 已存在。新 scan 包装必须保存 resource_id 映射并调用原规则，不能让 scanId 冒充 resourceId。自查返回格式以 04 为准；无绑定 bound=false，不完整扫描禁止以“无异常”发布。
+
+相似度响应标明 metric，原始值以字符串返回；最终筛选/总数/分页/导出/发布均按原始 Decimal 比较，不按九位展示值比较。非零 AVG 采集结果不能仅因 MAX 阈值更高而认作完整，需重扫或明确 legacy 不完整状态。
 
 ## 8. 考务与监考
 

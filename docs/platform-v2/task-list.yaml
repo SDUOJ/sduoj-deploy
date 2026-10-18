@@ -1068,7 +1068,7 @@ tasks:
   status: partial
   priority: P0
   acceptance:
-  - 单题/组范围固定版本/截点/selection/capture_floor及源权限；新扫新operation_key
+  - 单题/组范围固定版本/截点/selection/capture_metric/floor与review_metric及源权限；新扫新operation_key
   - 只采正式提交，排除Run/云保存；未知/partial不宣布完整，无AI端口仍可跑确定性扫描
   - 快照完整性、源合同、单题有效上限和故障证据
   risk: 中
@@ -1158,14 +1158,14 @@ tasks:
     evidence: []
 - id: S5-04
   stage: S5
-  title: 按capture_floor和完整度调整管理阈值
+  title: 按采集指标、floor和完整度调整管理阈值
   executor: auto
   status: missing
   priority: P1
   acceptance:
-  - 保留floor/complete/operator，v2严格gt，legacy ge不重解释；1为skip
-  - 低于floor要求重扫，等号边界明确；不能因-n -1声称保存低于-m的比较
-  - 真实引擎报告样例测试floor±epsilon/等号/1和旧结果，人工决定不随筛选删除
+  - 固定capture_metric/review_metric与floor/complete/operator，v2严格gt，legacy ge不重解释；1为skip
+  - 当前CLI AVG采集供MAX复查强制-m0；跨指标非零floor或低于同指标floor要求重扫，原始Decimal判定不按九位展示值
+  - 真实引擎长短代码AVG低MAX高、0.7000000004与0.7、等号/1和四位阈值超精度拒绝；人工决定不随筛选删除
   risk: 低
   depends_on:
   - S5-01
@@ -1723,7 +1723,7 @@ blockers:
   - S4-09
   capability_scope: named_feature_release
 - id: B-09
-  text: 降低查重阈值受capture_floor与结果完整度限制
+  text: 查重复筛受capture_metric/review_metric、floor、原值精度与完整度限制
   until_tasks:
   - S5-04
   state: needs_evidence
