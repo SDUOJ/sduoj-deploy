@@ -34,6 +34,8 @@ NON_AI 仅允许 summary_report、ide.execute、exam.plan、course.index、plagi
 
 ## 下一批边界
 
+claim、运行时和完成的后续实现与验证已记录在 [18](18-历史worker执行边界dev验收.md)；以下保留本次入队检查点的原待办范围。
+
 1. claim 在发 lease/递增 attempt 之前隔离未适配历史任务，不能阻塞后续确定性任务；新 agent.run 继续原 queued_binding。
 2. runtime 检查、完成写事务和旧候选采用补当前适配绑定；已有旧结果不能因后来打开组件开关而自动有效。手工、确定性结果需保持独立可用。
 3. 继续 Linux 安装、真实 Gateway/身份 RPC/Redis、取消恢复和浏览器全链验收，再按组件推进。当前不标记新组件已安装，不改原 48 项任务为完成，也不作为可上线候选。
