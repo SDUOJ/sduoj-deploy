@@ -284,6 +284,19 @@ def validate(data: dict, docs: Path) -> list[str]:
         require('S2-07' not in by_id[key].get('depends_on', []) and
                 'S2-07' in by_id[key].get('capability_dependencies', {}).get('ai_actions', []),
                 f'{key}: optional AI gating must not block manual/deterministic development')
+    def ancestors(key, seen=None):
+        seen = set() if seen is None else seen
+        for dep in by_id[key].get('depends_on', []):
+            if dep in by_id and dep not in seen:
+                seen.add(dep)
+                ancestors(dep, seen)
+        return seen
+
+    for key in ('S4-04', 'S4-05', 'S4-07', 'S4-08'):
+        require(not (ancestors(key) & {'S2-06', 'S2-07', 'S3-03'}),
+                f'{key}: manual/deterministic development transitively awaits Agent runtime')
+    require('SANDBOX' in by_id['S4-07'].get('approval_gates', []),
+            'deterministic execution still needs its original SANDBOX gate')
     architecture = meta.get('architecture_decision', {})
     require(architecture.get('engine') == 'openhands-sdk' and
             architecture.get('execution_owner') == 'auto_task.worker' and

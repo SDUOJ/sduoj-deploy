@@ -1001,10 +1001,10 @@ tasks:
   - 题面/分布/配置/语言/解法/强度/边界报告绑定同一manifest；不适用有批准理由
   - 七类故意错误各被检出，修改输入令旧绿勾失效；不把人类实测混为第七项
   - 真实编译执行/评测模板矩阵、结果哈希与预算证据
+  - 确定性终检沿原真实评测链及自身SANDBOX门禁独立验收，不依赖OpenHands或端口；仅AI辅助步骤受组件/profile放行
   risk: 中
   depends_on:
   - S4-04
-  - S3-03
   repositories:
   - sduoj-autolab
   - sduoj-web2
@@ -1027,6 +1027,7 @@ tasks:
     ai_actions:
     - S2-07
     - S3-05
+    - S3-03
 - id: S4-08
   stage: S4
   title: 限版本邀请的人类实测与完整记录
