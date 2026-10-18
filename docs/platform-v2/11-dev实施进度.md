@@ -31,11 +31,13 @@
 - 本人端点/治理 API 联合 32 项通过，含 2 项真实 MySQL 多进程并发：零账户/零端点同操作重放、两个默认替换。SSRF 单测 27 项，独立审查增加了真实本地 TLS/SNI/错误证书/代理污染反例。
 - 独立真实 SDK + 假 Responses Broker 6 项通过：读取/提候选/完成、宿主环境隔离、步数限制、总超时和租约撤销；不代表 TaskJob/计费代理已集成。
 - 用户授权的 Qwen3.8-Flash 与 DeepSeek-V4.1-Flash 均通过 Responses 文本调用；两者也返回了函数调用。Qwen 强制 function tool_choice 请求失败，改 auto 成功，必须分别记录能力。端点未提供价格；这些受控协议探测独立于平台业务账本，不能据此填零费率或宣称预算结算通过。
-- 真实 SDK 的手动协议测试使用合成 Hello 文本和假的作用域工具：Qwen 有一次完成阶段失败，随后完整通过（3 次模型请求）；DeepSeek 原请求被 `background:false` 以 HTTP 400 拒绝，代理省略未使用的可选字段后完整通过（4 次模型请求，包含一次重复只读工具）。没有降级到 Chat Completions、自动重试或站点 provider。这些仍是平台外手动测试，费用价格未知，不等同实际 AiRun 业务验收，也不能抹去 Qwen 的首次失败。
+- 早期真实 SDK 手动协议探针的 `passed` 判据有缺口：只检查 SDK finish 和父侧工具调用名，实际工具反馈仍是错误，不能称作完整工具链通过。Qwen 首次完成失败、DeepSeek 对 `background:false` 的 HTTP 400，以及后续协议结束但工具反馈失败的记录均保留。独立审计据此要求修正文档。
+- 修正具体 `BusinessObservation` 类型（0bf775c），并先用新增断言复现旧提交失败，再验证模型后续请求收到实际读取内容及审核/候选回执。重做的合成 Hello 协议探针中，Qwen 和 DeepSeek 各 3 次 Responses 请求通过：工具返回成功、后续模型输入收到两个工具结果、finish 与父侧临时随机候选回执一致；没有降级到 Chat Completions、自动重试或站点 provider。这些仍是平台外手动测试，价格未知，不能代替真实 AiRun 业务验收。
 - 首个 worker 后端链联合回归曾有 90 项通过、1 项既有跳过：包括实际 ASGI admission → claim → 真实 SDK 两阶段/六次模型请求 → MySQL AiRun 结算 → 持久候选 → 人工采用及重放。供应商和 fresh Java 身份 RPC 为隔离 fake，组件安装集仅测试内替换；不能称作真实网关、真实提供商或浏览器验收。后续还补了取消后显式重新冻结、审核后撤权、完成回调旧 RR usage 等回归。
-- 本轮最终 28 个相关测试文件组合：447 项通过、2 项既有跳过（78.27 秒）。跳过的是 `test_mysql_concurrent_claims_respect_global_limit` 和 `test_concurrent_requests_cannot_reserve_past_the_same_turn_budget`；需要原专用真实 MySQL fixture，不能用本轮新增随机库用例冒充已覆盖。该组合不是全仓库或完整站点验收。
+- observation 修正前的 28 个相关测试文件组合：447 项通过、2 项既有跳过（78.27 秒）；其中 SDK 测试未断言工具观察值，不能据此宣称工具反馈成功。跳过的是 `test_mysql_concurrent_claims_respect_global_limit` 和 `test_concurrent_requests_cannot_reserve_past_the_same_turn_budget`；需要原专用真实 MySQL fixture，不能用本轮新增随机库用例冒充已覆盖。该组合不是全仓库或完整站点验收。
+- 0bf775c 补强观察值断言后的定向回归 14 项通过（24.54 秒）；随后对最终代码重新运行同 28 文件组合，447 项通过、2 项跳过、0 失败（78.47 秒）。供应商和身份 RPC 仍为 fake，MySQL 使用随机自有库；两项固定库锁测试仍跳过。
 - MySQL 审计修正了父课程/题单 ACL 的旧 RR 和弱 identity-map 读取、已删除父记录、旧视图幂等重放；保留中间失败 SHA。治理写 CAS/receipt 也补了真实旧 RR 反例。候选/claim/账务/SDK 代理逐笔独立审计，不把合成 port-only 合同中显式 mock 的 claim gate 当成完整 claim 证明。
-- 每笔提交交独立 agent 审计；保留中间失败和修复 SHA。部分后续审查仍在进行，不据此宣布阶段放行。
+- 每笔提交交独立 agent 审计；保留中间失败和修复 SHA。审计和组合回归不替代下一节列出的完整业务验收。
 
 原生题目来源刷新反例仍不证明 MySQL 的真实锁调度；本人端点、冻结、预算、claim、文档来源和候选另有真实 MySQL 证据。前端仍是组件/API mock 回归。尚未启动更新后的完整 dev 站点、真实网关/身份业务链或完成浏览器验收。新文档适配只接普通文本，不代表题目翻译、OCR 或其余 12 个业务组件已迁移。
 
