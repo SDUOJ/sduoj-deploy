@@ -123,7 +123,7 @@ initialize / initialized -> tools/list -> tools/call
 
 内部业务结构 `{ok,data,error}` 可放 structuredContent，并在 content text 中提供兼容形式；不能直接用它替换 MCP 协议结果。定义 inputSchema/outputSchema、大小上限和 additionalProperties=false。tools/list 也按权限裁剪。
 
-Codex 当前 dynamicTools 由适配器映射到同一 Broker；DSH MCP 能力待 S2-07 验证，不能预先写“两者都能挂 MCP”。参考 [MCP tools](https://modelcontextprotocol.io/specification/2025-11-25/server/tools) 与[安全建议](https://modelcontextprotocol.io/specification/2025-11-25/basic/security_best_practices)。
+一期 OpenHands 的登记工具先经 AutoLab Broker；只有使用外部 MCP 协议时才增加受控适配并实测。旧 Codex dynamicTools 仅作迁移参考，DSH 退出一期；S2-07 改为组件治理，不再是 DSH 探测任务。参考 [MCP tools](https://modelcontextprotocol.io/specification/2025-11-25/server/tools) 与[安全建议](https://modelcontextprotocol.io/specification/2025-11-25/basic/security_best_practices)。
 
 ### 5.4 工具、风险与审批
 

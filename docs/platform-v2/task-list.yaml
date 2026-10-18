@@ -1,4 +1,4 @@
-# 平台 v2：48个原任务ID保留；状态是成熟度，执行/批准另列。
+# 平台 v2：保留48任务ID；按2026-10-18 OpenHands决策收敛，状态不是批准。
 schema_version: 2
 generated_for: SDUOJ 平台 v2：云 Agent / AI 端口与 MCP / 出题平台 / 查重系统 / 考务系统
 meta:
@@ -7,11 +7,11 @@ meta:
     name: 安全与底座
     goal: 修复越权、统一身份入口、打通队列端口维度
   - id: S2
-    name: AI 端口与 Harness
-    goal: 用户自建端口可跑通、harness 可插拔、替代旧批阅
+    name: 用户端点与 OpenHands 组件
+    goal: 用户端点、原队列、SDK runner、组件开关与旧业务迁移
   - id: S3
-    name: 云沙箱与工作区
-    goal: 多节点并发、S3 工作区、版本管理
+    name: Agent 隔离与版本化工作区
+    goal: 原 worker 生命周期、局部工作区与快照、隔离、精确 SDK/组件版本；独立节点平台延期
   - id: S4
     name: 出题平台
     goal: 三题型统一、完整出题流水线、人类实测
@@ -107,6 +107,26 @@ meta:
       auto_task_ai_run: 1
       problem_objective: 4
       problem_subjective: 4
+    inventory_scope: reviewed_draft_not_required_initial_migrations
+    deferred_agent_tables:
+    - auto_agent_node
+    - auto_agent_session
+    - auto_agent_execution
+    - auto_agent_tool_audit
+  architecture_decision:
+    date: '2026-10-18'
+    document: 10-OpenHands与Agent组件.md
+    component_catalog: agent-components.yaml
+    engine: openhands-sdk
+    execution_owner: auto_task.worker
+    platform_owner: sduoj-autolab
+    java_policy: existing_http_contracts_first_no_direct_database
+    sdk_process: worker_owned_separate_python_runtime
+    scope: design_only_not_runtime_implementation
+  task_rescoping:
+    S2-07: DSH 探测退出一期，原 ID 改为组件目录/M 开关/能力发现
+    S3-01: 独立节点控制面延期，原 ID 改为原 Task worker 管理 SDK 生命周期
+    S2-10: 保留主观批阅验收，补齐课程/IDE/面试等既有 AI 组件分批迁移
 tasks:
 - id: S1-01
   stage: S1
@@ -418,27 +438,32 @@ tasks:
     evidence: []
 - id: S2-06
   stage: S2
-  title: 从持久管理执行链抽离Harness而不退回进程内权威
+  title: 原 Task worker 调起隔离解释器中的 OpenHands SDK
   executor: auto
   status: partial
   priority: P1
   acceptance:
-  - 复用AiResource+TaskJob、ModelProxy、max_attempts=1与当前浏览器确认，不重建RUNTIMES
-  - 跨Web worker消息/确认、取消、失联及unknown写不重放；Cookie不进payload/模型/日志
-  - 原management_agent与management_proxy回归、精确协议fixture通过，记录当前release而非假定历史版本
+  - worker 为唯一 owner；独立 Python>=3.12 SDK runner+有界 JSON IPC，不混装原 Pydantic1/FastAPI 依赖，不新建队列或 Web 内模型循环
+  - 真实 SDK+假模型验证事件/取消/子进程树/坏JSON/lease丢失；不继承宿主配置、自动skills/MCP或备用密钥
+  - 一次turn=一个TaskJob；固定release/component/action及传递依赖generation、输入hash；旧管理用例兼容且未接入治理的旧AI action unavailable
   risk: 中
   depends_on:
-  - S1-01
+  - S2-05
   repositories:
   - sduoj-autolab
-  approval_gates: []
-  execution_status: not_started
+  approval_gates:
+  - AUTH
+  - SANDBOX
+  - SECRETS
+  execution_status: pending_approval
   source_basis: reviewed-20261018; see 09
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
   - 02-AI端口与MCP.md
   - 07-API清单.md
   - 08-前端改造方案.md
+  - 10-OpenHands与Agent组件.md
+  - agent-components.yaml
   verification:
     required:
     - positive
@@ -447,52 +472,19 @@ tasks:
     evidence: []
 - id: S2-07
   stage: S2
-  title: 隔离探测DSH能力并记录能力差异
+  title: 组件注册表、M端开关与capabilities v2
   executor: auto
   status: missing
   priority: P1
   acceptance:
-  - 记录实际CLI/digest，验证多轮、工具/MCP、结构化事件、取消、恢复和协议失败
-  - 不支持则明确single_turn等capability；不通过调度器串联伪装等价，不阻塞Codex
-  - 临时profile/假模型先行，无真实配置或付费探测；结论、退出码和脱敏样本入01
+  - 静态注册14组件及action/profile/schema/依赖；AiSetting复用、默认关闭，M配置仅既有平台运营权限，CAS+幂等receipt与原审计链
+  - 总/组件/action和依赖单调generation冻结，旧入口/chain/batch/retry/claim/模型/工具/最终采用统一gate；关闭重开不复活，历史/取消/端点修复与确定性流程可用
+  - capabilities兼容旧字段、不触发模型；前端按主体/作用域缓存与路由守卫，旧响应/30s缓存无授权效力；内置审核/OCR分段及14组件正反向回归
   risk: 高
-  depends_on: []
-  repositories:
-  - sduoj-autolab
-  - sduoj-deploy
-  approval_gates: []
-  execution_status: not_started
-  source_basis: reviewed-20261018; see 09
-  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
-  doc_refs:
-  - 02-AI端口与MCP.md
-  - 07-API清单.md
-  - 08-前端改造方案.md
-  verification:
-    required:
-    - positive
-    - negative
-    - failure_recovery
-    evidence: []
-- id: S2-08
-  stage: S2
-  title: MCP Broker协议与受限委托设计
-  executor: auto
-  status: missing
-  priority: P0
-  acceptance:
-  - MCP握手/list/call/CallToolResult互操作，job能力令牌绑定audience/job/lease/subject/tools/resources
-  - 伪造owner_id/SDUOJUserInfo、跨作业/资源/受众、过期/撤销与未列工具均拒绝；不透传RPC token
-  - 真实会话/权限撤销和harness契约；委托未获批准/实现时只保留浏览器确认，不开放自动写
-  risk: 中
   depends_on:
-  - S2-05
   - S2-06
-  - S1-02
-  - S1-05
   repositories:
   - sduoj-autolab
-  - sduoj-server-private
   - sduoj-web2
   approval_gates:
   - AUTH
@@ -503,6 +495,44 @@ tasks:
   - 02-AI端口与MCP.md
   - 07-API清单.md
   - 08-前端改造方案.md
+  - 10-OpenHands与Agent组件.md
+  - agent-components.yaml
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S2-08
+  stage: S2
+  title: AutoLab受限工具Broker与既有Java接口适配
+  executor: auto
+  status: missing
+  priority: P0
+  acceptance:
+  - 业务工具先落AutoLab；需MCP时实测握手/list/call/CallToolResult；短期令牌绑定audience/job/attempt/lease/subject/tools/resources及组件和依赖generation
+  - 伪造owner/用户头、跨任务/资源/工具/组件、过期/撤权均拒绝；Java仅调用原受权HTTP合同，无法安全调用时unavailable且不直连数据库
+  - SDK真实工具回调/撤权与当前浏览器确认回归；自动委托未批准保持关闭，Java缺口单列最小提案，不作为本任务默认改Java
+  risk: 中
+  depends_on:
+  - S2-05
+  - S2-06
+  - S1-02
+  - S1-05
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates:
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 02-AI端口与MCP.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 10-OpenHands与Agent组件.md
+  - agent-components.yaml
   verification:
     required:
     - positive
@@ -511,17 +541,18 @@ tasks:
     evidence: []
 - id: S2-09
   stage: S2
-  title: 工具审批、幂等与未知结果审计
+  title: 持久候选确认、幂等与未知结果审计
   executor: auto
   status: missing
   priority: P1
   acceptance:
-  - 敏感只读也授权；测试数据写L2，组成员/发布/座位/写回L3，call_id/参数hash/版本绑定批准
-  - 重复批准、参数变更、ABA撤权、HTTP成功回包丢失不重复写，unknown进入对账
-  - 审计不含secret；实际外部模拟故障与DB并发一次性结果/receipt回归
+  - turn成功后独立持久候选，不沿用旧decide的running前提；task/attempt/主体/输入/资源版本/hash/有效期/三元及依赖generation绑定，原fenced事务登记
+  - 当前浏览器原权限确认，pending到executing版本CAS和receipt；重复/并发确认、关闭重开、换turn/编辑/撤权、成功丢包不重复写，unknown先对账
+  - 原AiResource/操作审计能原子持久化则复用；草案新audit表不自动迁移；主观批阅采用/出题发布同查来源gate，Cookie不持久化；DB并发和跨Web进程回归
   risk: 中
   depends_on:
   - S2-08
+  - S2-07
   repositories:
   - sduoj-autolab
   - sduoj-web2
@@ -537,6 +568,8 @@ tasks:
   - 07-API清单.md
   - 08-前端改造方案.md
   - 06-数据库变更汇总.md
+  - 10-OpenHands与Agent组件.md
+  - agent-components.yaml
   verification:
     required:
     - positive
@@ -545,14 +578,14 @@ tasks:
     evidence: []
 - id: S2-10
   stage: S2
-  title: 兼容迁移主观批阅到受控Agent
+  title: 分批迁移既有AI业务为OpenHands组件
   executor: hybrid
   status: partial
   priority: P1
   acceptance:
-  - 保留原评分schema、AiReview/教师adopt与legacy开关；新模型只产草稿
-  - 双跑不重复扣分/采用，端口撤销/预算/缺usage与模型失败不写原成绩
-  - 教师预先冻结验收集/偏差阈值/费用，真实原生批阅链回归；不宣称旧实现无审核
+  - 管理/审核/主观批阅优先，文档提取翻译/三类出题其次，IDE/课程/面试/查重解释后续；14组件每个action有迁移清单与独立合同，未实现标unavailable
+  - 原评分schema、AiReview/教师采用/源ACL/考试策略保留；legacy入口同一gate，OCR/审核/翻译/查重AI段显式拆分，未知费用/重复采用不写原成绩
+  - 每组件先假端点+真实SDK/worker隔离回归，教师冻结批阅验收集/偏差阈值/费用；可选AI关闭不影响正式提交/Run/云保存/确定性扫描和手工操作；新考务AI按需求另验收
   risk: 高
   depends_on:
   - S2-09
@@ -570,6 +603,8 @@ tasks:
   - 02-AI端口与MCP.md
   - 07-API清单.md
   - 08-前端改造方案.md
+  - 10-OpenHands与Agent组件.md
+  - agent-components.yaml
   verification:
     required:
     - positive
@@ -578,14 +613,14 @@ tasks:
     evidence: []
 - id: S3-01
   stage: S3
-  title: 在原会话上增加节点/execution与租约fencing
+  title: 原worker管理SDK runner的生命周期与fencing
   executor: auto
   status: missing
   priority: P1
   acceptance:
-  - AiResource仍为业务权威，新增运行归属/attempt/lease，私有控制面验证节点身份
-  - 杀节点、旧lease迟到、伪造node容量及未知外部写不静默重放；DB额度不信自报in_flight
-  - 真实MySQL和多进程故障接管/明确失败、计费回收与控制面负向访问证据
+  - 复用TaskJob/AiResource/原lease和心跳，父worker监控独立SDK子进程并维护attempt；不新增节点注册/claim控制面、平行session正文或队列
+  - kill/取消/租约丢失回收子进程，旧attempt事件/模型调用/完成均拒绝，未知外部写不自动重放
+  - 真实MySQL+进程故障验证claim/额度/完成/对账；草案node/session/execution表延期，若证明需要最小列变更另提SCHEMA并恢复验证
   risk: 高
   depends_on:
   - S2-06
@@ -605,6 +640,8 @@ tasks:
   - 07-API清单.md
   - 08-前端改造方案.md
   - 06-数据库变更汇总.md
+  - 10-OpenHands与Agent组件.md
+  - agent-components.yaml
   verification:
     required:
     - positive
@@ -613,14 +650,14 @@ tasks:
     evidence: []
 - id: S3-02
   stage: S3
-  title: 验证S3工作区语义并实现快照/挂载路径
+  title: 按task/attempt隔离工作区并显式快照
   executor: auto
   status: missing
   priority: P1
   acceptance:
-  - 先比较本地卷+显式快照与FUSE/JuiceFS，固定输入manifest和attempt专用产物目录
-  - rename/锁/多客户端/断网/flush、路径穿越/跨租户/凭据泄露失败，未上传完不登记成功
-  - 目标存储两节点PoC、备份恢复、冷暖p50/p95和回收证据；未测试不宣称POSIX/高性能
+  - 一期本地隔离工作区+显式对象快照，固定输入manifest和attempt产物目录，不强制FUSE/JuiceFS或独立存储平台
+  - 跨租户/路径穿越/符号链接/凭据泄露拒绝；上传中断不登记成功，恢复先校验版本与hash
+  - 实测备份恢复、取消回收和冷暖延迟；以后需要多节点/FUSE时另做rename/锁/flush/断网PoC，不把S3当POSIX
   risk: 高
   depends_on:
   - S3-01
@@ -637,6 +674,8 @@ tasks:
   - 01-云Agent系统.md
   - 07-API清单.md
   - 08-前端改造方案.md
+  - 10-OpenHands与Agent组件.md
+  - agent-components.yaml
   verification:
     required:
     - positive
@@ -645,14 +684,14 @@ tasks:
     evidence: []
 - id: S3-03
   stage: S3
-  title: 验证整个Harness与工具的隔离边界
+  title: OpenHands两种执行profile的真实隔离验收
   executor: auto
   status: partial
   priority: P1
   acceptance:
-  - 独立作业卷/非root/资源限额，只能经批准模型/MCP中继，不把命令沙箱当Harness已隔离
-  - 内网/元数据/套接字/跨租户/进程树/符号链接/恶意工具输出反例，none网络与HTTP通道无矛盾
-  - 实际容器/出口/取消回收测试和威胁报告；公开多租户开关保持关闭直到放行
+  - business_tools只有登记的窄工具及worker权限dispatcher；sandbox_tools的不可信代码仅在隔离沙箱运行，SDK本身不等于沙箱
+  - 实际容器/出口验证元数据/内网/socket/跨租户/宿主配置/自动工具加载/子进程树，模型只能达受控代理；取消回收不残留凭据
+  - 两profile分别出威胁报告和真实失败/恢复证据；未通过的profile及其action unavailable；不将命令沙箱当整个runner已隔离
   risk: 高
   depends_on:
   - S3-01
@@ -668,6 +707,8 @@ tasks:
   - 01-云Agent系统.md
   - 07-API清单.md
   - 08-前端改造方案.md
+  - 10-OpenHands与Agent组件.md
+  - agent-components.yaml
   verification:
     required:
     - positive
@@ -676,14 +717,14 @@ tasks:
     evidence: []
 - id: S3-04
   stage: S3
-  title: 精确版本registry、兼容和灰度回退
+  title: 固定SDK、runner和组件版本的兼容发布
   executor: auto
   status: missing
   priority: P1
   acceptance:
-  - 管理员批准的release/digest/协议profile与capabilities；用户不能指定任意binary/镜像
-  - 不兼容启动拒绝，旧会话固定旧release；checkpoint版本不兼容明确失败
-  - 旧新release契约、灰度、回退和会话恢复证据，不按宽SemVer范围假定兼容
+  - 沿原制品流程固定SDK/runner镜像digest、IPC协议、工具schema和组件版本，锁Python依赖且不引入源码替代既有包发布
+  - 未知版本拒绝，新旧在途任务保留固定版本；checkpoint不兼容明确失败，不宽SemVer推断兼容或卸载在用组件
+  - 新旧release契约、灰度/回退、会话恢复证据；组件目录只声明已安装能力，不等于已批准启用
   risk: 中
   depends_on:
   - S2-06
@@ -699,6 +740,8 @@ tasks:
   - 01-云Agent系统.md
   - 07-API清单.md
   - 08-前端改造方案.md
+  - 10-OpenHands与Agent组件.md
+  - agent-components.yaml
   verification:
     required:
     - positive
@@ -707,18 +750,20 @@ tasks:
     evidence: []
 - id: S3-05
   stage: S3
-  title: Harness与真实隔离执行契约验收
+  title: 真实OpenHands worker、端点和组件合同验收
   executor: auto
   status: missing
   priority: P1
   acceptance:
-  - 握手、事件、工具回调、取消/超时、跨节点恢复五组测试针对精确release
-  - 缺final/坏JSON/子进程挂起/过期lease/恢复缺文件失败且不写重放
-  - 真实Runner+假模型验证，不用mock代替进程/网络边界；DSH只验其支持能力
+  - 真实SDK runner+原worker+假模型验证事件、结构化结果、工具回调、多turn状态、取消/超时、模型代理预算和人工候选
+  - 缺final/坏JSON/挂进程/旧lease/跨组件依赖关闭重开/SDK压缩与子Agent逃逸均失败且不写重放；Responses和chat分别按真实支持标注
+  - 使用最终制品验证进程/网络/存储边界；模型先假端点，真实用户端点计费需另授权；报告精确版本与profile，不宣称支持DSH或独立多节点
   risk: 低
   depends_on:
+  - S3-02
   - S3-03
   - S3-04
+  - S2-07
   repositories:
   - sduoj-autolab
   - sduoj-deploy
@@ -730,6 +775,8 @@ tasks:
   - 01-云Agent系统.md
   - 07-API清单.md
   - 08-前端改造方案.md
+  - 10-OpenHands与Agent组件.md
+  - agent-components.yaml
   verification:
     required:
     - positive
@@ -850,6 +897,7 @@ tasks:
   risk: 中
   depends_on:
   - S4-03
+  - S2-07
   repositories:
   - sduoj-autolab
   - sduoj-server-private
@@ -885,6 +933,7 @@ tasks:
   risk: 中
   depends_on:
   - S4-04
+  - S2-07
   repositories:
   - sduoj-autolab
   - sduoj-web2
@@ -917,6 +966,7 @@ tasks:
   depends_on:
   - S4-05
   - S2-04
+  - S2-07
   repositories:
   - sduoj-autolab
   - sduoj-web2
@@ -948,6 +998,7 @@ tasks:
   depends_on:
   - S4-04
   - S3-03
+  - S2-07
   repositories:
   - sduoj-autolab
   - sduoj-web2
@@ -1049,6 +1100,7 @@ tasks:
   depends_on:
   - S4-04
   - S2-09
+  - S2-07
   repositories:
   - sduoj-autolab
   - sduoj-web2
@@ -1673,14 +1725,16 @@ blockers:
   - S5-01
   capability_scope: named_feature_release
 - id: B-03
-  text: DSH能力未探测，不可宣称多harness等价
+  text: OpenHands SDK/用户端点/原worker合同尚未实测
   until_tasks:
-  - S2-07
-  state: needs_evidence
-  note: 范围门禁，不代表整个阶段都必须等待；DSH仅约束DSH能力，Codex可独立验收。
-  blocks_release_of:
+  - S2-06
   - S3-05
-  capability_scope: dsh_only
+  state: needs_evidence
+  note: 取代一期DSH能力门禁；假模型不证明真实用户端点兼容/计费，实际计费验收另获授权。
+  blocks_release_of:
+  - S2-10
+  - S4-10
+  capability_scope: openhands_worker
 - id: B-04
   text: 公开多租户Agent需隔离/出口/凭据验收
   until_tasks:
@@ -1772,3 +1826,42 @@ change_control:
 - rule: 回退关闭新写并对账，保留schema/账本/外部receipt；混合数据写入后不能回任意旧代码。
 - rule: 确定性查重/材料/本地解析不依赖AI；发布、代用户写、匿名能力入口分别放行。
 audited_at: '2026-10-18'
+implementation_packages:
+- id: OH-01
+  task_refs:
+  - S2-06
+  - S3-01
+  scope: 隔离SDK依赖与worker生命周期
+- id: OH-02
+  task_refs:
+  - S2-01
+  - S2-02
+  - S2-03
+  - S2-04
+  - S2-05
+  scope: 用户端点与原ModelProxy
+- id: OH-03
+  task_refs:
+  - S2-07
+  - S2-09
+  scope: 注册表/M配置/后端gate
+- id: OH-04
+  task_refs:
+  - S2-07
+  scope: capabilities与前端
+- id: OH-05
+  task_refs:
+  - S2-10
+  - S4-04
+  - S4-05
+  - S4-06
+  - S4-07
+  - S4-10
+  scope: 14组件分批迁移，查重仅可选解释、考务仅AI建议
+- id: OH-06
+  task_refs:
+  - S3-02
+  - S3-03
+  - S3-04
+  - S3-05
+  scope: 隔离工作区与版本
