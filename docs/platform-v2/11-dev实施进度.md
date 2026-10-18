@@ -15,8 +15,11 @@
 - 原生题目 info/edit 校验 gid/type/pid 与原作者/真实同型来源；题组 add/edit 逐题校验引用。编程引用经当前浏览器会话使用原 Java 管理查询，不能由公开读取代替管理授权。写事务锁后重验来源类型和作者。兼容历史 canonical 字符串题号，仅比较时规范化，不改原成员字节。
 
 - 显式 dev 端点迁移（4642bef → d1b201d）：1 张 auto_ai_port 与 3 个 nullable 列；仅允许专用本地测试库，备份 hash/库身份、旧列类型/字符规则、InnoDB、生成列与实际 ENFORCED CHECK 预检。原迁移入口不创建新表，旧库缺 v2 列时明确 blocked。
-- 本人端点 CRUD/CAS/幂等回执、Fernet 加密、默认替换和非终态任务删除阻断（5277f09 → 929e0ed）；端点失败不回落站点 provider。SSRF 出口绑定已校验的全部 DNS 结果，numeric IP 连接保留 TLS/SNI，拒绝私网、代理、redirect 和压缩/超限响应（c450323）。
-- SDK 独立 Python 3.13.5 环境锁（eb188aa）；按官方对应工作区约束采用 SDK 1.55.1/LiteLLM 1.93.0。受限 runner 与父进程边界（a9314eb）只暴露当前 action 的读取/提候选及 finish，空 HOME/工作目录、环境白名单、有界 JSON、步数/超时/租约控制。尚未连接 TaskJob 业务 handler 与持久候选 Broker。
+- 本人端点 CRUD/CAS/幂等回执、Fernet 加密、默认替换和非终态任务删除阻断（5277f09 → 929e0ed）；端点失败不回落站点 provider。本人声明价格默认未知，全零费率须明确确认，换端点/模型清旧价；冻结默认选择、端点版本及价格版本采用 MySQL 当前读。AiRun 逐请求预留、端口并发/月预算含在途金额、BYOK 估价记原账本但不扣平台积分；缺失/超额 usage 保持 unsettled。供应商 usage 不能改写服务器费率/计费方式。
+- SSRF 出口绑定已校验的全部 DNS 结果，numeric IP 连接保留 TLS/SNI，拒绝私网、代理、redirect 和压缩/超限响应。独立 egress 子进程由原 run_process 管理，总期限涵盖 DNS/慢响应，子进程另有内核计时器应对父 worker 崩溃；私有 stdin 传 key，UTF-8 IPC 不转义膨胀（7c3c141 → 86b762e → 9be3cba）。
+- SDK 独立 Python 3.13.5 环境锁（eb188aa）；按官方对应工作区约束采用 SDK 1.55.1/LiteLLM 1.93.0。受限 runner 只暴露当前 action 的读取/提候选及 finish，空 HOME/工作目录、环境白名单、有界 JSON、步数/超时/租约控制；严格进程组清理包括已退出 leader 的后代。
+- 首个普通文档翻译后端已接原 TaskJob：一次任务由 worker 执行审核、翻译两个 SDK 阶段（5ad0aeb）。admission/claim 冻结并重验输入、策略代次及本人端口；模型预留在原 runtime/task 锁事务内重核源权限和代次，工具/完成同样复验。每次执行使用现有 fresh Java 身份 RPC，无 Agent 的 debug 身份绕过，不持久化 Cookie。所有组件仍 installed=false，尚不能开放。
+- 候选复用 AiResource，不增加 schema；人工确认独立于原 running lease，要求本人当前原文档权限、任务成功及同 attempt、源版本/hash、候选 hash/CAS/有效期、当前代次与已结算用量，采用回执原子幂等。只写独立 translation，保留原文；原文手工修改清除旧译文。通用资源/历史接口拒绝候选内部类型，避免旁路；旧 RR 对待结算用量使用当前读，锁争用保守拒绝。取消/失败后新建翻译请求重新冻结，generic retry 明确拒绝复制旧绑定。
 
 ## 已运行验证
 
@@ -28,16 +31,22 @@
 - 本人端点/治理 API 联合 32 项通过，含 2 项真实 MySQL 多进程并发：零账户/零端点同操作重放、两个默认替换。SSRF 单测 27 项，独立审查增加了真实本地 TLS/SNI/错误证书/代理污染反例。
 - 独立真实 SDK + 假 Responses Broker 6 项通过：读取/提候选/完成、宿主环境隔离、步数限制、总超时和租约撤销；不代表 TaskJob/计费代理已集成。
 - 用户授权的 Qwen3.8-Flash 与 DeepSeek-V4.1-Flash 均通过 Responses 文本调用；两者也返回了函数调用。Qwen 强制 function tool_choice 请求失败，改 auto 成功，必须分别记录能力。端点未提供价格；这些受控协议探测独立于平台业务账本，不能据此填零费率或宣称预算结算通过。
+- 真实 SDK 的手动协议测试使用合成 Hello 文本和假的作用域工具：Qwen 有一次完成阶段失败，随后完整通过（3 次模型请求）；DeepSeek 原请求被 `background:false` 以 HTTP 400 拒绝，代理省略未使用的可选字段后完整通过（4 次模型请求，包含一次重复只读工具）。没有降级到 Chat Completions、自动重试或站点 provider。这些仍是平台外手动测试，费用价格未知，不等同实际 AiRun 业务验收，也不能抹去 Qwen 的首次失败。
+- 首个 worker 后端链联合回归曾有 90 项通过、1 项既有跳过：包括实际 ASGI admission → claim → 真实 SDK 两阶段/六次模型请求 → MySQL AiRun 结算 → 持久候选 → 人工采用及重放。供应商和 fresh Java 身份 RPC 为隔离 fake，组件安装集仅测试内替换；不能称作真实网关、真实提供商或浏览器验收。后续还补了取消后显式重新冻结、审核后撤权、完成回调旧 RR usage 等回归。
+- 本轮最终 28 个相关测试文件组合：447 项通过、2 项既有跳过（78.27 秒）。跳过的是 `test_mysql_concurrent_claims_respect_global_limit` 和 `test_concurrent_requests_cannot_reserve_past_the_same_turn_budget`；需要原专用真实 MySQL fixture，不能用本轮新增随机库用例冒充已覆盖。该组合不是全仓库或完整站点验收。
+- MySQL 审计修正了父课程/题单 ACL 的旧 RR 和弱 identity-map 读取、已删除父记录、旧视图幂等重放；保留中间失败 SHA。治理写 CAS/receipt 也补了真实旧 RR 反例。候选/claim/账务/SDK 代理逐笔独立审计，不把合成 port-only 合同中显式 mock 的 claim gate 当成完整 claim 证明。
 - 每笔提交交独立 agent 审计；保留中间失败和修复 SHA。部分后续审查仍在进行，不据此宣布阶段放行。
 
-权限/治理后端测试目前主要用隔离 SQLite/原模型和真实 ASGI 路由，原生来源刷新反例仍不证明 MySQL 的真实锁调度；端点迁移与上述两类并发另有真实 MySQL 证据。前端是组件/API mock 回归。尚未启动更新后的完整 dev 业务链或完成真实浏览器验收。
+原生题目来源刷新反例仍不证明 MySQL 的真实锁调度；本人端点、冻结、预算、claim、文档来源和候选另有真实 MySQL 证据。前端仍是组件/API mock 回归。尚未启动更新后的完整 dev 站点、真实网关/身份业务链或完成浏览器验收。新文档适配只接普通文本，不代表题目翻译、OCR 或其余 12 个业务组件已迁移。
 
 ## 下一步
 
-1. 补真实 MySQL 的配置 CAS/回执/来源锁并发，及 Redis/网关基线验证。
-2. 补端点前端、平台脱敏运营视图、能力探测/用量 API 与价格/预算、原 ModelProxy/AiRun 逐请求预留结算适配；新元数据接口不代表已经具备这些能力。
-3. 将已验证的 SDK 进程接入 TaskJob handler、原 ModelProxy/权限门禁、持久人工确认候选，补完整 worker 合同；验证 Linux 安装和真实业务链。目前未运行 SDK 的 TaskJob 业务任务。
+1. 收尾新提交独立复审和组合回归；补 Redis/真实网关/身份 RPC 基线，保留原生题目 MySQL 锁并发未覆盖项。
+2. 补端点前端、平台脱敏运营视图、受控能力探测/用量 API；真实平台模型业务验收仍需已知费率。
+3. 补普通文档候选前端与实际提供商 SDK 兼容验收，验证 Linux 安装、取消/恢复与真实业务链；不以 backend fake-provider 正向链替代。
 4. 将能力缓存实际接到菜单/路由/tab/按钮并补浏览器回归；现有 30s 逻辑尚为选择器，不能宣称已自动轮询页面。
 5. 逐批完成 14 组件，再按任务依赖推进出题、查重和考务；手工/确定性功能独立验收。真实 AI 测试已获用户授权，密钥仅存本机仓库外受限配置；实际平台业务调用仍要求明确价格与完整预留/结算，不能由“测试可用”替代。
 
 注意：当前新增治理 API 尚不代表所有旧模型路径已接入统一 gate。完整旧入口/claim/模型/工具/采用链和 SDK 组件迁移完成前，不作为可以启用的 dev 发布候选，更不能部署生产。没有业务组件被标为已实现或完成验收。
+
+首个后端适配的接口、运行约束和验证边界见 [12-Agent后端dev验收](12-Agent后端dev验收.md)。任务清单只将对应工作改为 in_progress，不标记 done，不扩张第一阶段授权范围。

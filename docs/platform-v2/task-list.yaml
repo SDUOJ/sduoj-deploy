@@ -395,7 +395,7 @@ tasks:
   - sduoj-web2
   approval_gates:
   - AUTH
-  execution_status: pending_approval
+  execution_status: in_progress
   source_basis: reviewed-20261018; see 09
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
@@ -426,7 +426,7 @@ tasks:
   - sduoj-deploy
   approval_gates:
   - SCHEMA
-  execution_status: pending_approval
+  execution_status: in_progress
   source_basis: reviewed-20261018; see 09
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
@@ -459,7 +459,7 @@ tasks:
   - AUTH
   - SANDBOX
   - SECRETS
-  execution_status: pending_approval
+  execution_status: in_progress
   source_basis: reviewed-20261018; see 09
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
@@ -531,7 +531,7 @@ tasks:
   - sduoj-web2
   approval_gates:
   - AUTH
-  execution_status: pending_approval
+  execution_status: in_progress
   source_basis: reviewed-20261018; see 09
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
@@ -639,7 +639,7 @@ tasks:
   - SCHEMA
   - AUTH
   - SECRETS
-  execution_status: pending_approval
+  execution_status: in_progress
   source_basis: reviewed-20261018; see 09
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
@@ -775,7 +775,7 @@ tasks:
   - sduoj-autolab
   - sduoj-deploy
   approval_gates: []
-  execution_status: not_started
+  execution_status: in_progress
   source_basis: reviewed-20261018; see 09
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
