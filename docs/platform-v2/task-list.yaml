@@ -371,12 +371,14 @@ tasks:
   - 02-AI端口与MCP.md
   - 07-API清单.md
   - 08-前端改造方案.md
+  - 27-端点探测前端与真实供应商dev验收.md
   verification:
     required:
     - positive
     - negative
     - failure_recovery
-    evidence: []
+    evidence:
+    - 27-端点探测前端与真实供应商dev验收.md（固定Responses探测dev链；models仍unknown，任务未完成）
 - id: S2-04
   stage: S2
   title: 解析显式端口或本人默认，禁止隐式站点兜底
