@@ -48,3 +48,7 @@ web2 检查点 `c703cfb` 提供 dev-only `/v2/workspace/document-translations`�
 ## 后续
 
 继续统一旧 AI admission/claim/模型/工具/采用链的组件 gate，并将能力发现接到其他页面。之后以隔离环境验证真实网关/身份 RPC、Redis 与 Linux SDK 安装、完整业务浏览器链，再逐批安装 14 个组件。48 项任务与原发布门禁保持不变；本页完成不等于可以启用或发布 platform v2。
+
+## 后续真实网关检查点
+
+本页以上保留 c703cfb 的 mock 检查点。后续 web2 3615267 已走当前原 Gateway、Java 身份、自有 MySQL/Redis 和独立 worker 完成真 API 创建/候选/人工采用，见 [22](22-独立worker与真实浏览器dev验收.md)。该验收发现后端 capabilities 固定 can_start=false 的阻塞，现以 5f69f9e 修复；模型响应和安装集仍是测试投影。没有将独立 worker 的取消证明冒充浏览器取消，其他组件和全站验收仍未完成。

@@ -45,3 +45,5 @@ SDK 环境使用独立 Python 3.13，原 Web/worker 保留 Python 3.9/Pydantic 1
 后续真实 Gateway、Java 身份、自有 MySQL/Redis、SDK 与本人端点隔离的定向验收见 [20](20-真实网关身份与端点dev验收.md)。本文中的旧待验收表述是此前检查点，新的范围和仍未覆盖项以 20 为准。
 
 Linux arm64 子解释器的安装、平台依赖锁和协议验证见 [21](21-Linux子进程dev验收.md)，完整 Linux worker 与其他架构仍未验收。
+
+独立原 worker 的运行中取消/对账/继续执行，以及当前前端走原网关的创建至人工采用链，已补于 [22](22-独立worker与真实浏览器dev验收.md)。这轮模型与安装投影仍 synthetic，不替代完整 Linux 服务或真实供应商浏览器组合。

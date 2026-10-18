@@ -71,6 +71,8 @@ agent.run 的接口 202/任务句柄不表示执行成功。创建、旧 API 映
 
 GET capabilities 的 scope 可指定 course/ps/resource，但必须先验证当前主体能访问该 scope。缺上下文用 requires_context，未配端点用 port_not_configured，引导配置；组件/总开关关闭时不运行模型。历史和取消继续沿原权限读取，不因业务开关关闭形成无法清理的任务。
 
+普通文档 dev 适配的 capabilities 可启动提示已接当前来源的原管理/write ACL、普通文本合同与本人可选端点，见 [22](22-独立worker与真实浏览器dev验收.md)。至少一个 active、has_key、明确价格的本人端点只表示可以显式选择；没有默认时仍不能以默认选项新建，接口不自动改用其他端点。提示不探测供应商、不代表预算已经预留，typed admission 继续独立复验。
+
 ## 4. Runner 私有控制面
 
 **延期评审对象，不是一期要实现的 API。** 一期原 Task worker 直接调起 OpenHands SDK，不新建节点注册/claim 控制平面。若以后确有多节点执行服务需求，下表仅作待重新审查的历史合同；不得随本轮组件能力自动开放。
