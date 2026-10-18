@@ -17,7 +17,45 @@ runtime_policy:
   history_when_disabled: original_read_permission
   legacy_ingress_gating_required: true
   source: reviewed-20261018
+  sdk_process: worker_owned_separate_python_runtime
+  ipc: bounded_schema_json
+  component_generation: monotonic_including_global_disable_and_reenable
+  approval_lifecycle: durable_candidate_independent_of_active_worker_lease
 components:
+- id: content.review
+  title: 内容审核（内部组件）
+  version: 1
+  default_enabled: false
+  implementation_status: not_implemented
+  current_business_status: partial
+  rollout_batch: 1
+  execution_profile: business_tools
+  requires_endpoint: true
+  required_model_capabilities:
+  - tools
+  - structured_output
+  actions:
+  - review
+  tools:
+  - content.read_task_input
+  - content.propose_moderation
+  resource_kinds:
+  - document
+  - collection
+  - question
+  - authoring
+  frontend_surfaces:
+  - manage
+  visibility: internal_service
+  dependencies: []
+  legacy_bindings: []
+  java_strategy: autolab_only
+  result_policy: pending_review_until_validated_policy_decision
+  source_authorization: fresh_original_resource_permission
+  legacy_hook: moderation_in_handlers_including_course.index
+  disabled_behavior: required_reviewed_outputs_remain_private_pending_review
+  doc_refs:
+  - 10-OpenHands与Agent组件.md
 - id: management.assistant
   title: 智能管理助手
   version: 1
@@ -48,6 +86,8 @@ components:
   source_authorization: fresh_original_resource_permission
   doc_refs:
   - 10-OpenHands与Agent组件.md
+  dependencies: []
+  visibility: business_entry
 - id: document.extract
   title: 文档与图片识题
   version: 1
@@ -78,6 +118,9 @@ components:
   source_authorization: fresh_original_resource_permission
   doc_refs:
   - 10-OpenHands与Agent组件.md
+  dependencies:
+  - content.review
+  visibility: business_entry
 - id: document.translate
   title: 题目与文档翻译
   version: 1
@@ -107,6 +150,8 @@ components:
   source_authorization: fresh_original_resource_permission
   doc_refs:
   - 10-OpenHands与Agent组件.md
+  dependencies: []
+  visibility: business_entry
 - id: question.assistant
   title: 题目解答与核验
   version: 1
@@ -143,6 +188,8 @@ components:
   source_authorization: fresh_original_resource_permission
   doc_refs:
   - 10-OpenHands与Agent组件.md
+  dependencies: []
+  visibility: business_entry
 - id: authoring.programming
   title: 编程题出题助手
   version: 1
@@ -178,6 +225,16 @@ components:
   source_authorization: fresh_original_resource_permission
   doc_refs:
   - 10-OpenHands与Agent组件.md
+  dependencies:
+  - content.review
+  visibility: business_entry
+  action_profiles:
+    statement: business_tools
+    solution: sandbox_tools
+    tests: sandbox_tools
+    validator: sandbox_tools
+    checker: sandbox_tools
+    review: business_tools
 - id: authoring.objective
   title: 客观题出题助手
   version: 1
@@ -208,6 +265,9 @@ components:
   source_authorization: fresh_original_resource_permission
   doc_refs:
   - 10-OpenHands与Agent组件.md
+  dependencies:
+  - content.review
+  visibility: business_entry
 - id: authoring.subjective
   title: 主观题出题助手
   version: 1
@@ -239,6 +299,9 @@ components:
   source_authorization: fresh_original_resource_permission
   doc_refs:
   - 10-OpenHands与Agent组件.md
+  dependencies:
+  - content.review
+  visibility: business_entry
 - id: grading.subjective
   title: 主观题批阅助手
   version: 1
@@ -271,6 +334,8 @@ components:
   source_authorization: fresh_original_resource_permission
   doc_refs:
   - 10-OpenHands与Agent组件.md
+  dependencies: []
+  visibility: business_entry
 - id: plagiarism.explain
   title: 查重解释助手
   version: 1
@@ -302,6 +367,8 @@ components:
   source_authorization: fresh_original_resource_permission
   doc_refs:
   - 10-OpenHands与Agent组件.md
+  dependencies: []
+  visibility: business_entry
 - id: ide.tutor
   title: IDE 学习辅导
   version: 1
@@ -333,6 +400,8 @@ components:
   source_authorization: fresh_original_resource_permission
   doc_refs:
   - 10-OpenHands与Agent组件.md
+  dependencies: []
+  visibility: business_entry
 - id: course.assistant
   title: 课程资料问答
   version: 1
@@ -364,6 +433,8 @@ components:
   source_authorization: fresh_original_resource_permission
   doc_refs:
   - 10-OpenHands与Agent组件.md
+  dependencies: []
+  visibility: business_entry
 - id: interview.assistant
   title: AI 面试助手
   version: 1
@@ -395,6 +466,8 @@ components:
   source_authorization: fresh_original_resource_permission
   doc_refs:
   - 10-OpenHands与Agent组件.md
+  dependencies: []
+  visibility: business_entry
 - id: exam.assistant
   title: 组卷与考务方案建议
   version: 1
@@ -423,6 +496,8 @@ components:
   source_authorization: fresh_original_resource_permission
   doc_refs:
   - 10-OpenHands与Agent组件.md
+  dependencies: []
+  visibility: business_entry
 non_agent_operations:
 - id: formal_submission
   behavior: preserve_original_permissions_and_judger

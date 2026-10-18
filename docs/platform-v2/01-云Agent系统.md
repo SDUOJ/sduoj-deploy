@@ -13,7 +13,7 @@
 | 当前浏览器确认 | Cookie 仅用于当次确认，动作/receipt 持久化 | 保留；不能让模型直接获得用户会话或内部 RPC token |
 | 执行工具 | 原 sandbox.py 支持受控命令子任务 | 按 profile 验证；不能直接给 SDK 注册宿主 Terminal/FileEditor |
 
-16 个 Web worker 与 Task worker 是不同概念。Agent 只由领取该任务的 Task worker 调起；Web 请求只提交/查询，Redis 只唤醒，不增加另一套进程内任务权威。
+16 个 Web worker 与 Task worker 是不同概念。Agent 只由领取该任务的 Task worker 调起并监控 SDK runner 子进程；Web 请求只提交/查询，Redis 只唤醒，不增加另一套进程内任务权威。
 
 ## 2. 一次任务的生命周期
 
@@ -22,7 +22,7 @@
   -> AutoLab：开关 + 主体/源对象权限 + 本人端点/预算
   -> 原 TaskJob / TaskInput：冻结组件、版本、端点和输入
   -> auto_task.worker：claim / heartbeat / Context
-  -> 组件 dispatcher -> OpenHands SDK Agent / Conversation
+  -> 组件 dispatcher -> 独立解释器 runner -> OpenHands SDK Agent / Conversation
      -> ModelProxy -> 用户实际端点
      -> 受限 AutoLab 工具 / 经批准的隔离执行工具
   -> 原日志与候选结果 -> fenced complete / 用量结算
@@ -30,11 +30,11 @@
 
 一次 turn 一个 TaskJob，多次模型调用共享任务预算。同一会话串行变更；下个 turn 是新 TaskJob，不能让一个交互会话长期占满 worker。新的统一入口用 agent.run，旧 task_type/API 通过固定映射分批迁移；旧批量、串联、重试和确认也必须经过组件/action gating。
 
-组件不是任意 Python 插件安装器。服务端登记 id/version、action、工具、输入输出 schema、执行 profile 与上限；前端/M 端只选择已安装且允许的能力。机器目录、开关语义和 13 个组件见 [10](10-OpenHands与Agent组件.md) 及 [清单](agent-components.yaml)。
+组件不是任意 Python 插件安装器。服务端登记 id/version、action、工具、输入输出 schema、执行 profile 与上限；前端/M 端只选择已安装且允许的能力。机器目录、开关语义和 14 个组件见 [10](10-OpenHands与Agent组件.md) 及 [清单](agent-components.yaml)。
 
 ### 2.1 人工确认与恢复
 
-一期 propose_action 生成候选后结束当前 turn，原任务可 success、结果 requires_confirmation。本人在有效浏览器会话确认，保存 receipt，需要继续再创建 turn。等待期间不占 worker，不持久化 Cookie；不是把浏览器确认值直接传给模型当作授权。
+一期 propose_action 生成候选后结束当前 turn，原任务可 success、结果 requires_confirmation。原 decide 仅接受 running、finally 会过期 pending，因此需要 10 的持久候选适配：独立于活跃 lease，绑定主体/组件 generation/资源版本/action hash/有效期，当前浏览器确认和 CAS/receipt 去重。本人确认后需要继续再创建 turn。等待期间不占 worker，不持久化 Cookie；不是把浏览器确认值直接传给模型当作授权。
 
 发布/写成绩/创建账号等外部动作若结果未知，先读回对账；max_attempts、旧 lease、组件版本和资源版本共同约束恢复。不能用 SDK checkpoint、VM 快照或保存了 conversation_id 宣称外部 exactly-once。旧版确认在关闭/撤权/ABA 后不得复活。
 
@@ -42,9 +42,9 @@
 
 [OpenHands 架构](https://docs.openhands.dev/sdk/arch/overview)提供 SDK、工具、工作区与可选 Agent Server 的边界。SDUOJ 选自己的前端/业务 API/Task worker，Agent Canvas 和其调度不作为一期依赖。
 
-- **business_tools**：worker 内运行可信 SDK 循环，只装本组件经审核的业务工具。模型只能提交结构化数据或动作建议；不得执行宿主 shell、任意路径/HTTP/SQL。读取/写入仍由原业务权限与工具 schema 决定。
+- **business_tools**：原 worker 调起独立解释器 runner，以有界 JSON IPC 桥接 SDK 与原权限工具 dispatcher；只装本组件经审核的工具。模型只能提交结构化数据或动作建议；不得执行宿主 shell、任意路径/HTTP/SQL。读取/写入仍由原业务权限与工具 schema 决定。
 - **sandbox_tools**：不可信代码、通用终端与文件工具只能在任务专属隔离工作区执行。worker 负责生命周期；若 SDK 将循环放在沙箱内 Agent Server，必须记录实际进程位置、网络和凭据路径，不能把“worker 调起”误写为所有代码都在宿主执行。
-- PoC 固定 SDK/release/依赖和接口样本，不从 main/版本号猜兼容。已读取的 SDK Python >=3.12 要求须与 AutoLab 环境核对，不能顺带升级其它业务依赖或改原供应链。
+- PoC 固定 SDK/release/依赖和接口样本，不从 main/版本号猜兼容。已读取的 SDK Python >=3.12/Pydantic >=2.13.5 与现 AutoLab Pydantic 1.10.2/FastAPI 0.86 不可直接混装；独立 runner 依赖/解释器发布按原流程实施，不能顺带升级其它业务依赖或改原供应链。
 - 接入第二种外部 Harness 是以后独立需求；早稿 Codex/DSH 对比只作历史证据，不再阻塞当前 OpenHands 交付。
 
 ## 4. 隔离和网络合同
