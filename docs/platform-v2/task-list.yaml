@@ -1,548 +1,1761 @@
-# SDUOJ 平台 v2 实施任务清单（机器可读）
-# 配套文档：00-总纲.md ~ 08-前端改造方案.md
-schema_version: 1
-generated_for: "SDUOJ 平台 v2：云 Agent / AI 端口与 MCP / 出题平台 / 查重系统 / 考务系统"
-
+# 平台 v2：48个原任务ID保留；状态是成熟度，执行/批准另列。
+schema_version: 2
+generated_for: SDUOJ 平台 v2：云 Agent / AI 端口与 MCP / 出题平台 / 查重系统 / 考务系统
 meta:
   delivery_stages:
-    - id: S1
-      name: 安全与底座
-      goal: 修复越权、统一身份入口、打通队列端口维度
-    - id: S2
-      name: AI 端口与 Harness
-      goal: 用户自建端口可跑通、harness 可插拔、替代旧批阅
-    - id: S3
-      name: 云沙箱与工作区
-      goal: 多节点并发、S3 工作区、版本管理
-    - id: S4
-      name: 出题平台
-      goal: 三题型统一、完整出题流水线、人类实测
-    - id: S5
-      name: 查重系统
-      goal: 批量扫描、阈值复核、绑定与学生自查
-    - id: S6
-      name: 考务系统
-      goal: 账号台账、材料渲染、监考端
-
+  - id: S1
+    name: 安全与底座
+    goal: 修复越权、统一身份入口、打通队列端口维度
+  - id: S2
+    name: AI 端口与 Harness
+    goal: 用户自建端口可跑通、harness 可插拔、替代旧批阅
+  - id: S3
+    name: 云沙箱与工作区
+    goal: 多节点并发、S3 工作区、版本管理
+  - id: S4
+    name: 出题平台
+    goal: 三题型统一、完整出题流水线、人类实测
+  - id: S5
+    name: 查重系统
+    goal: 批量扫描、阈值复核、绑定与学生自查
+  - id: S6
+    name: 考务系统
+    goal: 账号台账、材料渲染、监考端
   executors:
-    - id: auto
-      desc: 已有接口/脚本可全自动
-    - id: agent
-      desc: 智能体经 MCP 发起，按风险分级审批
-    - id: hybrid
-      desc: 智能体产出草案，人工审定
-    - id: manual
-      desc: 必须人工（决策/验收/现场）
-
+  - id: auto
+    desc: 已有接口/脚本可全自动
+  - id: agent
+    desc: 智能体经 MCP 发起，按风险分级审批
+  - id: hybrid
+    desc: 智能体产出草案，人工审定
+  - id: manual
+    desc: 必须人工（决策/验收/现场）
   statuses:
-    - id: existing
-      desc: 现有能力可直接用
-    - id: partial
-      desc: 部分具备，需扩展
-    - id: missing
-      desc: 完全缺失，需新建
-
-# ============================================================
+  - id: existing
+    desc: 现有能力可直接用
+  - id: partial
+    desc: 部分具备，需扩展
+  - id: missing
+    desc: 完全缺失，需新建
+  status_meaning: status 表示能力成熟度，不是任务已完成或已批准；执行状态单独记录。
+  expected_tasks_per_stage:
+    S1: 5
+    S2: 10
+    S3: 5
+    S4: 10
+    S5: 10
+    S6: 8
+  repositories:
+  - sduoj-autolab
+  - sduoj-server-private
+  - sduoj-web2
+  - sduoj-deploy
+  execution_statuses:
+  - not_started
+  - needs_verification
+  - pending_approval
+  - in_progress
+  - done
+  - not_applicable
+  approval_gates:
+  - id: AUTH
+    status: proposal_required
+    scope: 主体/会话/委托/网关/对象权限
+  - id: SCHEMA
+    status: proposal_required
+    scope: 实际DDL与历史回填
+  - id: SANDBOX
+    status: proposal_required
+    scope: 执行器/隔离策略/挂载/网络
+  - id: SECRETS
+    status: proposal_required
+    scope: 真实密钥/账号凭据/材料/出口
+  source_baselines:
+    sduoj-autolab: e3b55c540a182037b030af84a188646e5c8c0bf6
+    sduoj-server-private: 085bb7ccdc05051ab11d3c9c1d781cb07fb6471e
+    sduoj-web2: 2215a75afe12276b1dde31bfedb57eba2d9542c5
+    sduoj-deploy: d51b7f623b146689182c11660132926f1a80fe2f
+  requirements_trace:
+    state: original_text_unavailable
+    note: 原稿35/35为关键词核对，未提供原始35条正文；本轮不宣称完整需求验收。
+  sql_inventory:
+    create_tables:
+    - auto_ai_port
+    - auto_agent_node
+    - auto_agent_session
+    - auto_agent_execution
+    - auto_agent_tool_audit
+    - oj_unified_problem
+    - oj_authoring_package
+    - oj_authoring_human_trial
+    - oj_plagiarism_scan
+    - oj_plagiarism_scan_problem
+    - oj_plagiarism_pair
+    - oj_plagiarism_decision_log
+    - oj_plagiarism_binding
+    - oj_exam_account
+    - oj_invigilator_link
+    - oj_invigilator_session
+    - oj_invigilator_action
+    alter_columns:
+      auto_task_job: 2
+      auto_task_ai_run: 1
+      problem_objective: 4
+      problem_subjective: 4
 tasks:
-
-# ---------- S1 安全与底座 ----------
 - id: S1-01
   stage: S1
-  title: 扩展网关对等校验覆盖范围
+  title: 核对整理基线与已存在的网关/RPC边界
   executor: auto
-  status: missing
+  status: existing
   priority: P0
-  because: "main.py:31 只匹配 /auto-task，/management-agent 未被保护，可被绕过"
-  files: [sduoj-autolab/main.py]
-  acceptance: "/auto-task、/management-agent、/invigilate 统一走 gateway_allowed；直连测试被拒"
+  acceptance:
+  - 从 reviewed 基线核对 auto-task/management-agent/question-bank 的精确 peer 前缀保护；不重复旧副本修复
+  - 不可信直连、伪造身份头、相似前缀和 proxy peer 改写均拒绝；Internal RPC 缺/错 token 的实际配置反例通过
+  - 记录源码SHA、配置开关和 test_ai_gateway_boundary 结果；新匿名/控制面仍单独提案，不把本项当作放行
   risk: 低
-
+  depends_on: []
+  repositories:
+  - sduoj-autolab
+  - sduoj-server-private
+  - sduoj-deploy
+  approval_gates: []
+  execution_status: needs_verification
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 09-审计与实施门禁.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S1-02
   stage: S1
-  title: 修复 /ps/objective/info 与 /ps/subjective/info 越权
+  title: 修复原生题组与题目关联的读写校验
   executor: auto
-  status: missing
+  status: partial
   priority: P0
-  because: "只按 pid 查询，任何登录用户可读题干与正确答案"
-  files:
-    - sduoj-autolab/server/objective.py
-    - sduoj-autolab/server/subjective.py
-    - sduoj-autolab/model/objective.py
-  acceptance: "非属主/非管理组读取他人脚本返回 403；管理组内可读"
+  acceptance:
+  - 保留既有 group_manager；info/edit 同时校验 gid 权限、type 与 gid/pid 实际关联
+  - 可管理 gid + 其它组 pid、跨题型/缺失对象、普通学生和撤权后读写均拒绝且不泄露答案
+  - 隔离 HTTP + DB 回归覆盖 objective/subjective 的 info/edit 与原合法管理、作答；不称任意登录可读
   risk: 中
-
+  depends_on: []
+  repositories:
+  - sduoj-autolab
+  approval_gates:
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 09-审计与实施门禁.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S1-03
   stage: S1
-  title: 题组入组校验（禁止引用他人私有题）
+  title: 逐项验证题组新增/修改的引用权限
   executor: auto
-  status: missing
+  status: partial
   priority: P1
-  because: "任何 admin 可把别人 isPublic=0 的题塞进自己的题组"
-  acceptance: "入组需 isPublic=1 或属主或管理组成员"
+  acceptance:
+  - 原生和编程题均逐项确认引用许可；公开引用不转授编辑/答案/数据权限
+  - 新增/编辑题组、批量混合合法非法引用和他人私有题均原子拒绝；已有合法跨组引用保留
+  - 实际源接口回归，历史可疑引用先隔离审计，不能直接转成共享ACL
   risk: 中
-
+  depends_on:
+  - S1-02
+  repositories:
+  - sduoj-autolab
+  - sduoj-server-private
+  approval_gates:
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 09-审计与实施门禁.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S1-04
   stage: S1
-  title: managerGroups 变更后清除 Redis 缓存
+  title: 修复管理组缓存键与撤权失效边界
   executor: auto
   status: partial
   priority: P1
-  because: "ProblemCommonService 有缓存，update 时未见显式 evict"
-  files: [sduoj-server-private/sduoj-problem/.../service/ProblemManageService.java]
-  acceptance: "改管理组后立即生效，无需等缓存过期"
+  acceptance:
+  - 缓存键使用完整规范化组集合，不依赖 groups.hashCode；managerGroups 更新提交后失效
+  - 等hash不同组集合、加组/撤组、事务失败与旧缓存命中时私有题列表/详情/数据入口不越权
+  - 原Java权限回归 + 真实Redis证据，记录所有缓存层和失效点而非只删一个key
   risk: 低
-
+  depends_on: []
+  repositories:
+  - sduoj-server-private
+  approval_gates:
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 09-审计与实施门禁.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S1-05
   stage: S1
-  title: 统一 ID 语义（native_id vs position）
+  title: 冻结类型化ID与学生下标适配契约
   executor: hybrid
   status: missing
-  priority: P1
-  because: "(psid,gid,pid) 在学生侧是下标、管理侧是主键"
-  acceptance: "接口显式区分 native_id 与 position，并写入 03 文档"
+  priority: P0
+  acceptance:
+  - uid 带 prog/obj/subj；kind 使用字符串，旧group.type显式0/1/2映射
+  - obj:45 与 subj:45、shuffle、重复题slot和管理nativeId/学生position不能混用
+  - 跨Java/Autolab/前端合同与旧正式提交/答案卡映射回归，原始35条需求待补全文对照
   risk: 中
-
-# ---------- S2 AI 端口与 Harness ----------
+  depends_on: []
+  repositories:
+  - sduoj-autolab
+  - sduoj-server-private
+  - sduoj-web2
+  approval_gates: []
+  execution_status: not_started
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 09-审计与实施门禁.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S2-01
   stage: S2
-  title: 建立 auto_ai_port 表与唯一默认约束
+  title: 端口表与每用户至多一个有效默认
   executor: auto
   status: missing
   priority: P0
-  ddl_ref: "06 §2"
-  acceptance: "并发设默认只成功一个；删除默认后无默认"
+  acceptance:
+  - 采用06生成列唯一约束，允许同用户多个active非默认端口；默认替换/禁用/删除同事务
+  - 零端口并发创建默认、同时替换/删除与stale version均只有合法结果；不自动选备用
+  - 真实目标版本MySQL验证生成列、多NULL唯一性与稳定账户行锁；附迁移恢复证据
   risk: 低
-
+  depends_on:
+  - S1-01
+  repositories:
+  - sduoj-autolab
+  - sduoj-deploy
+  approval_gates:
+  - SCHEMA
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 02-AI端口与MCP.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S2-02
   stage: S2
-  title: 端口 CRUD 接口（含加密与脱敏）
+  title: 本人端口CRUD与密钥生命周期
   executor: auto
   status: missing
   priority: P0
-  api_ref: "07 §3"
-  acceptance: "密钥永不回传；改端点必须换 key；SSRF 校验生效"
+  acceptance:
+  - 本人可多端口CRUD，key加密且只展示has_key/指纹；端点变更必须新key，使用CAS
+  - 他人端口、伪造owner、日志/事件/错误密钥泄露、运行中删除和权限撤销均拒绝
+  - 前后端接口与密钥轮换/失效测试通过；平台运营总览不默认为所有ADMIN可见
   risk: 中
-
+  depends_on:
+  - S2-01
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates:
+  - AUTH
+  - SECRETS
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 02-AI端口与MCP.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S2-03
   stage: S2
-  title: 端口连通性测试与模型列表探测
+  title: 受控端口能力探测与SSRF验证
   executor: auto
   status: partial
   priority: P1
-  because: "现有 /settings/health 只支持站点单例"
-  acceptance: "不回响应体；禁止重定向；内网地址被拒"
+  acceptance:
+  - 区分reachable/models_supported/responses_supported/unknown，付费探测先确认预算
+  - DNS rebinding、IPv6/编码私网、redirect、代理环境、元数据和超大响应不能绕过出口；models404不误判
+  - 隔离网络实测出口与超时；先假provider，不向真实端口探测或计费，除非另获授权
   risk: 中
-
+  depends_on:
+  - S2-02
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  - sduoj-deploy
+  approval_gates:
+  - SECRETS
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 02-AI端口与MCP.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S2-04
   stage: S2
-  title: 端口解析优先级（任务→用户默认→站点兜底→503）
+  title: 解析显式端口或本人默认，禁止隐式站点兜底
   executor: auto
   status: missing
   priority: P0
-  acceptance: "未配置时 503 且前端给引导，不回退内置模型"
+  acceptance:
+  - 显式有效端口→本人默认→503；入队固定配置/价格/模型/release，旧路径显式兼容
+  - 显式端口失效、无权限或无默认不能换provider；非AI确定性任务不被阻断
+  - 未配置引导、旧队列任务/默认变化/密钥版本不可用回归，费用主体明确
   risk: 低
-
+  depends_on:
+  - S2-02
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates:
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 02-AI端口与MCP.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S2-05
   stage: S2
-  title: auto_task_job 增加 port_id 并在 claim 中加入端口限额
+  title: 扩展原claim与AiRun账本的端口额度
   executor: auto
   status: missing
   priority: P0
-  files: [sduoj-autolab/auto_task/store.py]
-  acceptance: "端口并发 1 时第二个作业排队；跨端口互不阻塞"
+  acceptance:
+  - 原runtime稳定锁内原子检查全局/用户/通道/端口/节点，复用逐请求预留/幂等结算
+  - 并发1不超发、其它端口不饥饿；取消/租约丢失/重复完成/多轮累计预算/unknown usage不漏记
+  - 真实MySQL多进程与模型代理回归，价格版本/缓存usage/长上下文费率和月预算含在途预留
   risk: 中
-
+  depends_on:
+  - S2-04
+  repositories:
+  - sduoj-autolab
+  - sduoj-deploy
+  approval_gates:
+  - SCHEMA
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 02-AI端口与MCP.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S2-06
   stage: S2
-  title: 抽出 Harness 接口，Codex 适配器行为不变
+  title: 从持久管理执行链抽离Harness而不退回进程内权威
   executor: auto
-  status: missing
+  status: partial
   priority: P1
-  files: [sduoj-autolab/auto_task/management_agent.py]
-  acceptance: "现有智能管理测试全绿，协议逐字保持一致"
+  acceptance:
+  - 复用AiResource+TaskJob、ModelProxy、max_attempts=1与当前浏览器确认，不重建RUNTIMES
+  - 跨Web worker消息/确认、取消、失联及unknown写不重放；Cookie不进payload/模型/日志
+  - 原management_agent与management_proxy回归、精确协议fixture通过，记录当前release而非假定历史版本
   risk: 中
-
+  depends_on:
+  - S1-01
+  repositories:
+  - sduoj-autolab
+  approval_gates: []
+  execution_status: not_started
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 02-AI端口与MCP.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S2-07
   stage: S2
-  title: DSH headless 能力探测（多轮/MCP/事件结构）
+  title: 隔离探测DSH能力并记录能力差异
   executor: auto
   status: missing
   priority: P1
-  because: "DSH 0.2.1-rc.2 的 headless 是否支持多轮与外部工具未验证"
-  acceptance: "结论写入 01 文档；不支持则明确降级方案，不得假装等价"
+  acceptance:
+  - 记录实际CLI/digest，验证多轮、工具/MCP、结构化事件、取消、恢复和协议失败
+  - 不支持则明确single_turn等capability；不通过调度器串联伪装等价，不阻塞Codex
+  - 临时profile/假模型先行，无真实配置或付费探测；结论、退出码和脱敏样本入01
   risk: 高
-
+  depends_on: []
+  repositories:
+  - sduoj-autolab
+  - sduoj-deploy
+  approval_gates: []
+  execution_status: not_started
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 02-AI端口与MCP.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S2-08
   stage: S2
-  title: MCP 工具网关 v1（L0/L1 工具 + 作业令牌）
+  title: MCP Broker协议与受限委托设计
   executor: auto
   status: missing
   priority: P0
-  api_ref: "07 §4"
-  acceptance: "模型可读题；越权返回 403；令牌不能跨作业复用"
+  acceptance:
+  - MCP握手/list/call/CallToolResult互操作，job能力令牌绑定audience/job/lease/subject/tools/resources
+  - 伪造owner_id/SDUOJUserInfo、跨作业/资源/受众、过期/撤销与未列工具均拒绝；不透传RPC token
+  - 真实会话/权限撤销和harness契约；委托未获批准/实现时只保留浏览器确认，不开放自动写
   risk: 中
-
+  depends_on:
+  - S2-05
+  - S2-06
+  - S1-02
+  - S1-05
+  repositories:
+  - sduoj-autolab
+  - sduoj-server-private
+  - sduoj-web2
+  approval_gates:
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 02-AI端口与MCP.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S2-09
   stage: S2
-  title: 工具风险分级审批与审计表
+  title: 工具审批、幂等与未知结果审计
   executor: auto
   status: missing
   priority: P1
-  acceptance: "L3 动作需二次确认；全部调用入 auto_agent_tool_audit"
+  acceptance:
+  - 敏感只读也授权；测试数据写L2，组成员/发布/座位/写回L3，call_id/参数hash/版本绑定批准
+  - 重复批准、参数变更、ABA撤权、HTTP成功回包丢失不重复写，unknown进入对账
+  - 审计不含secret；实际外部模拟故障与DB并发一次性结果/receipt回归
   risk: 中
-
+  depends_on:
+  - S2-08
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  - sduoj-deploy
+  approval_gates:
+  - AUTH
+  - SCHEMA
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 02-AI端口与MCP.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S2-10
   stage: S2
-  title: 主观题批阅迁移到 agent（保留旧实现开关）
+  title: 兼容迁移主观批阅到受控Agent
   executor: hybrid
   status: partial
   priority: P1
-  files: [sduoj-autolab/auto_task/subjective_review.py]
-  acceptance: "双跑差异率低于阈值；批阅结果先入草稿，教师 adopt 才写成绩"
+  acceptance:
+  - 保留原评分schema、AiReview/教师adopt与legacy开关；新模型只产草稿
+  - 双跑不重复扣分/采用，端口撤销/预算/缺usage与模型失败不写原成绩
+  - 教师预先冻结验收集/偏差阈值/费用，真实原生批阅链回归；不宣称旧实现无审核
   risk: 高
-
-# ---------- S3 云沙箱与工作区 ----------
+  depends_on:
+  - S2-09
+  - S3-03
+  - S3-05
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates:
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 02-AI端口与MCP.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S3-01
   stage: S3
-  title: 会话外部化（auto_agent_session）与节点注册
+  title: 在原会话上增加节点/execution与租约fencing
   executor: auto
   status: missing
   priority: P1
-  ddl_ref: "06 §3"
-  acceptance: "杀掉节点后作业能被他节点接管或明确失败，不静默重跑写操作"
+  acceptance:
+  - AiResource仍为业务权威，新增运行归属/attempt/lease，私有控制面验证节点身份
+  - 杀节点、旧lease迟到、伪造node容量及未知外部写不静默重放；DB额度不信自报in_flight
+  - 真实MySQL和多进程故障接管/明确失败、计费回收与控制面负向访问证据
   risk: 高
-
+  depends_on:
+  - S2-06
+  - S2-05
+  repositories:
+  - sduoj-autolab
+  - sduoj-deploy
+  approval_gates:
+  - SCHEMA
+  - AUTH
+  - SECRETS
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 01-云Agent系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S3-02
   stage: S3
-  title: S3/JuiceFS 工作区挂载与输入快照
+  title: 验证S3工作区语义并实现快照/挂载路径
   executor: auto
   status: missing
   priority: P1
-  acceptance: "两节点读同一作业输入结果一致；产物显式上传"
+  acceptance:
+  - 先比较本地卷+显式快照与FUSE/JuiceFS，固定输入manifest和attempt专用产物目录
+  - rename/锁/多客户端/断网/flush、路径穿越/跨租户/凭据泄露失败，未上传完不登记成功
+  - 目标存储两节点PoC、备份恢复、冷暖p50/p95和回收证据；未测试不宣称POSIX/高性能
   risk: 高
-
+  depends_on:
+  - S3-01
+  repositories:
+  - sduoj-autolab
+  - sduoj-deploy
+  approval_gates:
+  - SANDBOX
+  - SECRETS
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 01-云Agent系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S3-03
   stage: S3
-  title: 沙箱强化（seccomp、出站白名单、可选 gVisor）
+  title: 验证整个Harness与工具的隔离边界
   executor: auto
   status: partial
   priority: P1
-  files: [sduoj-autolab/auto_task/sandbox.py]
-  acceptance: "逃逸测试用例全部失败；agent 容器不能访问内网"
+  acceptance:
+  - 独立作业卷/非root/资源限额，只能经批准模型/MCP中继，不把命令沙箱当Harness已隔离
+  - 内网/元数据/套接字/跨租户/进程树/符号链接/恶意工具输出反例，none网络与HTTP通道无矛盾
+  - 实际容器/出口/取消回收测试和威胁报告；公开多租户开关保持关闭直到放行
   risk: 高
-
+  depends_on:
+  - S3-01
+  repositories:
+  - sduoj-autolab
+  - sduoj-deploy
+  approval_gates:
+  - SANDBOX
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 01-云Agent系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S3-04
   stage: S3
-  title: 版本清单与启动自检
+  title: 精确版本registry、兼容和灰度回退
   executor: auto
   status: missing
   priority: P1
-  acceptance: "版本不在允许区间时 Runner 拒绝启动"
+  acceptance:
+  - 管理员批准的release/digest/协议profile与capabilities；用户不能指定任意binary/镜像
+  - 不兼容启动拒绝，旧会话固定旧release；checkpoint版本不兼容明确失败
+  - 旧新release契约、灰度、回退和会话恢复证据，不按宽SemVer范围假定兼容
   risk: 中
-
+  depends_on:
+  - S2-06
+  repositories:
+  - sduoj-autolab
+  - sduoj-deploy
+  approval_gates:
+  - SECRETS
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 01-云Agent系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S3-05
   stage: S3
-  title: Harness 契约测试
-  executor: auto
-  status: missing
-  priority: P2
-  acceptance: "握手/工具回调/取消/超时/恢复 五项均通过"
-  risk: 低
-
-# ---------- S4 出题平台 ----------
-- id: S4-01
-  stage: S4
-  title: 建立 oj_unified_problem 视图表与同步任务
-  executor: auto
-  status: missing
-  priority: P0
-  ddl_ref: "06 §4"
-  acceptance: "三题型均出现；对账任务能发现并修正漂移"
-  risk: 中
-
-- id: S4-02
-  stage: S4
-  title: 客观/主观题补齐 visibility/difficulty/title
-  executor: auto
-  status: missing
-  priority: P0
-  acceptance: "历史题 visibility=0 且 manage_group_id 回填，行为不变"
-  risk: 中
-
-- id: S4-03
-  stage: S4
-  title: 统一检索接口与四档可见性判定
-  executor: auto
-  status: missing
-  priority: P0
-  api_ref: "07 §5.1"
-  acceptance: "私有题不出现在公开 tab；超管可见全部"
-  risk: 中
-
-- id: S4-04
-  stage: S4
-  title: 出题包表与九阶段工作台后端
+  title: Harness与真实隔离执行契约验收
   executor: auto
   status: missing
   priority: P1
-  acceptance: "可完成一次端到端出题并发布"
+  acceptance:
+  - 握手、事件、工具回调、取消/超时、跨节点恢复五组测试针对精确release
+  - 缺final/坏JSON/子进程挂起/过期lease/恢复缺文件失败且不写重放
+  - 真实Runner+假模型验证，不用mock代替进程/网络边界；DSH只验其支持能力
+  risk: 低
+  depends_on:
+  - S3-03
+  - S3-04
+  repositories:
+  - sduoj-autolab
+  - sduoj-deploy
+  approval_gates: []
+  execution_status: not_started
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 01-云Agent系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S4-01
+  stage: S4
+  title: 统一检索投影与源校验适配
+  executor: auto
+  status: missing
+  priority: P0
+  acceptance:
+  - 三题型类型化索引、源签名/tombstone/游标与可重建对账，不直写Java库
+  - 撤权/删除/同步故障不泄露标题/答案；重复nativeId和重复slot不合并
+  - Java/Autolab有界批量合同和重建对账，索引不充当权威ACL
   risk: 中
-
+  depends_on:
+  - S1-05
+  - S1-02
+  - S1-04
+  repositories:
+  - sduoj-autolab
+  - sduoj-server-private
+  - sduoj-deploy
+  approval_gates:
+  - SCHEMA
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 03-出题平台.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S4-02
+  stage: S4
+  title: 原生元数据兼容迁移与多组ACL审计
+  executor: auto
+  status: missing
+  priority: P0
+  acceptance:
+  - nullable未迁移态保持原合法权限；稳定主体映射和多管理组完整保留
+  - 孤儿/归属冲突/可疑引用隔离，不强制私有+单组、不凭未验证引用授新权
+  - 恢复隔离库分批回填、迁移前后权限集合/计数/hash等价及旧读者回退
+  risk: 中
+  depends_on:
+  - S4-01
+  - S1-03
+  repositories:
+  - sduoj-autolab
+  - sduoj-deploy
+  approval_gates:
+  - SCHEMA
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 03-出题平台.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S4-03
+  stage: S4
+  title: 统一来源检索与分投影详情
+  executor: auto
+  status: missing
+  priority: P0
+  acceptance:
+  - public/group/mine/all筛选与program/objective/subjective类型，回源按动作裁剪
+  - 匿名/普通引用者拿不到答案/rubric/隐藏数据，source/include_tests不能提权
+  - 本人/同组/异组/撤权/超管/匿名矩阵，路由不冲突原/problem/:ProblemCode
+  risk: 中
+  depends_on:
+  - S4-02
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates:
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 03-出题平台.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S4-04
+  stage: S4
+  title: 复用原authoring资源的九阶段与幂等发布
+  executor: auto
+  status: missing
+  priority: P1
+  acceptance:
+  - 包绑定AiResource/manifest，stage服务端验证，原native-plan/finalize与人工发布门禁保留
+  - 修改输入使报告失效；跨库/对象上传部分成功和unknown不盲重试create
+  - 端到端生成到发布+读回receipt，外部故障/幂等合同与安全staging回归
+  risk: 中
+  depends_on:
+  - S4-03
+  repositories:
+  - sduoj-autolab
+  - sduoj-server-private
+  - sduoj-web2
+  approval_gates:
+  - SCHEMA
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 03-出题平台.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S4-05
   stage: S4
-  title: 文档/图片解析管线（PDF/DOCX/图片 → 结构化题目）
+  title: 文档/图片解析与人工核对草稿管线
   executor: auto
   status: partial
   priority: P1
-  because: "documents.py 已支持 pptx/docx/pdf/md/txt，缺题块切分与结构化"
-  acceptance: "一份 PDF 能切成结构化题目，保留页码与 bbox"
+  acceptance:
+  - 复用files上传与解析组件，保留PDF/DOCX/PPTX/图片/MD/TXT路径；块有源hash/页/坐标/版本
+  - 伪装文件/压缩炸弹/外部关系/宏/超页数/提示注入受限，未知置信度不伪造
+  - 实际格式样本与渲染/结构化对照回归，parse REST包装按新接口验收而非声称已有
   risk: 中
-
+  depends_on:
+  - S4-04
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates:
+  - SANDBOX
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 03-出题平台.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S4-06
   stage: S4
-  title: 翻译能力（按块、保留原文、双语对照）
+  title: 版本化逐块翻译与双语对照
   executor: agent
   status: missing
   priority: P2
-  because: "现只有 extract 时附带中文，无独立翻译接口"
-  acceptance: "不覆盖原文；术语不一致给警告"
+  acceptance:
+  - 保留原文与术语表/模型/提示版本，公式/代码/范围不被改写
+  - 源版本改变标旧译文过期，不覆盖人工修订或默默发布
+  - 确定样例双语核对与端口失败/费用边界，非AI解析仍可用
   risk: 中
-
+  depends_on:
+  - S4-05
+  - S2-04
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates: []
+  execution_status: not_started
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 03-出题平台.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S4-07
   stage: S4
-  title: 七项终检作业
+  title: 按题型profile执行七项自动终检
   executor: auto
   status: partial
   priority: P1
-  because: "authoring 已有 generator/validator/标程与 Docker 沙箱，缺题面逻辑与数据分布校验"
-  acceptance: "故意引入七类错误各自能被检出"
+  acceptance:
+  - 题面/分布/配置/语言/解法/强度/边界报告绑定同一manifest；不适用有批准理由
+  - 七类故意错误各被检出，修改输入令旧绿勾失效；不把人类实测混为第七项
+  - 真实编译执行/评测模板矩阵、结果哈希与预算证据
   risk: 中
-
+  depends_on:
+  - S4-04
+  - S3-03
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates:
+  - SANDBOX
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 03-出题平台.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S4-08
   stage: S4
-  title: 人类实测（专用链接、计时、得分、留码、意见）
-  executor: manual
+  title: 限版本邀请的人类实测与完整记录
+  executor: hybrid
   status: missing
   priority: P1
-  because: "全仓无任何实现；这是唯一能发现题意歧义的手段"
-  acceptance: "免登录可做、记录完整、意见必填"
+  acceptance:
+  - 哈希令牌兑换受限会话，只读隔离题面；服务端计时并追加每次代码/答案/得分/意见
+  - 跨包/跨版本/过期/撤销/超次/答案读取拒绝，不写正式成绩或计入正式提交限次
+  - 真实独立试做人与执行链验收，token不入URL path/log，公开匿名入口另获批准
   risk: 中
-
+  depends_on:
+  - S4-07
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  - sduoj-deploy
+  approval_gates:
+  - AUTH
+  - SCHEMA
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 03-出题平台.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S4-09
   stage: S4
-  title: 题组支持混合题型（题项级 kind）
+  title: 混合题组格式的独立兼容放行
   executor: auto
   status: missing
   priority: P2
-  because: "problem_group.type 是组级枚举，一组建一题型"
-  acceptance: "同一题组含三题型可正常作答；旧数据按组类型回退"
+  acceptance:
+  - item kind/slot_id/format_version，旧0/1/2显式映射；读者全链先支持，再开新写
+  - 旧读者不能忽略kind误判；shuffle/权限/限次/Run/正式提交/计分/导出/缓存均覆盖
+  - 旧数据与混合数据真实矩阵，记录写后不可回任意旧版本的回退底线
   risk: 高
-
+  depends_on:
+  - S1-05
+  - S4-03
+  repositories:
+  - sduoj-autolab
+  - sduoj-server-private
+  - sduoj-web2
+  approval_gates:
+  - AUTH
+  - SCHEMA
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 03-出题平台.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S4-10
   stage: S4
-  title: 客观/主观题 AI 命题
+  title: 客观/主观AI命题草稿
   executor: agent
   status: missing
   priority: P3
-  because: "authoring.generate 只产编程题包"
-  acceptance: "可按知识点生成客观/主观题草案并经人工审定"
+  acceptance:
+  - 按知识点产草稿，保留原题型/图片选项/多项rubric结构
+  - 模型输出不直接公开/写成绩，变更旧原生题需当前源权限与人工确认
+  - 题型schema、人工审定和端口费用/撤权回归
   risk: 中
-
-# ---------- S5 查重系统 ----------
+  depends_on:
+  - S4-04
+  - S2-09
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates:
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 03-出题平台.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S5-01
   stage: S5
-  title: 扫描任务表与单题/题组范围
+  title: 扫描范围/不可变快照/历史模型
   executor: auto
   status: partial
   priority: P0
-  because: "已有按 pid 的 JPlag 链路，缺独立扫描实体"
-  ddl_ref: "06 §5"
-  acceptance: "能建扫描并跑完，结果入库"
+  acceptance:
+  - 单题/组范围固定版本/截点/selection/capture_floor及源权限；新扫新operation_key
+  - 只采正式提交，排除Run/云保存；未知/partial不宣布完整，无AI端口仍可跑确定性扫描
+  - 快照完整性、源合同、单题有效上限和故障证据
   risk: 中
-
+  depends_on:
+  - S1-05
+  - S1-02
+  repositories:
+  - sduoj-autolab
+  - sduoj-server-private
+  - sduoj-deploy
+  approval_gates:
+  - SCHEMA
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 04-查重系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S5-02
   stage: S5
-  title: 题单级批量扫描（多题 × 按语言分组）
+  title: 整单按题项和语言分片扫描
   executor: auto
   status: missing
   priority: P0
-  acceptance: "一个题单一次跑完；不同语言分别比对"
+  acceptance:
+  - 按scope_item_key+language分片，不把不同题或重复引用上下文合并
+  - 总量/配对/字节超限明确失败或partial，取消及失败分片不静默遗漏
+  - 实际JPlag容量/并发与最大配对数报告，初期不超过执行器1000条有效上限
   risk: 中
-
+  depends_on:
+  - S5-01
+  repositories:
+  - sduoj-autolab
+  approval_gates: []
+  execution_status: not_started
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 04-查重系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S5-03
   stage: S5
-  title: contest 提交取数路径
+  title: 比赛正式提交的授权分页取数
   executor: auto
   status: missing
   priority: P1
-  because: "查重链路只认 Autolab 题单，Java contest 提交不在路径上"
-  acceptance: "比赛提交可被扫描"
+  acceptance:
+  - 按contest/slot/时间/策略固定源快照，仅管理者允许范围，稳定排序分页
+  - 跨比赛、私有代码、非正式Task类型或漏页均拒绝/报告，不假定现有内部page接口
+  - Java生产者接口包原发布链+Autolab消费者真实合同验收
   risk: 中
-
+  depends_on:
+  - S5-01
+  repositories:
+  - sduoj-server-private
+  - sduoj-autolab
+  approval_gates:
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 04-查重系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S5-04
   stage: S5
-  title: 阈值后期调整（不重跑 JPlag）
+  title: 按capture_floor和完整度调整管理阈值
   executor: auto
   status: missing
   priority: P1
-  because: "JPlag 用 -n -1 保留全部配对，可本地重筛"
-  acceptance: "改阈值即时重筛；threshold=1 表示不查重"
+  acceptance:
+  - 保留floor/complete/operator，v2严格gt，legacy ge不重解释；1为skip
+  - 低于floor要求重扫，等号边界明确；不能因-n -1声称保存低于-m的比较
+  - 真实引擎报告样例测试floor±epsilon/等号/1和旧结果，人工决定不随筛选删除
   risk: 低
-
+  depends_on:
+  - S5-01
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates: []
+  execution_status: not_started
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 04-查重系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S5-05
   stage: S5
-  title: 配对并排 diff 与相似度矩阵
+  title: 管理配对diff与有界相似矩阵
   executor: auto
   status: missing
   priority: P1
-  because: "matches 已存但前端不渲染"
-  acceptance: "高亮命中的行区间；矩阵可点击跳转"
+  acceptance:
+  - 按题项/语言显示原文件匹配行，长列表/矩阵聚合分页
+  - 坏报告/越界行/HTML代码与未授权pair不泄露或执行，不把连通分量称团伙
+  - 真实报告fixture、浏览器大样本/字符转义与权限回归
   risk: 低
-
+  depends_on:
+  - S5-01
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates: []
+  execution_status: not_started
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 04-查重系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S5-06
   stage: S5
-  title: 人工复查改判与决策历史
+  title: 复查CAS、不可变决策历史与受控写回
   executor: hybrid
   status: partial
   priority: P1
-  because: "已有 CLEAR/SUSPICIOUS/CONFIRMED，缺改判与历史"
-  acceptance: "改判记入 decision_log；改判后写回一致性校验通过"
+  acceptance:
+  - 必填理由、version CAS与decision_log同事务，原生写回保留原门禁
+  - 并发改判/重复决定/外部写未知先对账，contest不自动改成绩
+  - 真实MySQL锁+原native writeback合同，不确定结果恢复与receipt证据
   risk: 中
-
+  depends_on:
+  - S5-05
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates:
+  - SCHEMA
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 04-查重系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S5-07
   stage: S5
-  title: 导出 CSV/Excel
+  title: 授权导出与隐私防护
   executor: auto
   status: missing
   priority: P2
-  acceptance: "导出内容与界面一致，含人工决策与理由"
+  acceptance:
+  - CSV/Excel与筛选/revision一致，原jplag/PDF摘要仅授权下载并审计
+  - 公式注入、超量、临时URL过期和报告ZIP炸弹被拦，不公开学生源码
+  - 导出回读/数据一致性与受控下载回归
   risk: 低
-
+  depends_on:
+  - S5-06
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates: []
+  execution_status: not_started
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 04-查重系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S5-08
   stage: S5
-  title: 绑定到 contest/题单（唯一约束）
+  title: 冻结查重发布与唯一场次绑定
   executor: auto
   status: missing
   priority: P0
-  acceptance: "同一 ref 只能绑一份；改绑需先解绑"
+  acceptance:
+  - 绑定同范围的完整已复查扫描，固定发布manifest/revision，默认visible/show_code=false
+  - 跨范围、partial/skipped/未复查拒绝；管理阈值变更不自动改学生发布，解绑立即失效
+  - 真实并发绑定/CAS、不可变发布历史/权限与撤销回归
   risk: 中
-
+  depends_on:
+  - S5-04
+  - S5-06
+  - S5-02
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  - sduoj-deploy
+  approval_gates:
+  - AUTH
+  - SCHEMA
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 04-查重系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S5-09
   stage: S5
-  title: 学生自查接口与回显卡片
+  title: 学生本人查重结果最小投影
   executor: auto
   status: missing
   priority: P0
-  because: "answer_sheet.py:724 只有 # TODO 接入查重，无读取路径"
-  acceptance: "学生只看到自己的；未绑定返回空且不报错"
+  acceptance:
+  - 验证当前主体/场次资格/发布revision；默认无对方身份/代码/提交ID
+  - 跨学生/场次/pair/未发布/撤销均拒绝，partial不说无异常，无绑定返回bound=false
+  - 专用API与真实学生会话/浏览器验收，非仅隐藏管理DTO字段
   risk: 中
-
+  depends_on:
+  - S5-08
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates:
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 04-查重系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S5-10
   stage: S5
-  title: 多次扫描历史与并列展示
+  title: 扫描与发布历史对照
   executor: auto
   status: missing
   priority: P2
-  acceptance: "同一题单多次扫描可并列查看；不覆盖历史"
+  acceptance:
+  - 同范围多scan并列保留，展示各快照/引擎/阈值/完整度，不覆盖旧源
+  - 同key重试幂等、改参数409，权限撤销后不能继续读历史代码
+  - 历史/新扫/绑定revision合同与分页回归
   risk: 低
-
-# ---------- S6 考务系统 ----------
+  depends_on:
+  - S5-01
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates: []
+  execution_status: not_started
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 04-查重系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S6-01
   stage: S6
-  title: 考生在线状态批量查询
+  title: 最小化的考试在线观测批量聚合
   executor: auto
   status: missing
   priority: P1
-  because: "monitor_data 只判断提交状态；getOnlineSessions 需按 216 人批量"
-  acceptance: "一次查询 < 500ms"
+  acceptance:
+  - 按当前有权考试名单查询session_present/last_observed_at，不扩大原SUPERADMIN接口
+  - 任意用户名/跨场次/伪造主体拒绝；源失败显示unknown而非离线，不返回token/IP
+  - 真实Java会话源与216人/多场次冷暖p95目标测量，500ms仅待验目标
   risk: 中
-
+  depends_on:
+  - S1-01
+  repositories:
+  - sduoj-server-private
+  - sduoj-autolab
+  approval_gates:
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 05-考务系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S6-02
   stage: S6
-  title: 账号生成与持久化台账（幂等）
+  title: 幂等加密账号台账与冻结生成
   executor: auto
   status: missing
   priority: P0
-  because: "OJ 无生成与台账；本地脚本在 cs25problem/*/pass"
-  acceptance: "重复生成密码不变；台账先落盘再渲染"
+  acceptance:
+  - 稳定exam/candidate文本键、CSPRNG、先持久后外部调用/渲染，重试密码不变
+  - 并发生成、前导零考号、OJ外部重名和key恢复不覆盖旧用户，明文不入job/log/model
+  - 真实MySQL唯一/锁和密钥备份恢复，按权限脱敏读取
   risk: 高
-
+  depends_on:
+  - S1-05
+  repositories:
+  - sduoj-autolab
+  - sduoj-deploy
+  approval_gates:
+  - SCHEMA
+  - SECRETS
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 05-考务系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S6-03
   stage: S6
-  title: 账号批量导入 OJ
-  executor: auto
+  title: 非覆盖建号编排与未知结果对账
+  executor: hybrid
   status: partial
   priority: P0
-  because: "/manage/user/addUsers 已存在，缺服务端编排与占位邮箱验证"
-  acceptance: "抽样登录成功后再全量"
+  acceptance:
+  - 逐人状态/attempt/receipt，先隔离确认邮箱/邮件策略和batch事务/覆盖语义
+  - 部分成功/回包丢失/用户名已存在不盲重放或重置密码，unknown阻止材料发布
+  - 隔离Java/DB禁外发邮件，合法/非法/重复导入和抽样登录，生产建号另批准
   risk: 中
-
+  depends_on:
+  - S6-02
+  repositories:
+  - sduoj-autolab
+  - sduoj-server-private
+  approval_gates:
+  - AUTH
+  - SECRETS
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 05-考务系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S6-04
   stage: S6
-  title: 密码条/签到表渲染与五项反向校验
+  title: 冻结材料渲染、全批回验与受控重印
   executor: auto
   status: missing
   priority: P0
-  acceptance: "页数/溢出/缺字/唯一/越界 任一失败则整批作废"
+  acceptance:
+  - 台账/seat/roster同版本，12条每页/每场另页，重印读原密码
+  - 全批缺失/重复/字段不符/溢出/缺字/越界任一失败禁止发布；输入转义禁shell escape
+  - 实际PDF渲染/回读/视觉检查+私有短期下载/过期/审计，监考接口不见密码
   risk: 中
-
+  depends_on:
+  - S6-03
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates:
+  - SECRETS
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 05-考务系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S6-05
   stage: S6
-  title: 监考链接与免密会话
+  title: 受限监考邀请兑换与独立会话
   executor: auto
   status: missing
   priority: P1
-  acceptance: "令牌只存哈希；过期/吊销即失效；不授予任何 OJ 权限"
+  acceptance:
+  - link/session分别高熵hash，fragment兑换HttpOnly Cookie/CSRF，限定exam/room/actions与有效期
+  - 并发max_uses/撤销子session/过期/猜sid/跨room/CSRF/日志secret失败，不能因sid即授权
+  - 真实网关精确匿名白名单+peer+能力中间件联合验收，不豁免整个auto-task
   risk: 高
-
+  depends_on:
+  - S1-01
+  - S6-02
+  repositories:
+  - sduoj-autolab
+  - sduoj-server-private
+  - sduoj-web2
+  - sduoj-deploy
+  approval_gates:
+  - AUTH
+  - SCHEMA
+  - SECRETS
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 05-考务系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S6-06
   stage: S6
-  title: 监考端页面（移动优先）
+  title: 移动优先监考页面与弱网观测
   executor: auto
   status: missing
   priority: P1
-  acceptance: "真机 375px 可用；触控目标 ≥44px；15s 轮询"
+  acceptance:
+  - 375px真机单列、44px触控、安全区、15秒轮询且隐藏暂停，不加载管理导航
+  - 长姓名/横向溢出/断网与stale、过期/撤销正确，observed不是绝对在线
+  - 真机与三浏览器、弱网恢复/权限测试，不用仅jsdom快照当移动验收
   risk: 中
-
+  depends_on:
+  - S6-01
+  - S6-05
+  repositories:
+  - sduoj-web2
+  approval_gates: []
+  execution_status: not_started
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 05-考务系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S6-07
   stage: S6
-  title: 监考动作与异常台账
+  title: 监考追加动作与非自动补时申请
   executor: hybrid
   status: missing
   priority: P1
-  acceptance: "关键动作二次确认；全部落库可追溯"
+  acceptance:
+  - present/absent/exception/resolved/extension_request，request_id幂等与version/room校验
+  - 重复点击/并发修订/跨人跨考场拒绝；补时仅申请，不能改正式deadline
+  - 真实会话/DB冲突/撤销测试，记录更正保留历史和actor非实名标识
   risk: 中
-
+  depends_on:
+  - S6-06
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  - sduoj-deploy
+  approval_gates:
+  - AUTH
+  - SCHEMA
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 05-考务系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 - id: S6-08
   stage: S6
-  title: 考务准备工作台（名单→账号→考场→材料→链接）
+  title: 考务工作台串联与分阶段发布
   executor: auto
   status: partial
   priority: P2
-  because: "ExaminationWorkbench 已有名单/考场/座位/prepare/publish"
-  acceptance: "一条主线走完，断点处给出明确提示"
+  acceptance:
+  - 名单→台账→导入→座位→材料→链接显式版本与断点，复用原prepare/publish门禁
+  - 未导入/unknown/未校验材料/未授权链接阻止发布，不重生成账号或绕TEST/FORMAL
+  - 最终真实制品全链、人工现场演练与关闭新写/对账/兼容回退清单
   risk: 中
-
-# ============================================================
+  depends_on:
+  - S6-04
+  - S6-07
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates: []
+  execution_status: not_started
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 05-考务系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
 blockers:
-  - id: B-01
-    text: 网关对等校验未覆盖 /management-agent
-    until: S1-01 完成
-  - id: B-02
-    text: 客观/主观题可按 pid 越权读取答案
-    until: S1-02 完成
-  - id: B-03
-    text: DSH 能力未探测，不得宣称「多 harness 等价」
-    until: S2-07 有结论
-  - id: B-04
-    text: 沙箱未做多租户隔离强化，不得面向公开用户开放 agent
-    until: S3-03 完成
-  - id: B-05
-    text: 账号台账未落地，不得开启「重印密码条」
-    until: S6-02 完成
-
+- id: B-01
+  text: 整理基线及既有peer/RPC回归尚需绑定到最终候选
+  until_tasks:
+  - S1-01
+  state: needs_evidence
+  note: 本轮文档不替代实际批准/验收。
+  blocks_release_of:
+  - S2-08
+  - S3-01
+  - S6-05
+  capability_scope: named_feature_release
+- id: B-02
+  text: 原生gid/type/pid关联读写缺口修复须批准并验收
+  until_tasks:
+  - S1-02
+  - S1-03
+  state: needs_evidence
+  note: 本轮文档不替代实际批准/验收。
+  blocks_release_of:
+  - S4-01
+  - S4-03
+  - S5-01
+  capability_scope: named_feature_release
+- id: B-03
+  text: DSH能力未探测，不可宣称多harness等价
+  until_tasks:
+  - S2-07
+  state: needs_evidence
+  note: 范围门禁，不代表整个阶段都必须等待；DSH仅约束DSH能力，Codex可独立验收。
+  blocks_release_of:
+  - S3-05
+  capability_scope: dsh_only
+- id: B-04
+  text: 公开多租户Agent需隔离/出口/凭据验收
+  until_tasks:
+  - S3-03
+  - S3-05
+  state: needs_evidence
+  note: 本轮文档不替代实际批准/验收。
+  blocks_release_of:
+  - S2-10
+  - S4-10
+  capability_scope: named_feature_release
+- id: B-05
+  text: 台账/导入未核定不得发布或重印密码材料
+  until_tasks:
+  - S6-02
+  - S6-03
+  state: needs_evidence
+  note: 本轮文档不替代实际批准/验收。
+  blocks_release_of:
+  - S6-04
+  - S6-08
+  capability_scope: named_feature_release
+- id: B-06
+  text: 实际DDL与数据回填需要独立SCHEMA提案/恢复验收
+  until_tasks:
+  - S2-01
+  - S4-02
+  state: needs_evidence
+  note: 本轮文档不替代实际批准/验收。
+  blocks_release_of:
+  - S2-05
+  - S4-03
+  capability_scope: named_feature_release
+- id: B-07
+  text: owner_id不是会话，自动MCP写委托未完成前保持关闭
+  until_tasks:
+  - S2-08
+  - S2-09
+  state: needs_evidence
+  note: 本轮文档不替代实际批准/验收。
+  blocks_release_of:
+  - S2-10
+  - S4-10
+  capability_scope: named_feature_release
+- id: B-08
+  text: 混合题组需全读者兼容，不能直接回退旧格式
+  until_tasks:
+  - S1-05
+  - S4-09
+  state: needs_evidence
+  note: 本轮文档不替代实际批准/验收。
+  blocks_release_of:
+  - S4-09
+  capability_scope: named_feature_release
+- id: B-09
+  text: 降低查重阈值受capture_floor与结果完整度限制
+  until_tasks:
+  - S5-04
+  state: needs_evidence
+  note: 本轮文档不替代实际批准/验收。
+  blocks_release_of:
+  - S5-08
+  - S5-09
+  capability_scope: named_feature_release
+- id: B-10
+  text: 监考匿名入口/撤销/CSRF须完整验收
+  until_tasks:
+  - S6-05
+  state: needs_evidence
+  note: 本轮文档不替代实际批准/验收。
+  blocks_release_of:
+  - S6-06
+  - S6-08
+  capability_scope: named_feature_release
+- id: B-11
+  text: 实测邀请兑换/版本/次数须完整验收
+  until_tasks:
+  - S4-08
+  blocks_release_of:
+  - S4-08
+  state: needs_evidence
+  capability_scope: human_trial_release
+  note: 放行门禁，不是任务启动依赖；不阻塞独立监考开发。
 change_control:
-  - rule: 涉及既有表中已有语义的改动（如 problem_group.type）必须先读后写、两步上线（先读兼容再放开写）
-  - rule: 新增列一律可空或带默认值，保证旧版本代码可继续运行
-  - rule: 任何 P0 安全项未完成前，对应功能不得对外开放
-  - rule: 前端路由与后端能力同批上线；oj_unified_problem 不可单独回滚
+- rule: 本轮仅审计/完善文档，不授权实际DDL、鉴权、网关、沙箱、密钥或生产修改。
+- rule: 按已确认整理基线开需求分支；一个PR/commit一个目的，保留原供应链与发布流程，无授权不push。
+- rule: DDL集中06、REST路径集中07；先兼容读者再回填/放写，真实MySQL/Redis/服务链和恢复必须有证据。
+- rule: TaskJob/ModelProxy/原审批和账本不重建；旧任务冻结配置，v2无隐式站点provider兜底。
+- rule: 回退关闭新写并对账，保留schema/账本/外部receipt；混合数据写入后不能回任意旧代码。
+- rule: 确定性查重/材料/本地解析不依赖AI；发布、代用户写、匿名能力入口分别放行。
+audited_at: '2026-10-18'
