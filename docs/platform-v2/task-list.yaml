@@ -480,9 +480,10 @@ tasks:
   - 静态注册14组件及action/profile/schema/依赖；AiSetting复用、默认关闭，M配置仅既有平台运营权限，CAS+幂等receipt与原审计链
   - 总/组件/action和依赖单调generation冻结，旧入口/chain/batch/retry/claim/模型/工具/最终采用统一gate；关闭重开不复活，历史/取消/端点修复与确定性流程可用
   - capabilities兼容旧字段、不触发模型；前端按主体/作用域缓存与路由守卫，旧响应/30s缓存无授权效力；内置审核/OCR分段及14组件正反向回归
+  - 静态治理/前端可先于SDK实现；运行启用另受B-03及S3-05合同放行，不把手工/确定性开发绑到SDK
   risk: 高
   depends_on:
-  - S2-06
+  - S1-01
   repositories:
   - sduoj-autolab
   - sduoj-web2
@@ -897,7 +898,6 @@ tasks:
   risk: 中
   depends_on:
   - S4-03
-  - S2-07
   repositories:
   - sduoj-autolab
   - sduoj-server-private
@@ -920,6 +920,10 @@ tasks:
     - negative
     - failure_recovery
     evidence: []
+  capability_dependencies:
+    ai_actions:
+    - S2-07
+    - S3-05
 - id: S4-05
   stage: S4
   title: 文档/图片解析与人工核对草稿管线
@@ -933,7 +937,6 @@ tasks:
   risk: 中
   depends_on:
   - S4-04
-  - S2-07
   repositories:
   - sduoj-autolab
   - sduoj-web2
@@ -952,6 +955,10 @@ tasks:
     - negative
     - failure_recovery
     evidence: []
+  capability_dependencies:
+    ai_actions:
+    - S2-07
+    - S3-05
 - id: S4-06
   stage: S4
   title: 版本化逐块翻译与双语对照
@@ -998,7 +1005,6 @@ tasks:
   depends_on:
   - S4-04
   - S3-03
-  - S2-07
   repositories:
   - sduoj-autolab
   - sduoj-web2
@@ -1017,6 +1023,10 @@ tasks:
     - negative
     - failure_recovery
     evidence: []
+  capability_dependencies:
+    ai_actions:
+    - S2-07
+    - S3-05
 - id: S4-08
   stage: S4
   title: 限版本邀请的人类实测与完整记录
