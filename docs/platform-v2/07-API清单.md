@@ -48,7 +48,9 @@
 | POST | A/ports/{id}/update | 属主 + version；endpoint 改变需新 key |
 | POST | A/ports/{id}/delete | 属主；运行中拒绝删除，默认标记原子清除 |
 | POST | A/ports/{id}/default | 属主；稳定账户行锁 + 唯一约束 |
-| POST | A/ports/{id}/test | 属主 + 限频；计费探测需确认上限，返回有限能力状态 |
+| GET | A/ports/{id}/test | dev 已接的本地报价，不访问模型；返回版本/价格及请求/token/费用上限，见 [26](26-受控端点探测后端dev验收.md) |
+| POST | A/ports/{id}/test | 属主 + 限频；dev 后端已接显式报价确认和原 worker 任务；前端与真实供应商尚待验收，见 26 |
+| GET | A/ports/{id}/test/{taskId} | dev 已接本人脱敏状态和有限观察结果，不能作为其他组件自动授权 |
 | GET | A/ports/{id}/usage | 属主；结算/预留/未知用量和 UTC 周期；dev 已接，offset 分页/固定 20 条，见 [25](25-本人端点用量dev验收.md)；不代表相邻探测/运营接口已实现 |
 | GET | A/admin/ports | 原 SUPERADMIN/明确平台运营授权；仅脱敏元数据 |
 | POST | A/admin/ports/{id}/disable | 同上；停止新请求，在途对账 |
