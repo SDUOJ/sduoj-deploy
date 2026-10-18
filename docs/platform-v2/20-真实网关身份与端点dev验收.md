@@ -28,9 +28,18 @@ Gateway、Java 身份 RPC、MySQL、Redis 与 SDK 进程均实际执行。SDK �
 
 AutoLab 测试为 test_platform_v2_gateway_dev.py、test_platform_v2_gateway_sdk_dev.py、test_platform_v2_gateway_ports_dev.py。默认 skip；设置 AUTOLAB_PV2_GATEWAY_TEST=1、AUTOLAB_PV2_GATEWAY_TEST_CONFIG、AUTOLAB_PORT_TEST_CONFIG，SDK 用例还需 AUTOLAB_OPENHANDS_TEST_PYTHON。
 
-Gateway 配置是仓库外绝对路径的本人 0600 JSON，包含固定本机 gateway_url 与仓库外 credentials_file；凭据文件也需 0600，现有专用账号须 ai_dev_ 前缀。密钥/Cookie/请求正文不进入诊断。各服务环境变量必须在 Python 导入前由仓库外 loader 装入；不得打印 env 或凭据文件。
+Gateway 配置是仓库外绝对路径的本人 0600 JSON，包含固定本机 gateway_url 与仓库外 credentials_file；凭据文件也需 0600，现有专用账号须 ai_dev_ 前缀。最终诊断约束和一次本地失败日志的修正见下节；不回显密钥或 Cookie。各服务环境变量必须在 Python 导入前由仓库外 loader 装入；不得打印 env 或凭据文件。
 
 测试固定 Gateway 为 loopback 的原开发端口，身份为本机 Java 服务，Redis 为任务自有实例。MySQL fixture 只创建、最终删除随机自有测试库，不复用现有业务库。schema 是当前模型的新库初始化，不是迁移或备份恢复演练。临时 main 监听原开发端口；若已有 listener 则失败，绝不 kill 其他服务。5005 测试必须串行；每项与审计均确认退出后释放。
+
+## 失败诊断的后续修正
+
+后续核查发现，早期 SDK 用例失败时，pytest 参数 repr 将 fixture 返回字典中的 dev 专用账号密码写入 real-gateway-sdk-fixed1.log。没有改生产或真实凭据；该日志已替换明文、设为本人可读，保留原失败结构。gateway-log-redaction.json 只记录文件、替换数及前后哈希，不保存密码值。后续根日志/报告扫描和独立扫描均未发现该密码残留明文。
+
+- AutoLab 54161ea 将 fixture 返回值改为纯身份字段，私有配置/请求正文使用脱敏 repr，网络异常改固定诊断，拒绝 showlocals。真实链与两个隐私反例六项通过，但独立审计 needs_fix：直接依赖的 mysql_target 会先初始化，异常时仍可能在 showlocals 打印私有配置。
+- db1fa55 改为先拒绝 showlocals、验证配置，再动态取得数据库 fixture。维护 child pytest 反例：同名数据库 stub 若被调用会写 marker 并暴露合成 secret；最终拒绝时 marker 不存在，合成 secret 不进入诊断。主测隐私三项通过、0.78 秒；真实链与隐私共七项通过、17.63 秒。独立 exact archive 七项通过、18.21 秒，原外置失败反例逆转；open 审计 hook 确认 Gateway/MySQL 两份私有配置均未打开，审计 accepted。54161ea 的 needs_fix 记录保留。
+
+以上为测试/证据处理的修正，未改变产品角色、密钥格式或端点实现。私有环境 loader 本身在 pytest 启动前装载环境；拒绝检查证明 fixture 不再先读取数据库私有配置，不宣称整个 Python 进程从未接触开发凭据。证据为 gateway-diagnostics-*.log、gateway-log-redaction.json 及 audit-gateway-diagnostics-privacy/order 的 md/json/log。
 
 ## 尚未覆盖
 
