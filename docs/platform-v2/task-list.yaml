@@ -390,10 +390,11 @@ tasks:
   - sduoj-deploy
   approval_gates:
   - SCHEMA
-  execution_status: in_progress
-  source_basis: reviewed-20261018; see 09
+  execution_status: done
+  source_basis: d1b201d unchanged migration/AiPort; 35909b1 lifecycle MySQL 8.0.43 evidence; see 41
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
+  - 41-S2-01端点默认与迁移验收.md
   - 02-AI端口与MCP.md
   - 07-API清单.md
   - 08-前端改造方案.md
@@ -403,7 +404,27 @@ tasks:
     - positive
     - negative
     - failure_recovery
-    evidence: []
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s2-01-evidence.json
+      sha256: 9a6b9dc33e5bcc5e6650704ba18cc925cc31a6ee887b5c23f8443743b1e8327d
+      source_commit: 35909b1d48a9c563c3bc91667a9e34188e000248
+      tested_at: '2026-10-19T09:49:52Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s2-01-evidence.json
+      sha256: 9a6b9dc33e5bcc5e6650704ba18cc925cc31a6ee887b5c23f8443743b1e8327d
+      source_commit: 35909b1d48a9c563c3bc91667a9e34188e000248
+      tested_at: '2026-10-19T09:49:52Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s2-01-evidence.json
+      sha256: 9a6b9dc33e5bcc5e6650704ba18cc925cc31a6ee887b5c23f8443743b1e8327d
+      source_commit: 35909b1d48a9c563c3bc91667a9e34188e000248
+      tested_at: '2026-10-19T09:49:52Z'
+      result: pass
+    approval_refs:
+      SCHEMA: 2026-10-18 用户同意第一阶段具体 dev 提案的一张端点表和三个可空关联列及隔离测试；见11，本批未改变合同或执行生产DDL。
 - id: S2-02
   stage: S2
   title: 本人端口CRUD与密钥生命周期
