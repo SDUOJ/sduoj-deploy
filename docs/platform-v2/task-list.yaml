@@ -224,12 +224,12 @@ tasks:
       AUTH: 2026-10-18 用户明确同意第一阶段dev实施提案；仅本地/隔离测试，不含生产。
 - id: S1-04
   stage: S1
-  title: 修复管理组缓存键与撤权失效边界
+  title: 修复管理组权限查询与撤权边界
   executor: auto
   status: partial
   priority: P1
   acceptance:
-  - 缓存键使用完整规范化组集合，不依赖 groups.hashCode；managerGroups 更新提交后失效
+  - 按已批准方案退役两层权限结果缓存，原列表及提交可见性最终 SQL 参数化校验当前管理组，不依赖 groups.hashCode
   - 等hash不同组集合、加组/撤组、事务失败与旧缓存命中时私有题列表/详情/数据入口不越权
   - 原Java权限回归 + 真实Redis证据，记录所有缓存层和失效点而非只删一个key
   risk: 低
@@ -238,10 +238,11 @@ tasks:
   - sduoj-server-private
   approval_gates:
   - AUTH
-  execution_status: pending_approval
+  execution_status: in_progress
   source_basis: reviewed-20261018; see 09
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
+  - 32-管理组权限查询先红再绿.md
   - 09-审计与实施门禁.md
   - 07-API清单.md
   - 08-前端改造方案.md
@@ -250,7 +251,10 @@ tasks:
     - positive
     - negative
     - failure_recovery
-    evidence: []
+    evidence:
+    - 32-管理组权限查询先红再绿.md
+  approval_refs:
+    AUTH: 2026-10-19 用户同意 S1-04 管理组权限查询 dev 修复提案；仅本地修复与隔离验证，不含生产。
 - id: S1-05
   stage: S1
   title: 冻结类型化ID与学生下标适配契约
