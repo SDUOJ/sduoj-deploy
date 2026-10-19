@@ -831,7 +831,7 @@ tasks:
   approval_gates:
   - SCHEMA
   - AUTH
-  execution_status: pending_approval
+  execution_status: in_progress
   source_basis: reviewed-20261018; see 09
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
@@ -844,7 +844,12 @@ tasks:
     - positive
     - negative
     - failure_recovery
-    evidence: []
+    evidence:
+    - 35-S4-01统一检索投影提案.md
+    - 36-S4-01统一检索投影dev验收.md
+    approval_refs:
+      SCHEMA: 2026-10-19 用户明确同意继续执行 S4-01 提案；仅隔离 dev 实现，不含生产。
+      AUTH: 2026-10-19 用户明确同意继续执行 S4-01 提案；当前只读入口使用原身份校验，匿名入口保持关闭。
 - id: S4-02
   stage: S4
   title: 原生元数据兼容迁移与多组ACL审计
