@@ -253,8 +253,8 @@ tasks:
     - failure_recovery
     evidence:
     - 32-管理组权限查询先红再绿.md
-  approval_refs:
-    AUTH: 2026-10-19 用户同意 S1-04 管理组权限查询 dev 修复提案；仅本地修复与隔离验证，不含生产。
+    approval_refs:
+      AUTH: 2026-10-19 用户同意 S1-04 管理组权限查询 dev 修复提案；仅本地修复与隔离验证，不含生产。
 - id: S1-05
   stage: S1
   title: 冻结类型化ID与学生下标适配契约
