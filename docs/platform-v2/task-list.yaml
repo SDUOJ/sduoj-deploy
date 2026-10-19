@@ -734,10 +734,11 @@ tasks:
   - sduoj-web2
   approval_gates:
   - AUTH
-  execution_status: in_progress
-  source_basis: reviewed-20261018; see 09
+  execution_status: done
+  source_basis: 79c8796 schema/governance and 09b03ff scoped controls; current Gateway/Node24/MySQL/SDK evidence; see48
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
+  - 48-S2-07组件治理与能力合同验收.md
   - 02-AI端口与MCP.md
   - 07-API清单.md
   - 08-前端改造方案.md
@@ -748,7 +749,25 @@ tasks:
     - positive
     - negative
     - failure_recovery
-    evidence: []
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s2-07-evidence.json
+      sha256: 4a4ed4a2a1f3fe8b8d3e3fb3452195fe5429158caf407283c06a71f04ba82a4e
+      source_commit: 79c87967800f374660c89334bb45010887c37743
+      tested_at: '2026-10-19T11:55:08Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s2-07-evidence.json
+      sha256: 4a4ed4a2a1f3fe8b8d3e3fb3452195fe5429158caf407283c06a71f04ba82a4e
+      source_commit: 79c87967800f374660c89334bb45010887c37743
+      tested_at: '2026-10-19T11:55:08Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s2-07-evidence.json
+      sha256: 4a4ed4a2a1f3fe8b8d3e3fb3452195fe5429158caf407283c06a71f04ba82a4e
+      source_commit: 79c87967800f374660c89334bb45010887c37743
+      tested_at: '2026-10-19T11:55:08Z'
+      result: pass
     approval_refs:
       AUTH: 2026-10-18 用户明确同意第一阶段dev实施提案；仅本地/隔离测试，不含生产。
 - id: S2-08
