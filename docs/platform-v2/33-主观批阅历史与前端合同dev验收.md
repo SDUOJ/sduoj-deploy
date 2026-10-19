@@ -48,9 +48,9 @@ AutoLab `ac7f522` 增加 scoped grading capability hint：原 PS owner、manageG
 
 hint 只用于渲染，最终预览、创建、worker 和人工采用仍各自校验。
 
-## 尚未完成的业务出口
+## 当时尚未完成的业务出口
 
-旧 `GradingWorkbench` 仍是迁移前的表单和接口调用，尚未接入新客户端/Redux。本批不把类型声明或 reducer 算作交互完成。接下来需要：
+本检查点的旧 `GradingWorkbench` 尚未接入新客户端/Redux；以下 1–5 已在后续 [34](34-主观批阅工作台dev验收.md) 接线，组合验收仍待完成。本检查点不把类型声明或 reducer 算作交互完成。当时计划为：
 
 1. 原生来源预览与再次确认、本人端点选择，grade/feedback 分开呈现。
 2. 当前任务恢复、取消后重读、未知创建/采用结果的精确原请求重放；不能自动换 key 新建任务。

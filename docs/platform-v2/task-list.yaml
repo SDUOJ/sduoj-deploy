@@ -617,7 +617,7 @@ tasks:
   approval_gates:
   - AUTH
   execution_status: in_progress
-  source_basis: 2026-10-19 approved native grading dev subset; backend c9e3d1f; see 31
+  source_basis: 2026-10-19 approved native grading dev subset; backend f318aef; web2 e2eece0; see 34
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
   - 02-AI端口与MCP.md
@@ -625,6 +625,7 @@ tasks:
   - 08-前端改造方案.md
   - 10-OpenHands与Agent组件.md
   - agent-components.yaml
+  - 34-主观批阅工作台dev验收.md
   verification:
     required:
     - positive
@@ -632,6 +633,7 @@ tasks:
     - failure_recovery
     evidence:
     - 31-全平台进度与后续批次.md
+    - 34-主观批阅工作台dev验收.md
     approval_refs:
       AUTH: 2026-10-19 用户同意主观批阅具体dev提案；仅原教师答卷读取、本人端点和人工采用，不覆盖其他组件或生产。
 

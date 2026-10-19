@@ -80,6 +80,26 @@ GET capabilities 的 scope 可指定 course/ps/resource，但必须先验证当�
 
 普通文档 dev 适配的 capabilities 可启动提示已接当前来源的原管理/write ACL、普通文本合同与本人可选端点，见 [22](22-独立worker与真实浏览器dev验收.md)。至少一个 active、has_key、明确价格的本人端点只表示可以显式选择；没有默认时仍不能以默认选项新建，接口不自动改用其他端点。提示不探测供应商、不代表预算已经预留，typed admission 继续独立复验。
 
+### 3.1 原生主观批阅：dev 已接合同
+
+以下只属于已批准的纯文本批阅适配，见 [33](33-主观批阅历史与前端合同dev验收.md)、[34](34-主观批阅工作台dev验收.md)。组件仍未 installed，不能据接口存在推断可创建或采用。来源读取/历史与新模型准入分开；所有原生材料读取均校验当前题单教师及父子关联，任务/资源还须属于本人。
+
+| 方法 | 路径 | 权限 / 结果 |
+| --- | --- | --- |
+| POST | A/native/grading/preview | 原生 psid/gid/pid/username + grade 或 feedback；当前题目、答卷、rubric、source_hash、has_manual_grade，不调用模型 |
+| POST | A/native/grading/create | 当前教师、来源 hash、本人端点、组件/action/依赖；operation_key 精确重放返回原 taskId/resource_id，不自动重新入队 |
+| POST | A/resources/list | kind=grading，pageNow=页码，pageSize=20；原当前教师读取，旧记录只读；争用整页 409，不返回半页 |
+| GET | A/resources/{resource_id} | 原 grading 来源快照或旧历史；持有旧快照不授予撤权后的读取权限 |
+| GET | A/native/grading/resources/{resource_id}/tasks?page=1 | 当前来源及本人历史；每页 20，按 created_at/id 稳定排序 |
+| GET | A/native/grading/tasks/{task_id} | 仅固定 component/action、状态、attempt、UTC 时间、has_error 和成功候选引用，无 payload/原日志/provider 错误 |
+| GET | A/native/grading/candidates/{candidate_id} | 当前教师、本人的来源/任务/attempt/hash/version 绑定；历史读取不代表允许采用 |
+| POST | A/native/grading/candidates/{candidate_id}/adopt | 当前教师独立确认，version/candidate_hash/operation_key/reason/严格布尔 overwrite_manual；CAS 回执重放；feedback 只改评语 |
+| POST | A/jobs/{task_id}/cancel | 原任务取消；调用后重读，完成与取消争用不能自动创建替代任务 |
+
+原教师列表 `getJudgeList`的原 `gid/pid` 继续表示显示位置；dev 新增 `rows[].native_ref={psid,gid,pid,username}`，其中 gid/pid 为原生主键。辅助批阅只使用严格解析且匹配当前题单/学生的 native_ref，缺失或非法时隐藏行内按钮；原手工批阅继续用旧位置，不改接口含义。
+
+沿用原生整数主键合同，前端拒绝不安全 JS 整数、学生显示位置和未知字段，不为此改 Java Long API。取消和未知结果的重试不是通用任务重跑。纯文本无法表示的附件/OCR/视觉材料显式拒绝；真实空白答卷保留，不能用空文本替代解析失败。来源 hash 也包含当前手工成绩状态。
+
 ## 4. Runner 私有控制面
 
 **延期评审对象，不是一期要实现的 API。** 一期原 Task worker 直接调起 OpenHands SDK，不新建节点注册/claim 控制平面。若以后确有多节点执行服务需求，下表仅作待重新审查的历史合同；不得随本轮组件能力自动开放。
