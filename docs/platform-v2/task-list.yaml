@@ -595,7 +595,7 @@ tasks:
   status: missing
   priority: P0
   acceptance:
-  - 原runtime稳定锁内原子检查全局/用户/通道/端口/节点，复用逐请求预留/幂等结算
+  - 原runtime稳定锁内原子检查全局/用户/通道/端口/当前单部署节点容量（节点沿10的已确认路线由全局上限收紧，不新增独立节点平台），复用逐请求预留/幂等结算
   - 并发1不超发、其它端口不饥饿；取消/租约丢失/重复完成/多轮累计预算/unknown usage不漏记
   - 真实MySQL多进程与模型代理回归，价格版本/缓存usage/长上下文费率和月预算含在途预留
   risk: 中
@@ -606,10 +606,11 @@ tasks:
   - sduoj-deploy
   approval_gates:
   - SCHEMA
-  execution_status: in_progress
-  source_basis: reviewed-20261018; see 09
+  execution_status: done
+  source_basis: 0e77727 claim port capacity red/green; 770b89b real MySQL recovery; see45
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
+  - 45-S2-05端点领取与账务验收.md
   - 02-AI端口与MCP.md
   - 07-API清单.md
   - 08-前端改造方案.md
@@ -619,7 +620,27 @@ tasks:
     - positive
     - negative
     - failure_recovery
-    evidence: []
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s2-05-evidence.json
+      sha256: 33db10cc8b9fff0146101acad260cd6b11f0aab0d817a2816a954218669a6924
+      source_commit: 770b89b476abc0c7703642feb8dafc89b0546935
+      tested_at: '2026-10-19T10:35:32Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s2-05-evidence.json
+      sha256: 33db10cc8b9fff0146101acad260cd6b11f0aab0d817a2816a954218669a6924
+      source_commit: 770b89b476abc0c7703642feb8dafc89b0546935
+      tested_at: '2026-10-19T10:35:32Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s2-05-evidence.json
+      sha256: 33db10cc8b9fff0146101acad260cd6b11f0aab0d817a2816a954218669a6924
+      source_commit: 770b89b476abc0c7703642feb8dafc89b0546935
+      tested_at: '2026-10-19T10:35:32Z'
+      result: pass
+    approval_refs:
+      SCHEMA: 2026-10-18 用户同意第一阶段dev一张端点表、三个可空关联列、本人端点与原worker/账本隔离测试；见11。本批无新增产品DDL，节点范围沿10的已确认延期决策。
 - id: S2-06
   stage: S2
   title: 原 Task worker 调起隔离解释器中的 OpenHands SDK
