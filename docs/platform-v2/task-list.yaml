@@ -303,10 +303,11 @@ tasks:
   - sduoj-server-private
   approval_gates:
   - AUTH
-  execution_status: in_progress
-  source_basis: Java 79586fa4 / df86bb28 current session and parent description checks; checkpoint scope pending; see 38/39
+  execution_status: done
+  source_basis: 0a417e97 current scoped checkpoint authority; real Gateway incremental recovery; see47
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
+  - 47-S1-04测试点作用域与权限闭合验收.md
   - 32-管理组权限查询先红再绿.md
   - 38-S1安全底座验收.md
   - 39-S1-04测试点作用域修复提案.md
@@ -319,10 +320,26 @@ tasks:
     - negative
     - failure_recovery
     evidence:
-    - 32-管理组权限查询先红再绿.md
-    - 38-S1安全底座验收.md
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s1-04-evidence.json
+      sha256: 40fae8db15a3145996d5c1db852611ad95a667339f511e0399fdaf5c43452fdc
+      source_commit: 0a417e9746f090d07c72b42aedd66862a19a73e1
+      tested_at: '2026-10-19T11:29:35Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s1-04-evidence.json
+      sha256: 40fae8db15a3145996d5c1db852611ad95a667339f511e0399fdaf5c43452fdc
+      source_commit: 0a417e9746f090d07c72b42aedd66862a19a73e1
+      tested_at: '2026-10-19T11:29:35Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s1-04-evidence.json
+      sha256: 40fae8db15a3145996d5c1db852611ad95a667339f511e0399fdaf5c43452fdc
+      source_commit: 0a417e9746f090d07c72b42aedd66862a19a73e1
+      tested_at: '2026-10-19T11:29:35Z'
+      result: pass
     approval_refs:
-      AUTH: 2026-10-19 用户同意 S1-04 管理组权限查询 dev 修复提案；仅本地修复与隔离验证，不含生产。
+      AUTH: 2026-10-19 用户同意 S1-04 管理组权限查询 dev 修复提案；以及39的problemCode作用域具体鉴权修复已获用户批准（原聊天01a152b2-bcf9-7e03-bae5-9c7b0c3ba360）；仅本地修复与隔离验证，不含生产。
 - id: S1-05
   stage: S1
   title: 冻结类型化ID与学生下标适配契约
