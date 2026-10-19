@@ -32,6 +32,6 @@ AutoLab `port_transport.probe_models` 经原 worker-owned 子进程协议执行�
 
 ## 后续与证据
 
-后续仍需把这个显式诊断接入原本人端点、限频、冻结版本、Task worker 和取消/历史前端；不得把它偷偷加为现有三请求任务的第四次请求。元数据 GET 不产生模型 token usage，不能伪造 AiRun 为零用量来冒充模型计费验收。若后续供应商将元数据本身计费，应先明确准入和费用合同。
+本页提交时尚需接入本人端点任务/前端；随后完成的独立诊断、限频、冻结、取消/历史和真实 worker 浏览器链见 [30](30-models任务与前端dev验收.md)，不改写本页 helper 的验收范围。不得把它偷偷加为现有三请求任务的第四次请求。元数据 GET 不产生模型 token usage，不能伪造 AiRun 为零用量来冒充模型计费验收。若后续供应商将元数据本身计费，应先明确准入和费用合同。
 
 仓库外 WORK 保存 `port-models-targeted.log`、`port-models-full-sdk-mysql.log`、`port-models-live-result.json`、`run_port_models_live.py`、`audit-port-models-transport.md/json`、额外边界日志及监控记录；该目录也含私有配置，禁止 glob 读取 JSON。没有 push、生产、Java、schema、角色、镜像、CI、seccomp 或根 submodule pin 变更；原 48 项任务状态不变，S2-03 仍 partial/in_progress。

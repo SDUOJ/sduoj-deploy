@@ -52,6 +52,10 @@
 | POST | A/ports/{id}/test | 属主 + 限频；显式报价确认和原 worker 任务，dev 前端及有界真实供应商验收见 [27](27-端点探测前端与真实供应商dev验收.md) |
 | GET | A/ports/{id}/test/latest | 本人最近固定探测或 null；只读历史，含冻结 port_version，停用端点仍可查，见 27 |
 | GET | A/ports/{id}/test/{taskId} | dev 已接本人脱敏状态和有限观察结果，不能作为其他组件自动授权 |
+| GET | A/ports/{id}/models | dev 本人本地范围：版本/1 次目录 GET/0 推理/30 秒/256KiB，不解密或访问提供商，见 [30](30-models任务与前端dev验收.md) |
+| POST | A/ports/{id}/models | 同上；version/confirmed/operation_key，独立 port.models 原 worker 任务；与 test 共用限频，不自动重试 |
+| GET | A/ports/{id}/models/latest | 本人最近目录任务或 null，停用/暂停后历史仍可读；不改变 Responses 能力观察 |
+| GET | A/ports/{id}/models/{taskId} | 本人固定生命周期、冻结版本、UTC 时间及目录数量/观察/延迟；没有模型 ID/原始 provider 内容 |
 | GET | A/ports/{id}/usage | 属主；结算/预留/未知用量和 UTC 周期；dev 已接，offset 分页/固定 20 条，见 [25](25-本人端点用量dev验收.md)；更广的聚合运营信息仍未实现 |
 | GET | A/admin/ports | dev 已接原 superadmin；20 条分页、offset/owner_id/status 过滤；仅脱敏元数据，见 [28](28-端点运营与停用dev验收.md) |
 | POST | A/admin/ports/{id}/disable | dev 已接同上；version/operation_key/reason，停用清默认、在途结算，保留属主原显式启用，见 28 |
