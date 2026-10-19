@@ -139,8 +139,8 @@ GET capabilities 的 scope 可指定 course/ps/resource，但必须先验证当�
 
 | 方法 | 路径 | 权限 / 行为 |
 | --- | --- | --- |
-| GET | A/library/problems | source=public/group/mine/all，kind、tags、difficulty、keyword；all 仅超管 |
-| GET | A/library/problems/{uid} | learner/author 投影逐字段校验，陈旧索引回源 |
+| GET | A/library/problems | dev 已接元数据投影：source=public/group/mine/all、kind、keyword、加密 cursor/limit；fresh 身份与逐批回源，all 仅当前超管。tags/difficulty 筛选及页面仍属后续，见 [36](36-S4-01统一检索投影dev验收.md) |
+| GET | A/library/problems/{uid} | dev 已接当前源元数据与 learner/author 权限复核、index_stale；正文/答案等完整详情仍待 S4-03，见 36 |
 | POST | A/library/problems/{uid}/visibility | 属主/原有可改 ACL 者，不改变角色语义；多组、版本与影响清单 |
 | POST | A/authoring/packages | 创建绑定原 AiResource 的阶段壳，固定类型 |
 | GET | A/authoring/packages | 本人/获授权协作包，有界分页 |

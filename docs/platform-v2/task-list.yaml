@@ -813,7 +813,7 @@ tasks:
   stage: S4
   title: 统一检索投影与源校验适配
   executor: auto
-  status: missing
+  status: partial
   priority: P0
   acceptance:
   - 三题型类型化索引、源签名/tombstone/游标与可重建对账，不直写Java库
@@ -832,13 +832,14 @@ tasks:
   - SCHEMA
   - AUTH
   execution_status: in_progress
-  source_basis: reviewed-20261018; see 09
+  source_basis: AutoLab 9b092c5 / Java 29c86d0d; implementation and isolated evidence in 36; live Java HTTP and S1 dependencies remain open
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
   - 03-出题平台.md
   - 07-API清单.md
   - 08-前端改造方案.md
   - 06-数据库变更汇总.md
+  - 36-S4-01统一检索投影dev验收.md
   verification:
     required:
     - positive
