@@ -340,10 +340,11 @@ tasks:
   - sduoj-server-private
   - sduoj-web2
   approval_gates: []
-  execution_status: in_progress
-  source_basis: 2026-10-19 typed question/display contracts; backend e6392eb and web2 4995a35; see 31
+  execution_status: done
+  source_basis: Original Java FORMAL / native answer mapping and 47 Python + 72 Jest tests; see 40
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
+  - 40-S1-05显示与正式提交合同验收.md
   - 09-审计与实施门禁.md
   - 07-API清单.md
   - 08-前端改造方案.md
@@ -353,7 +354,24 @@ tasks:
     - negative
     - failure_recovery
     evidence:
-    - 31-全平台进度与后续批次.md
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s1-05-evidence.json
+      sha256: afc583b4c33c42b6b8a9e98a50175adff81e5227e4f7fab9b67227155475a0ac
+      source_commit: 08c3648aea33e4f434b4e3dfc4d305205d00284f
+      tested_at: '2026-10-19T09:39:00Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s1-05-evidence.json
+      sha256: afc583b4c33c42b6b8a9e98a50175adff81e5227e4f7fab9b67227155475a0ac
+      source_commit: 08c3648aea33e4f434b4e3dfc4d305205d00284f
+      tested_at: '2026-10-19T09:39:00Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s1-05-evidence.json
+      sha256: afc583b4c33c42b6b8a9e98a50175adff81e5227e4f7fab9b67227155475a0ac
+      source_commit: 08c3648aea33e4f434b4e3dfc4d305205d00284f
+      tested_at: '2026-10-19T09:39:00Z'
+      result: pass
 - id: S2-01
   stage: S2
   title: 端口表与每用户至多一个有效默认
