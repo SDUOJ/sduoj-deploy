@@ -444,10 +444,11 @@ tasks:
   approval_gates:
   - AUTH
   - SECRETS
-  execution_status: in_progress
-  source_basis: reviewed-20261018; see 09
+  execution_status: done
+  source_basis: f288b48 current identity; 120 backend, 2 real Gateway and 61 frontend; see42
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
+  - 42-S2-02本人端点与当前身份验收.md
   - 02-AI端口与MCP.md
   - 07-API清单.md
   - 08-前端改造方案.md
@@ -458,7 +459,27 @@ tasks:
     - negative
     - failure_recovery
     evidence:
-    - 28-端点运营与停用dev验收.md（dev超管脱敏元数据与停用；不代表全部端点任务完成）
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s2-02-evidence.json
+      sha256: 23b35fca48a40e3124166591e7b37e9f1356b217c5f5936ceb96a789ff1095f8
+      source_commit: f288b4886bcfddec450d8e4176d2549026f003f2
+      tested_at: '2026-10-19T09:59:02Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s2-02-evidence.json
+      sha256: 23b35fca48a40e3124166591e7b37e9f1356b217c5f5936ceb96a789ff1095f8
+      source_commit: f288b4886bcfddec450d8e4176d2549026f003f2
+      tested_at: '2026-10-19T09:59:02Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s2-02-evidence.json
+      sha256: 23b35fca48a40e3124166591e7b37e9f1356b217c5f5936ceb96a789ff1095f8
+      source_commit: f288b4886bcfddec450d8e4176d2549026f003f2
+      tested_at: '2026-10-19T09:59:02Z'
+      result: pass
+    approval_refs:
+      AUTH: 2026-10-18 用户同意第一阶段具体dev提案：原来源/本人端点权限与组件治理；见11，本次不新增角色或API合同。
+      SECRETS: 2026-10-18 用户同意第一阶段本人端点加密与受控出口及隔离测试；见11，无生产密钥操作。
 - id: S2-03
   stage: S2
   title: 受控端口能力探测与SSRF验证
