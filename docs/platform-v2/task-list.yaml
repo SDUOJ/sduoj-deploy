@@ -77,7 +77,9 @@ meta:
     sduoj-deploy: d51b7f623b146689182c11660132926f1a80fe2f
   requirements_trace:
     state: original_text_unavailable
-    note: 原稿35/35为关键词核对，未提供原始35条正文；本轮不宣称完整需求验收。
+    acceptance_basis: current_48_tasks_user_confirmed
+    confirmation_date: '2026-10-19'
+    note: 2026-10-19 用户明确指示按现有48项开发任务推进；48项 acceptance 为本目标验收基线，不再以缺失的原始35条正文阻塞。
   sql_inventory:
     create_tables:
     - auto_ai_port
@@ -146,9 +148,10 @@ tasks:
   - sduoj-deploy
   approval_gates: []
   execution_status: done
-  source_basis: reviewed-20261018; see 09
+  source_basis: AutoLab c51869e / Java 29c86d0d boundary checks; observed token enforcement on dev user-service; see 38
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
+  - 38-S1安全底座验收.md
   - 09-审计与实施门禁.md
   - 07-API清单.md
   - 08-前端改造方案.md
@@ -171,8 +174,8 @@ tasks:
       tested_at: '2026-10-19T08:24:28Z'
       result: pass
     - kind: failure_recovery
-      artifact: work/platform-v2-all-20261019/s1-01-evidence.json
-      sha256: ad0de9693cb9728eb112d98149a7ee2f156f51ceeed95c30d017696ac3d083d4
+      artifact: work/platform-v2-all-20261019/s1-01-autolab.log
+      sha256: c5454a0430b094c1ed8aabc8de34c53b09e8be3e8306d21dc1db51bea95b0fc8
       source_commit: c51869e9e5c146c1e0146631861469c8375a62c1
       tested_at: '2026-10-19T08:22:17Z'
       result: pass
@@ -192,10 +195,11 @@ tasks:
   - sduoj-autolab
   approval_gates:
   - AUTH
-  execution_status: in_progress
-  source_basis: reviewed-20261018; see 09
+  execution_status: done
+  source_basis: AutoLab c51869e native source fix; 225bec1 actual Gateway student contract; see 38
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
+  - 38-S1安全底座验收.md
   - 09-审计与实施门禁.md
   - 07-API清单.md
   - 08-前端改造方案.md
@@ -204,7 +208,31 @@ tasks:
     - positive
     - negative
     - failure_recovery
-    evidence: []
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s1-02-gateway-clean.log
+      sha256: 4da691ea26da2598ca5f9d836e9e796ab72a443e136df89d99b4cab18d29b1f6
+      source_commit: c51869e9e5c146c1e0146631861469c8375a62c1
+      tested_at: '2026-10-19T08:35:12Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s1-02-gateway-clean.log
+      sha256: 4da691ea26da2598ca5f9d836e9e796ab72a443e136df89d99b4cab18d29b1f6
+      source_commit: c51869e9e5c146c1e0146631861469c8375a62c1
+      tested_at: '2026-10-19T08:35:12Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s1-02-gateway-clean.log
+      sha256: 4da691ea26da2598ca5f9d836e9e796ab72a443e136df89d99b4cab18d29b1f6
+      source_commit: c51869e9e5c146c1e0146631861469c8375a62c1
+      tested_at: '2026-10-19T08:35:12Z'
+      result: pass
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s1-02-student.log
+      sha256: 79a039ba779f058de7471c31a5f53436f8835ec1e13585c50136495cfc3a2a00
+      source_commit: 225bec121572b07d73c35103cda39f7ececd5196
+      tested_at: '2026-10-19T08:35:12Z'
+      result: pass
     approval_refs:
       AUTH: 2026-10-18 用户明确同意第一阶段dev实施提案；仅本地/隔离测试，不含生产。
 - id: S1-03
@@ -282,7 +310,7 @@ tasks:
   acceptance:
   - uid 带 prog/obj/subj；kind 使用字符串，旧group.type显式0/1/2映射
   - obj:45 与 subj:45、shuffle、重复题slot和管理nativeId/学生position不能混用
-  - 跨Java/Autolab/前端合同与旧正式提交/答案卡映射回归，原始35条需求待补全文对照
+  - 跨Java/Autolab/前端合同与旧正式提交/答案卡映射回归；按用户确认的现有48项基线验收
   risk: 中
   depends_on: []
   repositories:
