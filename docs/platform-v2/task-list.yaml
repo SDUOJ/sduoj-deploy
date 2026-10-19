@@ -499,10 +499,11 @@ tasks:
   - sduoj-deploy
   approval_gates:
   - SECRETS
-  execution_status: in_progress
-  source_basis: reviewed-20261018; see 09
+  execution_status: done
+  source_basis: 7598a52 exact child real isolated DNS/TLS/HTTP,21 checks; existing task/UI evidence; see43
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
+  - 43-S2-03隔离网络出口验收.md
   - 02-AI端口与MCP.md
   - 07-API清单.md
   - 08-前端改造方案.md
@@ -515,9 +516,26 @@ tasks:
     - negative
     - failure_recovery
     evidence:
-    - 27-端点探测前端与真实供应商dev验收.md（固定Responses探测dev链；models仍unknown，任务未完成）
-    - 29-models受控出口dev验收.md（显式元数据出口helper；任务/前端未接入，不代表S2-03完成）
-    - 30-models任务与前端dev验收.md（独立本人metadata任务/前端/原worker真实GET；不代表全部网络与提供商矩阵完成）
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s2-03-evidence.json
+      sha256: 70a563c6166bd6e5813bd122fa6180e361e5adff1da1a45c405b0fcd0488d1fd
+      source_commit: 7598a5269f520d4692c6f8e472d3a44721fe94dc
+      tested_at: '2026-10-19T10:08:18Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s2-03-evidence.json
+      sha256: 70a563c6166bd6e5813bd122fa6180e361e5adff1da1a45c405b0fcd0488d1fd
+      source_commit: 7598a5269f520d4692c6f8e472d3a44721fe94dc
+      tested_at: '2026-10-19T10:08:18Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s2-03-evidence.json
+      sha256: 70a563c6166bd6e5813bd122fa6180e361e5adff1da1a45c405b0fcd0488d1fd
+      source_commit: 7598a5269f520d4692c6f8e472d3a44721fe94dc
+      tested_at: '2026-10-19T10:08:18Z'
+      result: pass
+    approval_refs:
+      SECRETS: 2026-10-18 用户同意第一阶段本人端点受控出口及隔离测试；见11，本次只用合成provider/凭据，无真实端口探测或计费。
 - id: S2-04
   stage: S2
   title: 解析显式端口或本人默认，禁止隐式站点兜底
