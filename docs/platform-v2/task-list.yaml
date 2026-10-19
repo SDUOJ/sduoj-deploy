@@ -255,7 +255,7 @@ tasks:
   stage: S1
   title: 冻结类型化ID与学生下标适配契约
   executor: hybrid
-  status: missing
+  status: partial
   priority: P0
   acceptance:
   - uid 带 prog/obj/subj；kind 使用字符串，旧group.type显式0/1/2映射
@@ -268,8 +268,8 @@ tasks:
   - sduoj-server-private
   - sduoj-web2
   approval_gates: []
-  execution_status: not_started
-  source_basis: reviewed-20261018; see 09
+  execution_status: in_progress
+  source_basis: 2026-10-19 typed question/display contracts; backend e6392eb and web2 4995a35; see 31
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
   - 09-审计与实施门禁.md
@@ -280,7 +280,8 @@ tasks:
     - positive
     - negative
     - failure_recovery
-    evidence: []
+    evidence:
+    - 31-全平台进度与后续批次.md
 - id: S2-01
   stage: S2
   title: 端口表与每用户至多一个有效默认
@@ -611,8 +612,8 @@ tasks:
   - sduoj-web2
   approval_gates:
   - AUTH
-  execution_status: pending_approval
-  source_basis: reviewed-20261018; see 09
+  execution_status: in_progress
+  source_basis: 2026-10-19 approved native grading dev subset; backend c9e3d1f; see 31
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
   - 02-AI端口与MCP.md
@@ -625,7 +626,11 @@ tasks:
     - positive
     - negative
     - failure_recovery
-    evidence: []
+    evidence:
+    - 31-全平台进度与后续批次.md
+    approval_refs:
+      AUTH: 2026-10-19 用户同意主观批阅具体dev提案；仅原教师答卷读取、本人端点和人工采用，不覆盖其他组件或生产。
+
 - id: S3-01
   stage: S3
   title: 原worker管理SDK runner的生命周期与fencing
