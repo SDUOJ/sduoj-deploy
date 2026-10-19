@@ -660,10 +660,11 @@ tasks:
   - AUTH
   - SANDBOX
   - SECRETS
-  execution_status: in_progress
-  source_basis: reviewed-20261018; see 09
+  execution_status: done
+  source_basis: aca8a9a real-pipe17 and real-SDK/process/policy32; unchanged Linux boundary reuse; see46
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
+  - 46-S2-06隔离SDK运行时验收.md
   - 02-AI端口与MCP.md
   - 07-API清单.md
   - 08-前端改造方案.md
@@ -674,7 +675,29 @@ tasks:
     - positive
     - negative
     - failure_recovery
-    evidence: []
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s2-06-evidence.json
+      sha256: 8132656dbdb51f7c80c780cbdf51c3b386801b1d2eb994e3436296814f8a0bde
+      source_commit: aca8a9ab035d5cc44dd65ce9c89a7bce1db98a42
+      tested_at: '2026-10-19T10:44:01Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s2-06-evidence.json
+      sha256: 8132656dbdb51f7c80c780cbdf51c3b386801b1d2eb994e3436296814f8a0bde
+      source_commit: aca8a9ab035d5cc44dd65ce9c89a7bce1db98a42
+      tested_at: '2026-10-19T10:44:01Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s2-06-evidence.json
+      sha256: 8132656dbdb51f7c80c780cbdf51c3b386801b1d2eb994e3436296814f8a0bde
+      source_commit: aca8a9ab035d5cc44dd65ce9c89a7bce1db98a42
+      tested_at: '2026-10-19T10:44:01Z'
+      result: pass
+    approval_refs:
+      AUTH: 2026-10-18 第一阶段dev原worker/current来源权限与受限business_tools提案；见11。
+      SANDBOX: 2026-10-18 同意独立SDK解释器、有界IPC和受限业务工具；见11，不新增execution profile。
+      SECRETS: 2026-10-18 同意加密本人端点经父代理使用；SDK仅临时loopback token，不继承宿主密钥；见11。
 - id: S2-07
   stage: S2
   title: 组件注册表、M端开关与capabilities v2
