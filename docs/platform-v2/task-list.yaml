@@ -554,10 +554,11 @@ tasks:
   - sduoj-web2
   approval_gates:
   - AUTH
-  execution_status: in_progress
-  source_basis: reviewed-20261018; see 09
+  execution_status: done
+  source_basis: fe7331a selection/key/default recovery; 74 base,5 increment,58 web and strengthened guide; see44
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
+  - 44-S2-04端点解析与冻结验收.md
   - 02-AI端口与MCP.md
   - 07-API清单.md
   - 08-前端改造方案.md
@@ -566,7 +567,27 @@ tasks:
     - positive
     - negative
     - failure_recovery
-    evidence: []
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s2-04-evidence.json
+      sha256: 71b78e3b7aa3567bb1d237b771686cd8741fbe959825d30a2e2112c4dc82d638
+      source_commit: fe7331a53ece5b25d85c9af8ebcd66c6d20273cd
+      tested_at: '2026-10-19T10:15:23Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s2-04-evidence.json
+      sha256: 71b78e3b7aa3567bb1d237b771686cd8741fbe959825d30a2e2112c4dc82d638
+      source_commit: fe7331a53ece5b25d85c9af8ebcd66c6d20273cd
+      tested_at: '2026-10-19T10:15:23Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s2-04-evidence.json
+      sha256: 71b78e3b7aa3567bb1d237b771686cd8741fbe959825d30a2e2112c4dc82d638
+      source_commit: fe7331a53ece5b25d85c9af8ebcd66c6d20273cd
+      tested_at: '2026-10-19T10:15:23Z'
+      result: pass
+    approval_refs:
+      AUTH: 2026-10-18 用户同意第一阶段dev本人端点/原来源权限/受限runner提案；见11，本次只验证既有选择和冻结合同。
 - id: S2-05
   stage: S2
   title: 扩展原claim与AiRun账本的端口额度
