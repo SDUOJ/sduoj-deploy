@@ -253,10 +253,11 @@ tasks:
   - sduoj-server-private
   approval_gates:
   - AUTH
-  execution_status: in_progress
-  source_basis: reviewed-20261018; see 09
+  execution_status: done
+  source_basis: AutoLab 56537a9 / Java 29c86d0d; three-kind actual source and original Gateway matrix; see 38
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
+  - 38-S1安全底座验收.md
   - 09-审计与实施门禁.md
   - 07-API清单.md
   - 08-前端改造方案.md
@@ -265,7 +266,25 @@ tasks:
     - positive
     - negative
     - failure_recovery
-    evidence: []
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s1-live-c4bfd92f/result.json
+      sha256: a3422f276f16a28dec3da7de05c7ba0c4a9e72a0b60efaf7fda50e62513db8dd
+      source_commit: 56537a9f0c4a6ad8b41909649630d203314341d9
+      tested_at: '2026-10-19T09:14:11Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s1-live-c4bfd92f/result.json
+      sha256: a3422f276f16a28dec3da7de05c7ba0c4a9e72a0b60efaf7fda50e62513db8dd
+      source_commit: 56537a9f0c4a6ad8b41909649630d203314341d9
+      tested_at: '2026-10-19T09:14:11Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s1-live-c4bfd92f/result.json
+      sha256: a3422f276f16a28dec3da7de05c7ba0c4a9e72a0b60efaf7fda50e62513db8dd
+      source_commit: 56537a9f0c4a6ad8b41909649630d203314341d9
+      tested_at: '2026-10-19T09:14:11Z'
+      result: pass
     approval_refs:
       AUTH: 2026-10-18 用户明确同意第一阶段dev实施提案；仅本地/隔离测试，不含生产。
 - id: S1-04
