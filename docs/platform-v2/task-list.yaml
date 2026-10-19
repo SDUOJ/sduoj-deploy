@@ -304,10 +304,12 @@ tasks:
   approval_gates:
   - AUTH
   execution_status: in_progress
-  source_basis: reviewed-20261018; see 09
+  source_basis: Java 79586fa4 / df86bb28 current session and parent description checks; checkpoint scope pending; see 38/39
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
   - 32-管理组权限查询先红再绿.md
+  - 38-S1安全底座验收.md
+  - 39-S1-04测试点作用域修复提案.md
   - 09-审计与实施门禁.md
   - 07-API清单.md
   - 08-前端改造方案.md
@@ -318,6 +320,7 @@ tasks:
     - failure_recovery
     evidence:
     - 32-管理组权限查询先红再绿.md
+    - 38-S1安全底座验收.md
     approval_refs:
       AUTH: 2026-10-19 用户同意 S1-04 管理组权限查询 dev 修复提案；仅本地修复与隔离验证，不含生产。
 - id: S1-05
