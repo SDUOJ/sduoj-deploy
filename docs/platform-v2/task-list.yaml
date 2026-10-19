@@ -374,6 +374,7 @@ tasks:
   - 07-API清单.md
   - 08-前端改造方案.md
   - 27-端点探测前端与真实供应商dev验收.md
+  - 29-models受控出口dev验收.md
   verification:
     required:
     - positive
@@ -381,6 +382,7 @@ tasks:
     - failure_recovery
     evidence:
     - 27-端点探测前端与真实供应商dev验收.md（固定Responses探测dev链；models仍unknown，任务未完成）
+    - 29-models受控出口dev验收.md（显式元数据出口helper；任务/前端未接入，不代表S2-03完成）
 - id: S2-04
   stage: S2
   title: 解析显式端口或本人默认，禁止隐式站点兜底
