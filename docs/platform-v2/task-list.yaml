@@ -145,7 +145,7 @@ tasks:
   - sduoj-server-private
   - sduoj-deploy
   approval_gates: []
-  execution_status: needs_verification
+  execution_status: done
   source_basis: reviewed-20261018; see 09
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
@@ -157,7 +157,25 @@ tasks:
     - positive
     - negative
     - failure_recovery
-    evidence: []
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s1-01-autolab.log
+      sha256: c5454a0430b094c1ed8aabc8de34c53b09e8be3e8306d21dc1db51bea95b0fc8
+      source_commit: c51869e9e5c146c1e0146631861469c8375a62c1
+      tested_at: '2026-10-19T08:22:17Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s1-01-live-rpc.json
+      sha256: 00fea230432c7c1567d7119106571f9607e69c1b8c3f033019bf3447768dffca
+      source_commit: 29c86d0de63a323265c7337f47acfa3fbbb70a84
+      tested_at: '2026-10-19T08:24:28Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s1-01-evidence.json
+      sha256: ad0de9693cb9728eb112d98149a7ee2f156f51ceeed95c30d017696ac3d083d4
+      source_commit: c51869e9e5c146c1e0146631861469c8375a62c1
+      tested_at: '2026-10-19T08:22:17Z'
+      result: pass
 - id: S1-02
   stage: S1
   title: 修复原生题组与题目关联的读写校验
