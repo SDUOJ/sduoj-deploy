@@ -832,7 +832,7 @@ tasks:
   - SCHEMA
   - AUTH
   execution_status: in_progress
-  source_basis: AutoLab 9b092c5 / Java 29c86d0d; implementation and isolated evidence in 36; live Java HTTP and S1 dependencies remain open
+  source_basis: AutoLab c51869e (from 9b092c5) / Java 29c86d0d; isolated SQL and live Java HTTP plus identity RPC passed in 36; native current-identity recheck added; broader S1 dependencies remain open
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
   - 03-出题平台.md
