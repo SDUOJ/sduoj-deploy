@@ -52,9 +52,9 @@
 | POST | A/ports/{id}/test | 属主 + 限频；显式报价确认和原 worker 任务，dev 前端及有界真实供应商验收见 [27](27-端点探测前端与真实供应商dev验收.md) |
 | GET | A/ports/{id}/test/latest | 本人最近固定探测或 null；只读历史，含冻结 port_version，停用端点仍可查，见 27 |
 | GET | A/ports/{id}/test/{taskId} | dev 已接本人脱敏状态和有限观察结果，不能作为其他组件自动授权 |
-| GET | A/ports/{id}/usage | 属主；结算/预留/未知用量和 UTC 周期；dev 已接，offset 分页/固定 20 条，见 [25](25-本人端点用量dev验收.md)；运营接口仍未实现 |
-| GET | A/admin/ports | 原 SUPERADMIN/明确平台运营授权；仅脱敏元数据 |
-| POST | A/admin/ports/{id}/disable | 同上；停止新请求，在途对账 |
+| GET | A/ports/{id}/usage | 属主；结算/预留/未知用量和 UTC 周期；dev 已接，offset 分页/固定 20 条，见 [25](25-本人端点用量dev验收.md)；更广的聚合运营信息仍未实现 |
+| GET | A/admin/ports | dev 已接原 superadmin；20 条分页、offset/owner_id/status 过滤；仅脱敏元数据，见 [28](28-端点运营与停用dev验收.md) |
+| POST | A/admin/ports/{id}/disable | dev 已接同上；version/operation_key/reason，停用清默认、在途结算，保留属主原显式启用，见 28 |
 | GET | A/capabilities | 已有，扩展 v2 的 policy_version、catalog_revision、组件/action 投影；保留原 admin/sandbox_enabled/task_types/resource_kinds 字段，按当前主体/作用域裁剪，不访问 provider |
 | GET | A/components | 新增；原 SUPERADMIN/明确平台运营授权，读静态已安装目录、实际开关、版本与依赖，不回传用户密钥 |
 | POST | A/components/{componentId}/update | 同上；policy_version CAS + operation_key/reason；只能更新已登记组件/action，不能安装代码/任意工具 |

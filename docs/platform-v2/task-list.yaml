@@ -339,12 +339,14 @@ tasks:
   - 02-AI端口与MCP.md
   - 07-API清单.md
   - 08-前端改造方案.md
+  - 28-端点运营与停用dev验收.md
   verification:
     required:
     - positive
     - negative
     - failure_recovery
-    evidence: []
+    evidence:
+    - 28-端点运营与停用dev验收.md（dev超管脱敏元数据与停用；不代表全部端点任务完成）
 - id: S2-03
   stage: S2
   title: 受控端口能力探测与SSRF验证
