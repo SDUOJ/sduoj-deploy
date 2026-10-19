@@ -791,10 +791,11 @@ tasks:
   - sduoj-web2
   approval_gates:
   - AUTH
-  execution_status: in_progress
-  source_basis: reviewed-20261018; see 09
+  execution_status: done
+  source_basis: 61f3af4 owned MySQL broker scope;36 direct/current SDK and historical browser evidence; see49
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
+  - 49-S2-08受限工具Broker验收.md
   - 02-AI端口与MCP.md
   - 07-API清单.md
   - 08-前端改造方案.md
@@ -805,7 +806,27 @@ tasks:
     - positive
     - negative
     - failure_recovery
-    evidence: []
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s2-08-evidence.json
+      sha256: 59328bc76f02ef72c07969f51302932e1dd3785e6f02fa4d9a22706a418dc96a
+      source_commit: 6edd990cded1cb9e0c7174865a0c37f6585a0ab9
+      tested_at: '2026-10-19T12:09:27Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s2-08-evidence.json
+      sha256: 59328bc76f02ef72c07969f51302932e1dd3785e6f02fa4d9a22706a418dc96a
+      source_commit: 6edd990cded1cb9e0c7174865a0c37f6585a0ab9
+      tested_at: '2026-10-19T12:09:27Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s2-08-evidence.json
+      sha256: 59328bc76f02ef72c07969f51302932e1dd3785e6f02fa4d9a22706a418dc96a
+      source_commit: 6edd990cded1cb9e0c7174865a0c37f6585a0ab9
+      tested_at: '2026-10-19T12:09:27Z'
+      result: pass
+    approval_refs:
+      AUTH: 2026-10-18用户批准第一阶段dev的原current身份、受限business_tools和普通文档候选浏览器确认，见11；2026-10-19批阅dev子集见34，不覆盖其他新写适配。
 - id: S2-09
   stage: S2
   title: 持久候选确认、幂等与未知结果审计
@@ -827,10 +848,11 @@ tasks:
   approval_gates:
   - AUTH
   - SCHEMA
-  execution_status: in_progress
-  source_basis: reviewed-20261018; first-phase approval covers plain document candidates only; other write adapters remain gated; see 11
+  execution_status: done
+  source_basis: 6edd990 current identity;56 candidate,3 MySQL process/recovery,1 Gateway,62 adoption gates;see50
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
+  - 50-S2-09持久候选与当前身份确认验收.md
   - 02-AI端口与MCP.md
   - 07-API清单.md
   - 08-前端改造方案.md
@@ -842,7 +864,28 @@ tasks:
     - positive
     - negative
     - failure_recovery
-    evidence: []
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s2-09-evidence.json
+      sha256: 028fd473aa14bfc6db24a735c1a157f290f9ead19f3cb18dde98ca3271262e1d
+      source_commit: 6edd990cded1cb9e0c7174865a0c37f6585a0ab9
+      tested_at: '2026-10-19T12:09:27Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s2-09-evidence.json
+      sha256: 028fd473aa14bfc6db24a735c1a157f290f9ead19f3cb18dde98ca3271262e1d
+      source_commit: 6edd990cded1cb9e0c7174865a0c37f6585a0ab9
+      tested_at: '2026-10-19T12:09:27Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s2-09-evidence.json
+      sha256: 028fd473aa14bfc6db24a735c1a157f290f9ead19f3cb18dde98ca3271262e1d
+      source_commit: 6edd990cded1cb9e0c7174865a0c37f6585a0ab9
+      tested_at: '2026-10-19T12:09:27Z'
+      result: pass
+    approval_refs:
+      AUTH: 2026-10-18用户批准第一阶段dev的原current身份、受限business_tools和普通文档候选浏览器确认，见11；2026-10-19批阅dev子集见34，不覆盖其他新写适配。
+      SCHEMA: 11已批准复用原AiResource候选/回执，不执行草案新表DDL或迁移。
 - id: S2-10
   stage: S2
   title: 分批迁移既有AI业务为OpenHands组件
@@ -905,10 +948,11 @@ tasks:
   - SCHEMA
   - AUTH
   - SECRETS
-  execution_status: in_progress
-  source_basis: reviewed-20261018; see 09
+  execution_status: done
+  source_basis: a0945c0 parent-death fix;61 lifecycle,26 SDK/IPC/process,1 deadline,1 current Linux originalworker;see52
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
+  - 52-S3-01原worker生命周期与强杀回收验收.md
   - 01-云Agent系统.md
   - 07-API清单.md
   - 08-前端改造方案.md
@@ -920,7 +964,29 @@ tasks:
     - positive
     - negative
     - failure_recovery
-    evidence: []
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s3-01-evidence.json
+      sha256: d8e0b28f172f6c3fb199e81c08e4f5c8c952df790b849de859f3c64f9764db92
+      source_commit: a0945c0db854602421e1b422c8907edc26edb447
+      tested_at: '2026-10-19T12:25:09Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s3-01-evidence.json
+      sha256: d8e0b28f172f6c3fb199e81c08e4f5c8c952df790b849de859f3c64f9764db92
+      source_commit: a0945c0db854602421e1b422c8907edc26edb447
+      tested_at: '2026-10-19T12:25:09Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s3-01-evidence.json
+      sha256: d8e0b28f172f6c3fb199e81c08e4f5c8c952df790b849de859f3c64f9764db92
+      source_commit: a0945c0db854602421e1b422c8907edc26edb447
+      tested_at: '2026-10-19T12:25:09Z'
+      result: pass
+    approval_refs:
+      SCHEMA: 11第一阶段批准复用原TaskJob/AiResource/lease，无新DDL，草案node/session/execution延期。
+      AUTH: 11第一阶段批准原worker管理受限SDK生命周期及原current来源权限；本次只补父死回收，不扩张委托。
+      SECRETS: 11/21/23批准独立SDK私有HOME与白名单环境的隔离dev测试；本次只增加非秘密PID/期限，不增加凭据或出口。
 - id: S3-02
   stage: S3
   title: 按task/attempt隔离工作区并显式快照
@@ -1078,10 +1144,11 @@ tasks:
   approval_gates:
   - SCHEMA
   - AUTH
-  execution_status: in_progress
-  source_basis: AutoLab c51869e (from 9b092c5) / Java 29c86d0d; isolated SQL and live Java HTTP plus identity RPC passed in 36; native current-identity recheck added; broader S1 dependencies remain open
+  execution_status: done
+  source_basis: c51869e/29c86d0d projection unchanged;current source crosscheck and S1-02/04/05 complete;see51
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
+  - 51-S4-01前置闭合与证据复核.md
   - 03-出题平台.md
   - 07-API清单.md
   - 08-前端改造方案.md
@@ -1093,8 +1160,24 @@ tasks:
     - negative
     - failure_recovery
     evidence:
-    - 35-S4-01统一检索投影提案.md
-    - 36-S4-01统一检索投影dev验收.md
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s4-01-evidence.json
+      sha256: 5bc3f2fd1e63d5710ae41aca360690907f783be90c967aa80b4b962eaf493e24
+      source_commit: 6edd990cded1cb9e0c7174865a0c37f6585a0ab9
+      tested_at: '2026-10-19T12:20:49Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s4-01-evidence.json
+      sha256: 5bc3f2fd1e63d5710ae41aca360690907f783be90c967aa80b4b962eaf493e24
+      source_commit: 6edd990cded1cb9e0c7174865a0c37f6585a0ab9
+      tested_at: '2026-10-19T12:20:49Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s4-01-evidence.json
+      sha256: 5bc3f2fd1e63d5710ae41aca360690907f783be90c967aa80b4b962eaf493e24
+      source_commit: 6edd990cded1cb9e0c7174865a0c37f6585a0ab9
+      tested_at: '2026-10-19T12:20:49Z'
+      result: pass
     approval_refs:
       SCHEMA: 2026-10-19 用户明确同意继续执行 S4-01 提案；仅隔离 dev 实现，不含生产。
       AUTH: 2026-10-19 用户明确同意继续执行 S4-01 提案；当前只读入口使用原身份校验，匿名入口保持关闭。
@@ -1122,6 +1205,7 @@ tasks:
   source_basis: reviewed-20261018; see 09
   rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
   doc_refs:
+  - 53-S4-02原生元数据兼容迁移dev提案.md
   - 03-出题平台.md
   - 07-API清单.md
   - 08-前端改造方案.md
