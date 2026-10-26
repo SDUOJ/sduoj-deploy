@@ -215,6 +215,10 @@ def main():
         signature_log = (a.output / receipt['stages'][-1]['log']).read_text()
         require('VALIDSIG ' + lock['qemuSignatureFingerprint'] + ' ' in signature_log, 'Exact official QEMU signer required')
         qemu = extract(a.sources / 'qemu-10.0.13.tar.xz', work / 'qemu-source', 'qemu-10.0.13')
+        dtc_revision = 'b6910bec11614980a21e46fbccc35934b671bd81'
+        require('revision = ' + dtc_revision in (qemu / 'subprojects/dtc.wrap').read_text(), 'DTC pin must match signed QEMU submodule revision')
+        dtc = extract(a.sources / ('dtc-' + dtc_revision + '.tar.gz'), work / 'dtc-source', 'dtc-' + dtc_revision)
+        shutil.copytree(dtc, qemu / 'subprojects/dtc', symlinks=True)
         ninja = extract(a.sources / 'ninja-v1.12.1.tar.gz', work / 'ninja-source', 'ninja-1.12.1')
         slirp = extract(a.sources / 'libslirp-v4.9.1.tar.gz', work / 'slirp-source', 'libslirp-v4.9.1')
         run('private-venv', [lock['tools']['python3']['path'], '-m', 'venv', str(venv)], 60)
@@ -229,13 +233,13 @@ def main():
         run('slirp-build-one-job', [str(prefix / 'bin/ninja'), '-C', str(slirp_build), '-j', '1'], 600)
         run('slirp-private-install', [str(venv / 'bin/meson'), 'install', '-C', str(slirp_build), '--no-rebuild'], 120)
         qemu_build = work / 'qemu-build'; qemu_build.mkdir(mode=0o700)
-        command = [str(qemu / 'configure'), '--target-list=aarch64-softmmu', '--without-default-features', '--enable-hvf', '--disable-tcg', '--enable-slirp', '--enable-pixman', '--enable-tools', '--disable-gio', '--disable-modules', '--disable-cocoa', '--disable-sdl', '--disable-gtk', '--disable-vnc', '--disable-docs', '--disable-rust', '--disable-download', '--python=' + python, '--ninja=' + str(prefix / 'bin/ninja'), '--extra-ldflags=-Wl,-headerpad_max_install_names', '--prefix=' + str(prefix)]
+        command = [str(qemu / 'configure'), '--target-list=aarch64-softmmu', '--without-default-features', '--enable-hvf', '--enable-fdt=internal', '--disable-tcg', '--enable-slirp', '--enable-pixman', '--enable-tools', '--disable-gio', '--disable-modules', '--disable-cocoa', '--disable-sdl', '--disable-gtk', '--disable-vnc', '--disable-docs', '--disable-rust', '--disable-download', '--python=' + python, '--ninja=' + str(prefix / 'bin/ninja'), '--extra-ldflags=-Wl,-headerpad_max_install_names', '--prefix=' + str(prefix)]
         run('qemu-configure-offline', command, 300, qemu_build)
         run('qemu-build-one-job', [str(prefix / 'bin/ninja'), '-j', '1', 'qemu-system-aarch64', 'qemu-img'], 7200, qemu_build)
         bundle = a.output / 'bundle'; bundle.mkdir(mode=0o700)
         libraries = portable_bundle(qemu_build, bundle, firmware, lock, run)
         licenses = bundle / 'share/licenses'; licenses.mkdir(mode=0o700)
-        for name, source in [('QEMU-COPYING', qemu / 'COPYING'), ('QEMU-COPYING.LIB', qemu / 'COPYING.LIB'), ('Ninja-COPYING', ninja / 'COPYING'), ('libslirp-COPYRIGHT', slirp / 'COPYRIGHT')]:
+        for name, source in [('QEMU-COPYING', qemu / 'COPYING'), ('QEMU-COPYING.LIB', qemu / 'COPYING.LIB'), ('Ninja-COPYING', ninja / 'COPYING'), ('libslirp-COPYRIGHT', slirp / 'COPYRIGHT'), ('libfdt-BSD-2-Clause', dtc / 'BSD-2-Clause'), ('dtc-GPL', dtc / 'GPL')]:
             require(source.is_file(), 'License input missing: ' + name)
             shutil.copyfile(source, licenses / name); (licenses / name).chmod(0o600)
         # Keep exact source license bytes and source provenance alongside copied existing dylibs.

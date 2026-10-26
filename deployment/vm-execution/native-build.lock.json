@@ -59,6 +59,13 @@
       "bytes": 32694085,
       "sha256": "85d99b79c981a404874c02e0342176cf75c7698e2b51fe41031cf6526d974f1a",
       "sourceHashProvenance": "Existing formula stable SHA plus fetched official upstream bytes; not rebuilt in this package"
+    },
+    "dtc-b6910bec11614980a21e46fbccc35934b671bd81.tar.gz": {
+      "url": "https://gitlab.com/qemu-project/dtc/-/archive/b6910bec11614980a21e46fbccc35934b671bd81/dtc-b6910bec11614980a21e46fbccc35934b671bd81.tar.gz",
+      "sha256": "e115f987eec23a1ba25150a46ced1675de3716072d3b4905afb3a9cda0f007c7",
+      "bytes": 205556,
+      "revision": "b6910bec11614980a21e46fbccc35934b671bd81",
+      "provenance": "Exact dtc submodule revision from signed QEMU10.0.13 subprojects/dtc.wrap; fetched official qemu-project archive over HTTPS"
     }
   },
   "tools": {
