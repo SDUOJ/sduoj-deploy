@@ -139,6 +139,17 @@ class VmPackageTests(unittest.TestCase):
         self.assertIn('--no-install-recommends', command)
         self.assertEqual(command[-1], str(self.root / 'frozen.deb'))
 
+    def test_apt_epoch_filename_token_is_accepted_without_url_decoding(self):
+        rows = []
+        for n in ('docker-ce', 'docker-ce-cli', 'containerd.io', 'docker-buildx-plugin', 'docker-compose-plugin'):
+            file = n + '_5%3a29.2.1_arm64.deb'; data = n.encode(); (self.root / file).write_bytes(data)
+            rows.append(dict(name=n, version='5:29.2.1', file=file, sha256=hashlib.sha256(data).hexdigest()))
+        lock = dict(schemaVersion=1, architecture='arm64', status='OFFICIAL_APT_DEPENDENCY_CLOSURE_FROZEN', packages=rows)
+        self.assertEqual(install.packages(lock, self.root), rows)
+        for value in ('../escape.deb', 'docker%2fescape.deb', 'docker%00.deb', 'docker%253a.deb'):
+            bad = copy.deepcopy(lock); bad['packages'][0]['file'] = value
+            with self.assertRaises(ValueError): install.packages(bad, self.root)
+
     def test_local_image_id_not_registry_identity(self):
         self.c['execution']['ideImage'] = 'sha256:' + '5' * 64
         with self.assertRaises(ValueError): vmctl.validate(self.c)

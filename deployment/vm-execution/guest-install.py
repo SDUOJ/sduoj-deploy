@@ -17,7 +17,7 @@ def packages(lock, directory):
     require(len({r['name'] for r in rows}) == len(rows), 'Duplicate package names rejected')
     for r in rows:
         require(re.fullmatch('[a-z0-9][a-z0-9+.-]+', r['name']) and re.fullmatch('[A-Za-z0-9.+:~_-]+', r['version']), 'Pinned package identity required')
-        require(re.fullmatch(r'[A-Za-z0-9.+~_-]+\.deb', r['file']) and re.fullmatch('[a-f0-9]{64}', r['sha256']), 'Safe package filename and exact SHA required')
+        require(re.fullmatch(r'(?:[A-Za-z0-9.+~_-]|%3[aA])+\.deb', r['file']) and re.fullmatch('[a-f0-9]{64}', r['sha256']), 'Safe package filename and exact SHA required')
         file = directory / r['file']
         require(file.is_file() and not file.is_symlink() and sha(file) == r['sha256'], 'Offline deb checksum mismatch')
     return rows

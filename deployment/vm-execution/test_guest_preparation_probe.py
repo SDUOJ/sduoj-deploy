@@ -24,6 +24,22 @@ class GuestPreparationProbeTests(unittest.TestCase):
         preflight.validate_probe_config(self.c, preparation=True)
         with self.assertRaises(ValueError): preflight.validate_probe_config(self.c)
 
+    def test_formal_boot_file_drift_rejected_preparation_records_actual_bytes(self):
+        root = Path(self.tmp.name); kernel = root / 'kernel'; initrd = root / 'initrd'
+        kernel.write_bytes(b'actual kernel'); initrd.write_bytes(b'actual initrd')
+        self.c['boot']['kernelSha256'] = preflight.sha(kernel)
+        self.c['boot']['initrdSha256'] = preflight.sha(initrd)
+        preflight.verify_guest_boot_files(self.c, kernel, initrd)
+        initrd.write_bytes(b'dpkg rebuilt initrd')
+        with self.assertRaisesRegex(ValueError, 'drift'):
+            preflight.verify_guest_boot_files(self.c, kernel, initrd)
+        result = preflight.verify_guest_boot_files(self.c, kernel, initrd, preparation=True)
+        self.assertEqual(result['initrdSha256'], preflight.sha(initrd))
+        self.assertNotEqual(result['initrdSha256'], self.c['boot']['initrdSha256'])
+        initrd.unlink(); initrd.symlink_to(kernel)
+        with self.assertRaises(ValueError):
+            preflight.verify_guest_boot_files(self.c, kernel, initrd, preparation=True)
+
     def test_preparation_never_admits_production_or_business_probes(self):
         with self.assertRaises(ValueError): preflight.validate_probe_config(self.c, network=True, preparation=True)
         self.c['stage'] = 'production-staging'

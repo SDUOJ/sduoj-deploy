@@ -38,6 +38,14 @@ def validate_probe_config(c, network=False, preparation=False):
         require(c['preparedGuest']['kernelRelease'] == source['kernelPackage'].removeprefix('linux-image-'), 'Preparation must use the frozen source kernel')
 
 
+def verify_guest_boot_files(c, kernel, initrd, preparation=False):
+    require(all(p.is_file() and not p.is_symlink() for p in (kernel, initrd)), 'Actual regular guest /boot files required')
+    observed = {'kernelSha256': sha(kernel), 'initrdSha256': sha(initrd)}
+    if not preparation:
+        require(all(observed[k] == c['boot'][k] for k in observed), 'Guest /boot kernel/initrd drift from frozen pins')
+    return observed
+
+
 def probe(c, network=False, preparation=False):
     validate_probe_config(c, network, preparation)
     require(platform.system() == 'Linux' and platform.machine() == 'aarch64', 'Native ARM64 guest required')
@@ -58,7 +66,7 @@ def probe(c, network=False, preparation=False):
          'preparedDiskQualified': False, 'executorStarted': False}
     kernel_image = Path('/boot/vmlinuz-' + platform.release())
     initrd_image = Path('/boot/initrd.img-' + platform.release())
-    r['observedBoot'] = {'bootMode': 'direct-kernel', 'kernelSha256': sha(kernel_image), 'initrdSha256': sha(initrd_image), 'commandLine': Path('/proc/cmdline').read_text().strip(), 'rootPartuuid': c['boot']['rootPartuuid']}
+    r['observedBoot'] = {'bootMode': 'direct-kernel', **verify_guest_boot_files(c, kernel_image, initrd_image, preparation), 'commandLine': Path('/proc/cmdline').read_text().strip(), 'rootPartuuid': c['boot']['rootPartuuid']}
     r['kernelPackageVersion'] = subprocess.check_output(['dpkg-query', '-W', '-f=${Version}', 'linux-image-' + platform.release()], text=True, timeout=5).strip()
     require(r['kernelPackageVersion'] == '6.12.113-1', 'Exact kernel package version required')
     require(r['observedBoot']['commandLine'] == KERNEL_COMMAND_LINE and os.cpu_count() == c['vcpus'], 'Exact direct boot command line and CPU envelope required')
