@@ -60,6 +60,12 @@ Gateway与Worker Redis host/port/**DB2**/prefix必须匹配，先用scripts/ide_
 
 用户已在当前会话明确采用以下正式灰度质量门槛：500在线/100活跃，每种语言与总体validRate>=95%、validP95<=1秒，且无持续provider退役、资源泄漏或隔离失败。批准收据为work/artifacts/ide-judger-release-prep-20261026/GRAY_ACCEPTANCE_CONTRACT.json；该决定只批准验收标准，不批准生产切换，也不改变历史失败候选的资格。统计必须同时保留allP95、失败/timeout/degraded/null；不能称所有请求p95<1秒。15分钟累计稳态也不是24小时长稳。
 
+### Java LSP 当前修复边界
+
+R14首次失败发生在cleanup的第一个 `java.project.getAll`，等待2.0015秒，删除命令尚未发送，队列等待约25微秒。独立真实JVM线程栈确认，JDT在executeCommand分派前同步调用IndexManager.waitForIndex，RPC reader因此阻塞；同时JDK21模块索引仍在运行。初始化job此前已结束，不能把失败归因于初始化通知、删除job或内存不足。空workspace getAll的对照实验仍失败；可信内部Java文档完成生命周期后等待索引、正常关闭，才消除了该复现。
+
+R15源码 `e4422e0e547b0d29068a3e392f12e56fb6572076` 将这段准备放入既有30秒provider启动总预算，业务deadline和cleanup2秒预算不变。184项单测通过；真实10session/100revision更新99ready、1timeout，项目数在运行中固定20、关闭后0，provider starts1、cleanup失败0；同镜像四语言warm通过，Java冷启动2次degraded完整保留。该结果来自Docker Desktop基线，只说明有界复现与预热通过；不是统一guest、500/100容量、900秒稳态或故障恢复资格。精确R15镜像和后续阶段以本轮 `IDE_LATEST_STAGE.json` 为准。
+
 ## 发布顺序与回滚
 
 1. 冻结精确本地提交、镜像/registrydigest、源码/工件hash、配置与schema依赖。先发布sandbox与server-private依赖提交，再发布引用它们的Judger。跨私有仓库CI要求只读SDUOJ_SERVER_SOURCE_TOKEN，缺失失败关闭；本机gh未登录，尚不能核对secret实际是否配置。
