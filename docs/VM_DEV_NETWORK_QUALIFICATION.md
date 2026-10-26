@@ -15,8 +15,8 @@
 
 1. 重新核本任务 owner、精确镜像、队列/任务/session 排空；保留所有原 compose/config/container IDs 和镜像作为可恢复基线。不停止其他会话服务。
 2. 从仍存在的真实 Mac 私网接口选择 dev 专属地址。优先核 bridge0 的192.168.0.10是否仍是当前独立有线接口；验证 guest→Mac和Docker业务→Mac两向路由。不能把尚未验证的接口直接记为可达，也不能使用0.0.0.0或把guest NAT地址登记成Worker地址。
-3. 在本任务专属 Compose overlay 中给所需服务增加该私网地址的 published port，保留现有loopback入口供原验收工具使用。仅改本任务dev服务；端口使用前检查冲突。候选：Gateway38080、Problem38082、Filesys38083、Contest38084、User38085、Websocket38089；Nacos38848、Redis36379。Rabbit的当前服务名/端口/owned vhost必须从原compose及私有配置核对，不能依据猜测填值。
-4. 给六Java业务服务明确设置 `spring.cloud.nacos.discovery.ip=本次真实私网IP` 与各自 published discovery port；内部server.port保留原值。显式参数必须在实际Nacos实例/Feign调用中核验确已生效。所有消费者看到同一组可达地址，不能让guest仍读取原Docker bridge地址。固定Nacos/Java SDK版本后核实际是否使用附加RPC端口，仅在确需时映射，不能用“主端口通了”代替验证。
+3. 从本任务实际私有配置生成 `docker compose config --format json`，保存为0600文件；用 `deployment/vm-execution/dev-network.py --resolved-compose /absolute/private/resolved.json --host-address 本次已核验IP --output /absolute/private/network-candidate.json` 生成新候选。该工具不启动服务、不验证接口和端口可达性、不覆盖原配置。候选保留原loopback入口，只给本任务服务增加私网published port：Gateway38080、Problem38082、Filesys38083、Contest38084、User38085、Websocket38089；Nacos38848/39848、Redis36379、Rabbit35672。Rabbit服务名rabbit、容器5672和专属vhost /sduoj来自现有dev模板；执行时仍须核实际私有配置一致。全部端口先检查冲突。
+4. 候选给六Java业务服务明确设置 `spring.cloud.nacos.discovery.ip=本次真实私网IP` 与各自 published discovery port；内部server.port保留原值。显式参数必须在实际Nacos实例/Feign调用中核验确已生效。所有消费者看到同一组可达地址，不能让guest仍读取原Docker bridge地址。当前server源码固定nacos-client2.3.2，外部38848对应客户端gRPC39848→容器9848；必须保持main+1000关系，不能只测HTTP主端口。参考[Nacos 2.x端口兼容说明](https://nacos-group.github.io/en/docs/v2/upgrading/200-compatibility/)。实际连接成功和注册仍须实测。
 5. 按执行层模板填相同私网IP的 Nacos/Redis/Rabbit/RPC origins、独立namespace/RedisDB2+prefix、owned Rabbit vhost。健康端口39086以及Judger39087/Run39088通过QEMU hostfwd绑定该私网地址；Nacos中登记精确hostIP+port。该地址只属于dev网络配置，不进入生产模板默认值。所有凭据经私有0600文件注入，不放cloud-init、命令行或公开证据。
 6. 从 guest 实测服务TCP和鉴权、Nacos实际返回的每个RPC地址；从原业务容器网络位置反向请求Worker `/ready` 并确认登记与heartbeat。最后跑实际Gateway→Redis→Worker、Rabbit→Judger/Run→Filesys/Problem闭环。任一注册地址/DB/prefix/队列不符时停止，不自动回退到原Worker来制造通过。
 
