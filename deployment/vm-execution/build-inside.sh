@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 umask 077
 [[ "${VM_BUILD_SCOPE:-}" == 'SDUOJ_ISOLATED_VM_ARTIFACTS_ONLY' && -f /src/manager-build.lock.json && -d /output ]]
-mkdir -p /output/apt-evidence /output/guest-debs /output/firmware /opt/sduoj-vm
+mkdir -p /output/apt-evidence /output/guest-debs /output/manager-debs /output/firmware /opt/sduoj-vm
 rm -f /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources
 snapshot=$(cat /src/debian-snapshot)
 printf 'deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/%s/ trixie main\n' "$snapshot" > /etc/apt/sources.list
@@ -11,6 +11,11 @@ apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=60 -o Debug::Acquire::gp
 # Exact Debian snapshot versions are passed by the local frozen renderer.
 mapfile -t packages < /src/manager-packages
 DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends -o Acquire::Retries=2 install "${packages[@]}" ca-certificates curl gnupg > /output/apt-evidence/manager-install.log 2>&1
+# Retain an independently resolvable full manager dependency closure, not only dpkg versions.
+: > /output/empty-status
+find /var/cache/apt/archives -maxdepth 1 -name '*.deb' -delete
+apt-get -o Dir::State::status=/output/empty-status -o Debug::NoLocking=1 -y --download-only --no-install-recommends -o Acquire::Retries=2 install "${packages[@]}" ca-certificates curl gnupg > /output/apt-evidence/manager-closure.log 2>&1
+find /var/cache/apt/archives -maxdepth 1 -name '*.deb' -exec cp -- '{}' /output/manager-debs/ \;
 cp -a /var/lib/apt/lists /output/apt-evidence/debian-lists
 mkdir -p /etc/apt/keyrings
 curl --proto '=https' --tlsv1.2 --fail --retry 2 --connect-timeout 15 --max-time 60 https://download.docker.com/linux/debian/gpg -o /output/apt-evidence/docker.asc
