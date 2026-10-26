@@ -97,6 +97,13 @@ class VmPackageTests(unittest.TestCase):
         with self.assertRaises(ValueError): vmctl.validate(self.c)
         with self.assertRaises(ValueError): install.packages(json.loads((HERE / 'guest-packages.example.json').read_text()), self.root)
 
+    def test_offline_installer_does_not_fetch_optional_packages_or_remove_existing(self):
+        command = install.install_command([{'file': 'frozen.deb'}], self.root)
+        self.assertIn('--no-download', command)
+        self.assertIn('--no-remove', command)
+        self.assertIn('--no-install-recommends', command)
+        self.assertEqual(command[-1], str(self.root / 'frozen.deb'))
+
     def test_local_image_id_not_registry_identity(self):
         self.c['execution']['ideImage'] = 'sha256:' + '5' * 64
         with self.assertRaises(ValueError): vmctl.validate(self.c)

@@ -23,6 +23,13 @@ def packages(lock, directory):
     return rows
 
 
+def install_command(rows, directory):
+    # The frozen lock contains Depends/Pre-Depends, not optional Recommends.
+    # Keep installation aligned with build-inside.sh's explicit closure scope.
+    return ['apt-get', '--no-download', '--no-remove', '--no-install-recommends', '-y', 'install',
+            *[str(directory / r['file']) for r in rows]]
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--config', type=Path, required=True); p.add_argument('--package-lock', type=Path, required=True)
@@ -39,7 +46,7 @@ def main():
         require('Package: ' + r['name'] + '\n' in data and 'Version: ' + r['version'] + '\n' in data and any('Architecture: ' + x + '\n' in data for x in ('arm64', 'all')), 'Deb metadata differs from frozen lock')
     target = Path('/etc/docker/daemon.json'); desired = Path(__file__).with_name('daemon.json').read_bytes()
     require(not target.exists() or target.read_bytes() == desired, 'Refuse overriding another Docker daemon configuration')
-    subprocess.run(['apt-get', '--no-download', '--no-remove', '-y', 'install', *[str(a.deb_directory / r['file']) for r in rows]], check=True, timeout=300)
+    subprocess.run(install_command(rows, a.deb_directory), check=True, timeout=300)
     target.parent.mkdir(exist_ok=True); target.write_bytes(desired); target.chmod(0o600)
     subprocess.run(['systemctl', 'restart', 'docker'], check=True, timeout=60)
     print(json.dumps({'installed': True, 'guestQualified': False, 'next': 'guest-preflight; inventories; clean shutdown; standalone disk freeze'}))
