@@ -150,6 +150,16 @@ class VmPackageTests(unittest.TestCase):
             bad = copy.deepcopy(lock); bad['packages'][0]['file'] = value
             with self.assertRaises(ValueError): install.packages(bad, self.root)
 
+    def test_apt_cache_staging_keeps_exact_bytes_and_refuses_existing_drift(self):
+        source = self.root / 'source-debs'; source.mkdir(); cache = self.root / 'cache'
+        file = 'docker-ce_5%3a29.2.1_arm64.deb'; data = b'verified deb'
+        (source / file).write_bytes(data)
+        rows = [dict(file=file, sha256=hashlib.sha256(data).hexdigest())]
+        install.stage_archives(rows, source, cache)
+        self.assertEqual((cache / file).read_bytes(), data)
+        (cache / file).write_bytes(b'drift')
+        with self.assertRaises(ValueError): install.stage_archives(rows, source, cache)
+
     def test_local_image_id_not_registry_identity(self):
         self.c['execution']['ideImage'] = 'sha256:' + '5' * 64
         with self.assertRaises(ValueError): vmctl.validate(self.c)
