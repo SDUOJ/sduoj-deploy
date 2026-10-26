@@ -29,6 +29,8 @@ def probe(c, state, code, variables):
 def argv(c, state, code, backend):
     health = c['healthPort']
     network = f"user,id=net0,ipv6=off,hostfwd=tcp:127.0.0.1:{c['sshPort']}-:22,hostfwd=tcp:{c['healthBindAddress']}:{health}-:{health}"
+    if c['networkPhase'] == 'bootstrap':
+        network += ',restrict=on'
     if c['networkPhase'] == 'integrated':
         network += ''.join(f",hostfwd=tcp:{c['healthBindAddress']}:{port}-:{port}" for port in (c['execution']['judgerPort'], c['execution']['runPort']))
     return ['qemu-system-aarch64', '-name', c['name'], '-machine', c['machine'] + (',gic-version=host' if backend == 'kvm' else ',gic-version=3'),

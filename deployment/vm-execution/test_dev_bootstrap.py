@@ -30,6 +30,22 @@ class DevBootstrapTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def test_bootstrap_hvf_rom_and_restricted_network_are_explicit(self):
+        args = bootstrap.argv(self.c, self.root, self.root / 'bundle')
+        self.assertEqual(args[args.index('-accel') + 1], 'hvf')
+        self.assertIn('virt-10.0,gic-version=3', args)
+        self.assertIn('virtio-net-pci,netdev=net0,romfile=', args)
+        network = args[args.index('-netdev') + 1]
+        self.assertIn('restrict=on', network)
+        self.assertIn('hostfwd=tcp:127.0.0.1:', network)
+        from manager import argv as manager_argv
+        c = json.loads((HERE / 'deployment.example.json').read_text())
+        for phase in ('bootstrap', 'integrated'):
+            c['networkPhase'] = phase
+            args = manager_argv(c, self.root, self.root / 'code.fd', 'hvf')
+            self.assertIn('virtio-net-pci,netdev=net0,romfile=', args)
+            self.assertEqual('restrict=on' in args[args.index('-netdev') + 1], phase == 'bootstrap')
+
     def test_default_no_config_is_read_only_and_does_not_spawn(self):
         before = set(self.root.iterdir())
         result = subprocess.run([sys.executable, str(HERE / 'dev-bootstrap.py')], cwd=self.root, text=True, capture_output=True)
@@ -70,7 +86,7 @@ class DevBootstrapTests(unittest.TestCase):
     def test_initial_guest_has_only_loopback_ssh_and_native_hvf(self):
         args = bootstrap.argv(self.c, self.root / 'state', self.root / 'bundle')
         net = args[args.index('-netdev') + 1]
-        self.assertEqual(net, 'user,id=net0,ipv6=off,hostfwd=tcp:127.0.0.1:40222-:22')
+        self.assertEqual(net, 'user,id=net0,ipv6=off,restrict=on,hostfwd=tcp:127.0.0.1:40222-:22')
         self.assertEqual(args[args.index('-accel') + 1], 'hvf')
         self.assertNotIn('tcg', args); self.assertNotIn('docker', ' '.join(args))
 

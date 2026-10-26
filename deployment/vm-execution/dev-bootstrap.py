@@ -135,7 +135,7 @@ def argv(c, state, bundle):
             '-drive', f'if=pflash,format=raw,unit=1,file={state / "vars.fd"}',
             '-drive', f'if=none,id=osdisk,format=qcow2,file={state / "disk.qcow2"}', '-device', 'virtio-blk-pci,drive=osdisk',
             '-drive', f'if=none,id=seed,format=raw,readonly=on,file={state / "seed.iso"}', '-device', 'virtio-blk-pci,drive=seed',
-            '-netdev', f'user,id=net0,ipv6=off,hostfwd=tcp:127.0.0.1:{c["sshPort"]}-:22', '-device', 'virtio-net-pci,netdev=net0,romfile=', '-device', 'virtio-rng-pci',
+            '-netdev', f'user,id=net0,ipv6=off,restrict=on,hostfwd=tcp:127.0.0.1:{c["sshPort"]}-:22', '-device', 'virtio-net-pci,netdev=net0,romfile=', '-device', 'virtio-rng-pci',
             '-display', 'none', '-monitor', 'none', '-serial', f'file:{state / "serial.log"}', '-qmp', f'unix:{state / "qmp.sock"},server=on,wait=off', '-no-reboot']
 
 
@@ -152,7 +152,7 @@ def start(c):
         except (OSError, RuntimeError, ValueError):
             print('Shutdown not confirmed; retain dev overlay and inspect the owned process', flush=True)
     signal.signal(signal.SIGTERM, stop); signal.signal(signal.SIGINT, stop)
-    write(state / 'runtime.json', json.dumps({'instance': c['name'], 'pid': child.pid, 'started': time.time(), 'backend': 'hvf', 'guestQualified': False}))
+    write(state / 'runtime.json', json.dumps({'instance': c['name'], 'pid': child.pid, 'started': time.time(), 'backend': 'hvf', 'argv': argv(c, state, bundle), 'launcherSha256': sha(Path(__file__)), 'guestQualified': False}))
     rc = child.wait()
     write(state / 'exit.json', json.dumps({'instance': c['name'], 'qemuExitCode': rc, 'finished': time.time(), 'guestQualified': False}))
     return rc
