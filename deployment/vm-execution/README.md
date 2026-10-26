@@ -46,6 +46,8 @@ guest→既有Nacos/Redis(DB2)/Rabbit/Filesys/Problem/Run RPC使用明确内网I
 
 反向验收必须从原host上的Nacos/Gateway网络位置请求 `http://审批内网IP:healthPort/ready`，再核对注册/heartbeat中的精确ip+port+workerId，并执行真实Gateway→Redis→Worker及Judger/Run→队列→RPC闭环。Nacos仅控制面、业务走Redis也不能豁免错误健康地址。
 
+当前Mac隔离dev的business ports多数仅loopback或未published，不能直接把旧Docker bridge discovery传入HVF guest。首次迁入同构guest前按[独立dev联网验收](../../docs/VM_DEV_NETWORK_QUALIFICATION.md)准备本任务专属overlay、实际可达discovery与双向闭环；这些端口/地址尚未变更或通过资格。
+
 ## 分阶段构建、冻结与启动
 
 1. **离线制备原料。** 在独立dev制备工作区，核源盘checksum；从官方apt签名元数据固定Docker29.2.1、containerd/runc、Compose/Buildx及完整依赖deb字节，填写 `guest-packages.example.json` 的新私有副本，状态改为 `OFFICIAL_APT_DEPENDENCY_CLOSURE_FROZEN`。保留apt Release/InRelease/key fingerprint和包hash；不能用浮动安装脚本。管理镜像用 `manager.Dockerfile`，提供带digest的Debian基础镜像、明确snapshot时间及4个非空包版本buildargs（覆盖5个包），在隔离构建机生成ARM64镜像，导出dpkg清单/QEMU版本/两份AAVMF hashes，并固定registry digest。此包未构建管理镜像。
