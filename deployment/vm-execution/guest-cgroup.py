@@ -8,6 +8,16 @@ from vmctl import read_config, validate, require
 from ide_cgroup_v2_setup import provision, validate as validate_aggregate
 
 
+def configure_cpu_sets(root, parent):
+    # Enabling a controller at the parent creates its files in existing children.
+    # provision() enables cpu/memory/pids only; debug has no cpuset.* until here.
+    (parent / 'cgroup.subtree_control').write_text('+cpu +memory +pids +cpuset')
+    for target in (parent, parent / 'debug'):
+        (target / 'cpuset.mems').write_text((root / 'cpuset.mems.effective').read_text().strip())
+        (target / 'cpuset.cpus').write_text('0-3')
+        require((target / 'cpuset.cpus.effective').read_text().strip() == '0-3', 'IDE/debug cpuset readback mismatch')
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--config', type=Path, required=True); p.add_argument('--apply', action='store_true'); p.add_argument('--confirm-instance')
@@ -24,11 +34,7 @@ def main():
     (root / 'cgroup.subtree_control').write_text('+cpu +memory +pids +cpuset')
     report = provision(root, name)
     parent = root / name
-    for target in (parent, parent / 'debug'):
-        (target / 'cpuset.mems').write_text((root / 'cpuset.mems.effective').read_text().strip())
-        (target / 'cpuset.cpus').write_text('0-3')
-        require((target / 'cpuset.cpus.effective').read_text().strip() == '0-3', 'IDE/debug cpuset readback mismatch')
-    (parent / 'cgroup.subtree_control').write_text('+cpu +memory +pids +cpuset')
+    configure_cpu_sets(root, parent)
     report.update(cpuset='0-3', scope='guest-only-candidate-requires-workload-qualification')
     print(json.dumps(report, indent=2))
 
