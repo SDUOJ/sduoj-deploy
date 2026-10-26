@@ -129,7 +129,9 @@ def portable_bundle(build, bundle, firmware, source_lock, run):
             require(dependency.startswith('/'), 'Unresolved original dependency: ' + dependency)
             source = Path(dependency).resolve()
             require(source.is_file(), 'Missing dynamic library input')
-            require(source.is_relative_to(Path('/opt/homebrew/Cellar')) or source.is_relative_to(build.parent), 'Unreviewed dynamic library source')
+            private_prefix = build.parent.parent / 'prefix'
+            require(private_prefix.is_dir() and not private_prefix.is_symlink(), 'Real owned build prefix required')
+            require(source.is_relative_to(Path('/opt/homebrew/Cellar')) or source.is_relative_to(build.parent) or source.is_relative_to(private_prefix), 'Unreviewed dynamic library source')
             destination = bundle / 'lib' / source.name
             if destination.name in originals:
                 require(originals[destination.name] == source, 'Portable dylib basename collision')
