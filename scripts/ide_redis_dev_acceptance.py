@@ -6,6 +6,7 @@ never copied to the report. Only a loopback Gateway is accepted.
 """
 import argparse
 import json
+import math
 from pathlib import Path
 import time
 import uuid
@@ -50,6 +51,19 @@ CASES = {
         'loop': 'public class Main {public static void main(String[] args){long n=0;while(true){n++;}}}',
     },
 }
+
+
+MAX_DEBUG_LIFETIME_SECONDS = 1800
+TIMEOUT_CLEANUP_MARGIN_SECONDS = 10
+
+
+def run_timeout_observation_seconds(session):
+    """Client measurement budget; never sends or changes a service deadline."""
+    limit = session.get('runLimitSeconds')
+    if (type(limit) not in (int, float) or not math.isfinite(limit)
+            or not 0 < limit <= MAX_DEBUG_LIFETIME_SECONDS):
+        raise ValueError('Expected a bounded advertised runLimitSeconds')
+    return limit + TIMEOUT_CLEANUP_MARGIN_SECONDS
 
 
 class Client:
@@ -231,10 +245,12 @@ def debug_checks(client, language, result, other):
     try:
         looping, _ = client.wait(looping)
         client.dispatch(looping, 'continue', {'threadId': looping['threadId']})
-        looping, events = client.wait(looping, lambda s: s['state'] in ('terminated', 'failed'), seconds=50)
+        observation_seconds = run_timeout_observation_seconds(looping)
+        looping, events = client.wait(looping, lambda s: s['state'] in ('terminated', 'failed'), seconds=observation_seconds)
         assert looping['reason'] == 'DEBUG_RUN_TIMEOUT', events
         result['runTimeoutVisible'] = True
         result['runLimitSeconds'] = looping['runLimitSeconds']
+        result['timeoutObservationBudgetSeconds'] = observation_seconds
     finally:
         client.stop(looping)
     result['passed'] = True
