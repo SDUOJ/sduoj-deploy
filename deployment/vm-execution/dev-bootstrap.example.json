@@ -10,5 +10,15 @@
   "memoryMiB": 24576,
   "diskGiB": 120,
   "sshPort": 40222,
-  "guestSshPublicKey": ""
+  "guestSshPublicKey": "",
+  "bootMode": "direct-kernel",
+  "boot": {
+    "rootPartuuid": "194f4bfc-04a8-48a7-868d-ebe69b12df74",
+    "kernelFile": "kernel.Image",
+    "initrdFile": "initrd.img",
+    "kernelSha256": "56c8140b6ef40fdc413fceb2772535a30cb54df3a0389d6870a6ee5de8dea151",
+    "initrdSha256": "0754ff02f260a6590d99c5ffe99af04a61d27ec9eb5cc23966b72e114873f6d4",
+    "commandLine": "root=PARTUUID=194f4bfc-04a8-48a7-868d-ebe69b12df74 ro console=ttyAMA0"
+  },
+  "bootDirectory": "/absolute/private/upstream-kernel-initrd"
 }

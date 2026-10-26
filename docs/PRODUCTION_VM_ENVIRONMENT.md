@@ -10,6 +10,12 @@
 
 /dev/kvm存在，当前SSH账号可读写，KVM_GET_API_VERSION只读ioctl返回12，说明有可用虚拟化接口；尚未创建VM或验证完整guest启动。约537GiB根文件系统空闲。当前未安装QEMU、qemu-img、cloud-localds或AAVMF固件，也无Node。若采用容器管理VM，需要把这些依赖装入固定的管理镜像，而非直接修改线上宿主机包。
 
+## 固定启动方式
+
+正式候选改为 `bootMode=direct-kernel`：HVF/dev与KVM/生产均使用同盘实际kernel.Image/initrd.img、精确root PARTUUID和命令行 `root=PARTUUID=194f4bfc-04a8-48a7-868d-ebe69b12df74 ro console=ttyAMA0`；16vCPU/24GiB/120GiB、virt-10.0/GICv3不降格。两个backend均显式单值accelerator，不允许TCG自动fallback。启动不依赖pflash/NVRAM或PXE ROM；保留AAVMF制品不代表UEFI已通过。
+
+MBP的原UEFI16CPU引导停在固件WFI，失败收据保留。相同官方QEMU10.0.13、同kernel/盘、16CPU/GICv3直接引导诊断已实际进入固定Linux并干净关机；它不是生产KVM资格。初始kernel/initrd来自精确上游盘，最终prepared锁必须重新取安装/清理后实际/boot字节及hash、kernel包/config，不能假设initrd未被dpkg重建。缺boot pins/任意额外kernelargs时启动拒绝。源码包见 `../deployment/vm-execution/README.md`。
+
 ## 一致性合同
 
 镜像/依赖、权限、安全内核能力和资源设置都要固定。仅固定业务镜像digest不足以称环境一致；需要同时记录guest基础盘SHA、guest kernel/config、Docker版本和cgroup-v2/cgroupfs driver、AppArmor/LSM/usernamespace、CPU架构、父cgroup控制器和各服务资源限额。

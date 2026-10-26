@@ -10,33 +10,31 @@ import signal
 import socket
 import subprocess
 import time
-from vmctl import read_config, validate, require, sha, validate_preparation, verify_render
+from vmctl import read_config, validate, require, sha, validate_preparation, verify_render, verify_boot_assets
 
 
-def probe(c, state, code, variables):
+def probe(c, state):
     require(state.is_dir() and state.stat().st_uid == os.getuid() and (state.stat().st_mode & 0o777) == 0o700, 'Owned private state required')
     verify_render(c, state)
     p = c['preparedGuest']
     require(sha(state / p['file']) == p['sha256'] and sha(state / 'preparation-receipt.json') == p['preparationReceiptSha256'], 'Prepared disk/receipt mismatch')
     validate_preparation(c, json.loads((state / 'preparation-receipt.json').read_text()))
-    require(all(re.fullmatch(r'/[A-Za-z0-9_./-]+', str(x)) and x.is_file() and not x.is_symlink() for x in (code, variables)), 'Real canonical firmware paths required')
-    require(sha(code) == p['firmwareCodeSha256'] and sha(variables) == p['firmwareVarsSha256'], 'Fixed firmware bytes required')
+    verify_boot_assets(c, state)
     require((state / p['file']).stat().st_mode & 0o222 == 0, 'Frozen base disk must be read-only')
     output = subprocess.check_output(['qemu-system-aarch64', '--version'], text=True, timeout=5)
     require(re.search(r'QEMU emulator version ' + re.escape(c['qemuVersion']) + r'(?:\s|\()', output), 'Exact QEMU version required')
 
 
-def argv(c, state, code, backend):
+def argv(c, state, backend):
     health = c['healthPort']
     network = f"user,id=net0,ipv6=off,hostfwd=tcp:127.0.0.1:{c['sshPort']}-:22,hostfwd=tcp:{c['healthBindAddress']}:{health}-:{health}"
     if c['networkPhase'] == 'bootstrap':
         network += ',restrict=on'
     if c['networkPhase'] == 'integrated':
         network += ''.join(f",hostfwd=tcp:{c['healthBindAddress']}:{port}-:{port}" for port in (c['execution']['judgerPort'], c['execution']['runPort']))
-    return ['qemu-system-aarch64', '-name', c['name'], '-machine', c['machine'] + (',gic-version=host' if backend == 'kvm' else ',gic-version=3'),
+    return ['qemu-system-aarch64', '-name', c['name'], '-machine', c['machine'] + ',gic-version=3',
             '-accel', backend, '-cpu', 'host', '-smp', str(c['vcpus']), '-m', str(c['memoryMiB']),
-            '-drive', f'if=pflash,format=raw,unit=0,readonly=on,file={code}',
-            '-drive', f'if=pflash,format=raw,unit=1,file={state / "vars.fd"}',
+            '-kernel', str(state / 'kernel.Image'), '-initrd', str(state / 'initrd.img'), '-append', c['boot']['commandLine'],
             '-drive', f'if=none,id=osdisk,format=qcow2,file={state / "disk.qcow2"}', '-device', 'virtio-blk-pci,drive=osdisk',
             '-drive', f'if=none,id=seed,format=raw,readonly=on,file={state / "seed.iso"}', '-device', 'virtio-blk-pci,drive=seed',
             '-netdev', network, '-device', 'virtio-net-pci,netdev=net0,romfile=', '-device', 'virtio-rng-pci',
@@ -44,25 +42,24 @@ def argv(c, state, code, backend):
             '-qmp', f'unix:{state / "qmp.sock"},server=on,wait=off', '-no-reboot']
 
 
-def prepare(c, state, variables, backend):
-    outputs = [state / x for x in ('disk.qcow2', 'vars.fd', 'seed.iso')]
+def prepare(c, state, backend):
+    outputs = [state / x for x in ('disk.qcow2', 'seed.iso')]
     require(all(not p.exists() and not p.is_symlink() for p in outputs), 'Refuse existing VM overlay/firmware/seed')
     info = json.loads(subprocess.check_output(['qemu-img', 'info', '--output=json', str(state / c['preparedGuest']['file'])], timeout=10))
     require(info.get('format') == 'qcow2' and not info.get('backing-filename'), 'Prepared base must be standalone QCOW2')
     subprocess.run(['qemu-img', 'create', '-f', 'qcow2', '-F', 'qcow2', '-b', str(state / c['preparedGuest']['file']), str(outputs[0]), str(c['diskGiB']) + 'G'], check=True, timeout=30)
-    shutil.copyfile(variables, outputs[1])
     if backend == 'hvf':
         seed_input = state / 'seed-input'
         seed_input.mkdir(mode=0o700)
         for name in ('user-data', 'meta-data'):
             shutil.copyfile(state / name, seed_input / name)
             (seed_input / name).chmod(0o600)
-        subprocess.run(['hdiutil', 'makehybrid', '-iso', '-joliet', '-default-volume-name', 'cidata', '-o', str(outputs[2]), str(seed_input)], check=True, timeout=30)
+        subprocess.run(['hdiutil', 'makehybrid', '-iso', '-joliet', '-default-volume-name', 'cidata', '-o', str(outputs[1]), str(seed_input)], check=True, timeout=30)
     else:
-        subprocess.run(['cloud-localds', str(outputs[2]), str(state / 'user-data'), str(state / 'meta-data')], check=True, timeout=30)
+        subprocess.run(['cloud-localds', str(outputs[1]), str(state / 'user-data'), str(state / 'meta-data')], check=True, timeout=30)
     for p in outputs:
         p.chmod(0o600)
-    (state / 'prepared-overlay.json').write_text(json.dumps({'instance': c['name'], 'baseSha256': c['preparedGuest']['sha256'], 'seedSha256': sha(outputs[2]), 'varsInitialSha256': sha(outputs[1]), 'booted': False}, indent=2))
+    (state / 'prepared-overlay.json').write_text(json.dumps({'instance': c['name'], 'baseSha256': c['preparedGuest']['sha256'], 'seedSha256': sha(outputs[1]), 'bootMode': 'direct-kernel', 'boot': c['boot'], 'booted': False}, indent=2))
 
 
 def request_shutdown(path):
@@ -85,8 +82,6 @@ def main():
     p.add_argument('command', nargs='?', default='plan', choices=('plan', 'prepare', 'start'))
     p.add_argument('--state', type=Path, default=Path('/vm'))
     p.add_argument('--backend', choices=('kvm', 'hvf'), default='kvm')
-    p.add_argument('--firmware-code', type=Path, default=Path('/usr/share/AAVMF/AAVMF_CODE.fd'))
-    p.add_argument('--firmware-vars', type=Path, default=Path('/usr/share/AAVMF/AAVMF_VARS.fd'))
     p.add_argument('--execute', action='store_true'); p.add_argument('--confirm-instance')
     a = p.parse_args(); state = a.state.resolve(); c = read_config(state / 'config.json'); validate(c)
     if a.command == 'plan':
@@ -94,23 +89,23 @@ def main():
     require(a.execute and a.confirm_instance == c['name'], 'Explicit execution confirmation required')
     require(a.backend != 'hvf' or c['stage'] == 'dev', 'HVF is dev only')
     require(a.backend != 'kvm' or os.access('/dev/kvm', os.R_OK | os.W_OK), 'Native KVM device required; never fall back to TCG')
-    probe(c, state, a.firmware_code, a.firmware_vars)
+    probe(c, state)
     os.umask(0o077)
     if a.command == 'prepare':
-        prepare(c, state, a.firmware_vars, a.backend); return
-    require(all((state / x).is_file() and not (state / x).is_symlink() for x in ('disk.qcow2', 'vars.fd', 'seed.iso', 'prepared-overlay.json')), 'Explicit prepare required before start')
+        prepare(c, state, a.backend); return
+    require(all((state / x).is_file() and not (state / x).is_symlink() for x in ('disk.qcow2', 'seed.iso', 'prepared-overlay.json')), 'Explicit prepare required before start')
     receipt = json.loads((state / 'prepared-overlay.json').read_text())
-    require(receipt['instance'] == c['name'] and receipt['baseSha256'] == c['preparedGuest']['sha256'] and receipt['seedSha256'] == sha(state / 'seed.iso'), 'Overlay source/seed drift')
+    require(receipt['instance'] == c['name'] and receipt['baseSha256'] == c['preparedGuest']['sha256'] and receipt['seedSha256'] == sha(state / 'seed.iso') and receipt.get('bootMode') == 'direct-kernel' and receipt.get('boot') == c['boot'], 'Overlay source/seed drift')
     require(not (state / 'qmp.sock').exists(), 'Refuse retained QMP socket; inspect existing VM')
     require(not (state / 'runtime.json').exists(), 'Runtime record retained; reconcile stopped/active instance before restart')
-    child = subprocess.Popen(argv(c, state, a.firmware_code, a.backend))
+    child = subprocess.Popen(argv(c, state, a.backend))
     def stop(signum, frame):
         try:
             request_shutdown(state / 'qmp.sock')
         except (OSError, RuntimeError, ValueError):
             print('QMP shutdown not confirmed; inspect private VM state; do not discard overlay', flush=True)
     signal.signal(signal.SIGTERM, stop); signal.signal(signal.SIGINT, stop)
-    (state / 'runtime.json').write_text(json.dumps({'pid': child.pid, 'instance': c['name'], 'started': time.time(), 'backend': a.backend, 'guestQualified': False}))
+    (state / 'runtime.json').write_text(json.dumps({'pid': child.pid, 'instance': c['name'], 'started': time.time(), 'backend': a.backend, 'argv': argv(c, state, a.backend), 'launcherSha256': sha(Path(__file__)), 'guestQualified': False}))
     rc = child.wait()
     print(json.dumps({'instance': c['name'], 'qemuExitcode': rc, 'trafficActivated': False}))
     raise SystemExit(rc)

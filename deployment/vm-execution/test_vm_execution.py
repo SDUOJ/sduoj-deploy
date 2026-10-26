@@ -33,7 +33,9 @@ class VmPackageTests(unittest.TestCase):
         self.c = json.loads((HERE / 'deployment.example.json').read_text())
         self.c.update(stateDirectory=str(self.root / 'vm'), managerImage='registry.invalid/manager@sha256:' + '1' * 64,
                       qemuVersion='10.0.9', managerUid=os.getuid() or 1000, managerGid=os.getgid(), guestSshPublicKey='ssh-ed25519 ' + base64.b64encode(struct.pack('>I', 11) + b'ssh-ed25519' + struct.pack('>I', 32) + bytes(range(32))).decode())
-        for key in ('sha256', 'preparationReceiptSha256', 'firmwareCodeSha256', 'firmwareVarsSha256'):
+        self.c['boot']['kernelSha256'] = 'd' * 64
+        self.c['boot']['initrdSha256'] = 'e' * 64
+        for key in ('sha256', 'preparationReceiptSha256'):
             self.c['preparedGuest'][key] = '2' * 64
         self.c['execution'].update(ideImage='registry.invalid/ide@sha256:' + '3' * 64, judgerImage='registry.invalid/judger@sha256:' + '4' * 64,
                                   environment='vm-owned-fixture', nacosNamespace='vm-owned-fixture', nacosHost='10.23.45.67', redisHost='10.23.45.67', rabbitHost='10.23.45.67', rabbitVirtualHost='/owned-vm-fixture',
@@ -69,11 +71,16 @@ class VmPackageTests(unittest.TestCase):
         data = b'guard-test-only-not-a-VM-image'
         self.c['preparedGuest']['sha256'] = hashlib.sha256(data).hexdigest()
         p = self.c['preparedGuest']
-        receipt = dict(schemaVersion=1, status='PREPARED_NOT_GUEST_QUALIFIED', upstreamSha512=p['upstreamSha512'], diskSha256=p['sha256'], kernelRelease=p['kernelRelease'], dockerVersion=p['dockerVersion'], architecture='aarch64', cgroupVersion='2', cgroupDriver='cgroupfs', packageLockSha256='a'*64, kernelConfigSha256='b'*64, dockerDaemonConfigSha256='c'*64)
+        kernel = bytearray(64); kernel[56:60] = b'ARMd'
+        self.c['boot']['kernelSha256'] = hashlib.sha256(kernel).hexdigest()
+        self.c['boot']['initrdSha256'] = hashlib.sha256(b'fixture-initrd').hexdigest()
+        receipt = dict(schemaVersion=1, status='PREPARED_NOT_GUEST_QUALIFIED', upstreamSha512=p['upstreamSha512'], diskSha256=p['sha256'], kernelRelease=p['kernelRelease'], dockerVersion=p['dockerVersion'], architecture='aarch64', cgroupVersion='2', cgroupDriver='cgroupfs', packageLockSha256='a'*64, kernelConfigSha256='b'*64, dockerDaemonConfigSha256='c'*64, bootMode='direct-kernel', boot=copy.deepcopy(self.c['boot']), kernelPackageVersion='6.12.113-1')
         text = json.dumps(receipt)
         self.c['preparedGuest']['preparationReceiptSha256'] = hashlib.sha256(text.encode()).hexdigest()
         vmctl.render(self.c, state)
         (state / 'prepared-guest.qcow2').write_bytes(data)
+        for filename, content in (('kernel.Image', kernel), ('initrd.img', b'fixture-initrd')):
+            (state / filename).write_bytes(content); (state / filename).chmod(0o400)
         (state / 'preparation-receipt.json').write_text(text)
         (state / 'preparation-receipt.json').chmod(0o600)
         return self.config_file()
@@ -90,6 +97,34 @@ class VmPackageTests(unittest.TestCase):
         with patch.object(sys, 'argv', ['vmctl.py', 'start', '--config', str(config), '--execute', '--confirm-instance', self.c['name']]), patch.object(subprocess, 'run') as run:
             with self.assertRaises(ValueError): vmctl.main()
             run.assert_not_called()
+
+    def test_direct_boot_pins_cmdline_and_accelerator_are_exact(self):
+        for backend in ('kvm', 'hvf'):
+            args = manager.argv(self.c, self.root, backend)
+            self.assertEqual(args[args.index('-accel') + 1], backend)
+            self.assertEqual(args[args.index('-append') + 1], vmctl.KERNEL_COMMAND_LINE)
+            self.assertIn('virt-10.0,gic-version=3', args)
+            self.assertNotIn('pflash', ' '.join(args))
+            self.assertNotIn('vars.fd', ' '.join(args))
+        for key, value in (('commandLine', vmctl.KERNEL_COMMAND_LINE + ' init=/bin/sh'), ('rootPartuuid', 'unreviewed'), ('kernelSha256', '')):
+            c = copy.deepcopy(self.c); c['boot'][key] = value
+            with self.assertRaises(ValueError): vmctl.validate(c)
+        c = copy.deepcopy(self.c); c['bootMode'] = 'uefi'
+        with self.assertRaises(ValueError): vmctl.validate(c)
+
+    def test_boot_asset_inventory_rejects_writable_symlink_and_hash_drift(self):
+        state = self.root / 'boot-assets'; state.mkdir()
+        kernel = bytearray(64); kernel[56:60] = b'ARMd'
+        (state / 'kernel.Image').write_bytes(kernel); (state / 'initrd.img').write_bytes(b'initrd')
+        for filename, key in (('kernel.Image', 'kernelSha256'), ('initrd.img', 'initrdSha256')):
+            file = state / filename; self.c['boot'][key] = vmctl.sha(file); file.chmod(0o400)
+        vmctl.verify_boot_assets(self.c, state)
+        (state / 'initrd.img').chmod(0o600)
+        with self.assertRaises(ValueError): vmctl.verify_boot_assets(self.c, state)
+        (state / 'initrd.img').write_bytes(b'drift'); (state / 'initrd.img').chmod(0o400)
+        with self.assertRaises(ValueError): vmctl.verify_boot_assets(self.c, state)
+        (state / 'initrd.img').unlink(); (state / 'initrd.img').symlink_to(state / 'kernel.Image')
+        with self.assertRaises(ValueError): vmctl.verify_boot_assets(self.c, state)
 
     def test_missing_image_and_package_pins_fail_closed(self):
         vmctl.validate(self.c)
@@ -130,7 +165,7 @@ class VmPackageTests(unittest.TestCase):
         with self.assertRaises(ValueError): vmctl.validate(self.c)
 
     def test_bootstrap_forwards_only_loopback_no_80_443(self):
-        args = manager.argv(self.c, self.root, Path('/firmware/code.fd'), 'kvm')
+        args = manager.argv(self.c, self.root, 'kvm')
         net = args[args.index('-netdev') + 1]
         self.assertIn('tcp:127.0.0.1:40222-:22', net); self.assertIn('tcp:127.0.0.1:39086-:39086', net)
         self.assertNotIn('0.0.0.0', net); self.assertNotIn(':443-', net); self.assertNotIn(':80-', net)
@@ -156,7 +191,7 @@ class VmPackageTests(unittest.TestCase):
             self.assertIn('--server.port=' + str(port), command)
             self.assertIn('--spring.cloud.nacos.discovery.port=' + str(port), command)
             self.assertIn('--spring.cloud.nacos.discovery.ip=10.23.45.67', command)
-        args = manager.argv(self.c, self.root, Path('/firmware/code.fd'), 'kvm')
+        args = manager.argv(self.c, self.root, 'kvm')
         net = args[args.index('-netdev') + 1]
         for port in (39086, 39087, 39088): self.assertIn(f'hostfwd=tcp:10.23.45.67:{port}-:{port}', net)
         self.c['execution']['runPort'] = 39087
@@ -200,7 +235,7 @@ class VmPackageTests(unittest.TestCase):
 
     def test_preparation_receipt_does_not_accept_old_docker_or_missing_inventory(self):
         p = self.c['preparedGuest']
-        receipt = dict(schemaVersion=1, status='PREPARED_NOT_GUEST_QUALIFIED', upstreamSha512=p['upstreamSha512'], diskSha256=p['sha256'], kernelRelease=p['kernelRelease'], dockerVersion=p['dockerVersion'], architecture='aarch64', cgroupVersion='2', cgroupDriver='cgroupfs', packageLockSha256='a'*64, kernelConfigSha256='b'*64, dockerDaemonConfigSha256='c'*64)
+        receipt = dict(schemaVersion=1, status='PREPARED_NOT_GUEST_QUALIFIED', upstreamSha512=p['upstreamSha512'], diskSha256=p['sha256'], kernelRelease=p['kernelRelease'], dockerVersion=p['dockerVersion'], architecture='aarch64', cgroupVersion='2', cgroupDriver='cgroupfs', packageLockSha256='a'*64, kernelConfigSha256='b'*64, dockerDaemonConfigSha256='c'*64, bootMode='direct-kernel', boot=copy.deepcopy(self.c['boot']), kernelPackageVersion='6.12.113-1')
         vmctl.validate_preparation(self.c, receipt)
         receipt['dockerVersion'] = '27.1.1'
         with self.assertRaises(ValueError): vmctl.validate_preparation(self.c, receipt)

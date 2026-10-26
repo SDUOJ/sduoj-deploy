@@ -21,7 +21,7 @@ class DevBootstrapTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory(prefix='sduoj-bootstrap-', dir='/tmp')
         self.root = Path(self.tmp.name).resolve()
         self.c = json.loads((HERE / 'dev-bootstrap.example.json').read_text())
-        for k, n in [('stateDirectory', 'state'), ('sourceImage', 'source.qcow2'), ('nativeLock', 'native.json'), ('nativeDirectory', 'bundle')]:
+        for k, n in [('stateDirectory', 'state'), ('sourceImage', 'source.qcow2'), ('nativeLock', 'native.json'), ('nativeDirectory', 'bundle'), ('bootDirectory', 'boot')]:
             self.c[k] = str(self.root / n)
         self.c['guestSshPublicKey'] = 'ssh-ed25519 ' + base64.b64encode(struct.pack('>I', 11) + b'ssh-ed25519' + struct.pack('>I', 32) + bytes(range(32))).decode()
         self.config = self.root / 'config.json'
@@ -42,7 +42,7 @@ class DevBootstrapTests(unittest.TestCase):
         c = json.loads((HERE / 'deployment.example.json').read_text())
         for phase in ('bootstrap', 'integrated'):
             c['networkPhase'] = phase
-            args = manager_argv(c, self.root, self.root / 'code.fd', 'hvf')
+            args = manager_argv(c, self.root, 'hvf')
             self.assertIn('virtio-net-pci,netdev=net0,romfile=', args)
             self.assertEqual('restrict=on' in args[args.index('-netdev') + 1], phase == 'bootstrap')
 

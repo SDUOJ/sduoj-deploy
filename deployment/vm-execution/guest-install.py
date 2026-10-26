@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
-from vmctl import private, read_config, validate, require, sha
+from vmctl import private, read_config, validate, require, sha, validate_boot
 
 
 def packages(lock, directory):
@@ -39,6 +39,7 @@ def main():
     require(lock['dockerEngineVersion'] == c['preparedGuest']['dockerVersion'], 'Guest Docker version mismatch')
     if not a.apply:
         print(json.dumps({'writes': False, 'offlinePackagesVerified': len(rows), 'guestPrepared': False})); return
+    validate_boot(c)
     require(c['stage'] == 'dev' and a.confirm_instance == c['name'] and os.geteuid() == 0 and os.uname().machine == 'aarch64', 'Apply only as root inside explicitly confirmed ARM64 dev guest')
     require(Path('/etc/sduoj-execution-vm').read_text().strip() == c['name'], 'Dedicated dev guest marker required')
     for r in rows:

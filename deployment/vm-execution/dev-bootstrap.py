@@ -18,7 +18,7 @@ import stat
 import struct
 import subprocess
 import time
-from vmctl import require, sha, private, config_hash, write
+from vmctl import require, sha, private, config_hash, write, validate_boot, verify_boot_assets
 from manager import request_shutdown
 
 HERE = Path(__file__).resolve().parent
@@ -44,7 +44,7 @@ def real_path(value):
 def validate(c):
     require(c.get('schemaVersion') == 1 and c.get('stage') == 'dev-bootstrap', 'Dev bootstrap only; production is rejected')
     require(re.fullmatch(r'sduoj-execution-dev-bootstrap-[a-z0-9][a-z0-9-]{0,32}', c.get('name', '')), 'Explicit dev bootstrap identity required')
-    for key in ('stateDirectory', 'sourceImage', 'nativeLock', 'nativeDirectory'):
+    for key in ('stateDirectory', 'sourceImage', 'nativeLock', 'nativeDirectory', 'bootDirectory'):
         real_path(c[key])
     require(c['stateDirectory'] != '/' and Path(c['stateDirectory']).parent.is_dir(), 'Existing private-state parent required')
     require(len(str(Path(c['stateDirectory']) / 'qmp.sock').encode()) <= 100, 'Use a short private state path within the native Unix-socket limit')
@@ -54,7 +54,9 @@ def validate(c):
     require(re.fullmatch(r'ssh-ed25519 [A-Za-z0-9+/]{40,100}={0,2}(?: [A-Za-z0-9._@-]+)?', key), 'Only an explicit Ed25519 public key is accepted')
     decoded = base64.b64decode(key.split()[1], validate=True)
     require(len(decoded) == 51 and decoded.startswith(struct.pack('>I', 11) + b'ssh-ed25519' + struct.pack('>I', 32)) and decoded[-32:] != bytes(32), 'Valid Ed25519 wire-format required')
-    require(set(c) == {'schemaVersion', 'stage', 'name', 'stateDirectory', 'sourceImage', 'nativeLock', 'nativeDirectory', 'vcpus', 'memoryMiB', 'diskGiB', 'sshPort', 'guestSshPublicKey'}, 'Unexpected fields, endpoints and credentials rejected')
+    validate_boot(c)
+    require(c['boot'] == json.loads(source.LOCK.read_text())['directBoot'], 'Bootstrap must use exact upstream extracted kernel/initrd')
+    require(set(c) == {'schemaVersion', 'stage', 'name', 'stateDirectory', 'sourceImage', 'nativeLock', 'nativeDirectory', 'vcpus', 'memoryMiB', 'diskGiB', 'sshPort', 'guestSshPublicKey', 'bootMode', 'boot', 'bootDirectory'}, 'Unexpected fields, endpoints and credentials rejected')
 
 
 def tools(c, runtime=False):
@@ -73,8 +75,7 @@ def host_capacity():
 def identity(c, source_lock, native_lock):
     return {'configurationSha256': config_hash(c), 'upstreamSha256': source_lock['sha256'], 'upstreamSha512': source_lock['sha512'],
             'nativeLockSha256': sha(c['nativeLock']), 'qemuVersion': native_lock['qemuVersion'],
-            'firmwareCodeSha256': native_lock['files']['share/AAVMF/AAVMF_CODE.fd'],
-            'firmwareVarsSha256': native_lock['files']['share/AAVMF/AAVMF_VARS.fd']}
+            'bootMode': 'direct-kernel', 'boot': c['boot']}
 
 
 def prepare(c):
@@ -84,14 +85,17 @@ def prepare(c):
     disk = real_path(c['sourceImage'])
     require(disk.is_file() and not disk.is_symlink(), 'Real verified source disk required')
     source.audit(disk, upstream)
+    verify_boot_assets(c, real_path(c['bootDirectory']))
     state = real_path(c['stateDirectory'])
     require(not state.exists() and not state.is_symlink(), 'New private state only; partial state is preserved')
     os.umask(0o077); state.mkdir(mode=0o700)
     write(state / 'config.json', json.dumps(c, indent=2) + '\n')
     shutil.copyfile(disk, state / 'source.qcow2'); (state / 'source.qcow2').chmod(0o400)
     source.audit(state / 'source.qcow2', upstream)
-    shutil.copyfile(bundle / 'share/AAVMF/AAVMF_VARS.fd', state / 'vars.fd')
-    (state / 'vars.fd').chmod(0o600)
+    for filename in ('kernel.Image', 'initrd.img'):
+        shutil.copyfile(Path(c['bootDirectory']) / filename, state / filename)
+        (state / filename).chmod(0o400)
+    verify_boot_assets(c, state)
     subprocess.run([str(bundle / 'bin/qemu-img'), 'create', '-f', 'qcow2', '-F', 'qcow2', '-b', str(state / 'source.qcow2'), str(state / 'disk.qcow2'), str(c['diskGiB']) + 'G'], check=True, timeout=30)
     (state / 'disk.qcow2').chmod(0o600)
     seed = state / 'seed-input'; seed.mkdir(mode=0o700)
@@ -106,7 +110,7 @@ def prepare(c):
     (state / 'seed.iso').chmod(0o600)
     receipt = identity(c, upstream, lock)
     receipt.update(schemaVersion=1, status='UPSTREAM_OVERLAY_PREPARED_NOT_BOOTED', instance=c['name'], guestQualified=False, dockerInstalled=False,
-                   files={name: sha(state / name) for name in ('config.json', 'seed.iso', 'vars.fd', 'seed-input/user-data', 'seed-input/meta-data')})
+                   files={name: sha(state / name) for name in ('config.json', 'seed.iso', 'seed-input/user-data', 'seed-input/meta-data')})
     write(state / 'bootstrap-receipt.json', json.dumps(receipt, indent=2) + '\n')
     return {'prepared': True, 'guestBooted': False, 'guestQualified': False, 'instance': c['name']}
 
@@ -118,11 +122,12 @@ def verify_state(c, lock):
     upstream = json.loads(source.LOCK.read_text()); source.validate(upstream)
     expected = identity(c, upstream, lock)
     require(all(receipt.get(k) == v for k, v in expected.items()) and receipt.get('instance') == c['name'] and receipt.get('status') == 'UPSTREAM_OVERLAY_PREPARED_NOT_BOOTED', 'Bootstrap identity drift')
-    names = {'config.json', 'seed.iso', 'vars.fd', 'seed-input/user-data', 'seed-input/meta-data'}
+    names = {'config.json', 'seed.iso', 'seed-input/user-data', 'seed-input/meta-data'}
     require(set(receipt.get('files', {})) == names, 'Exact initial file inventory required')
     require(all(sha(private(state / name)) == receipt['files'][name] for name in names), 'Bootstrap file drift')
     require(not (state / 'source.qcow2').is_symlink() and (state / 'source.qcow2').stat().st_mode & 0o222 == 0, 'Frozen source must remain read-only')
     source.audit(state / 'source.qcow2', upstream)
+    verify_boot_assets(c, state)
     require((state / 'disk.qcow2').is_file() and not (state / 'disk.qcow2').is_symlink(), 'Real overlay required')
     require(not (state / 'runtime.json').exists() and not (state / 'qmp.sock').exists(), 'Prior runtime retained; inspect instance before any restart')
     return state
@@ -131,8 +136,7 @@ def verify_state(c, lock):
 def argv(c, state, bundle):
     return [str(bundle / 'bin/qemu-system-aarch64'), '-name', c['name'], '-machine', 'virt-10.0,gic-version=3', '-accel', 'hvf', '-cpu', 'host',
             '-smp', str(c['vcpus']), '-m', str(c['memoryMiB']),
-            '-drive', f'if=pflash,format=raw,unit=0,readonly=on,file={bundle / "share/AAVMF/AAVMF_CODE.fd"}',
-            '-drive', f'if=pflash,format=raw,unit=1,file={state / "vars.fd"}',
+            '-kernel', str(state / 'kernel.Image'), '-initrd', str(state / 'initrd.img'), '-append', c['boot']['commandLine'],
             '-drive', f'if=none,id=osdisk,format=qcow2,file={state / "disk.qcow2"}', '-device', 'virtio-blk-pci,drive=osdisk',
             '-drive', f'if=none,id=seed,format=raw,readonly=on,file={state / "seed.iso"}', '-device', 'virtio-blk-pci,drive=seed',
             '-netdev', f'user,id=net0,ipv6=off,restrict=on,hostfwd=tcp:127.0.0.1:{c["sshPort"]}-:22', '-device', 'virtio-net-pci,netdev=net0,romfile=', '-device', 'virtio-rng-pci',

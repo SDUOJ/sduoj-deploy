@@ -11,5 +11,15 @@
   "packageLockSha256": "",
   "kernelConfigSha256": "",
   "dockerDaemonConfigSha256": "",
-  "guestQualified": false
+  "guestQualified": false,
+  "bootMode": "direct-kernel",
+  "boot": {
+    "rootPartuuid": "194f4bfc-04a8-48a7-868d-ebe69b12df74",
+    "kernelFile": "kernel.Image",
+    "initrdFile": "initrd.img",
+    "kernelSha256": "",
+    "initrdSha256": "",
+    "commandLine": "root=PARTUUID=194f4bfc-04a8-48a7-868d-ebe69b12df74 ro console=ttyAMA0"
+  },
+  "kernelPackageVersion": "6.12.113-1"
 }

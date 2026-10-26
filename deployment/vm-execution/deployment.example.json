@@ -22,9 +22,7 @@
     "upstreamSha512": "e66eea33be9e1345e6c8737e65096e5b31031f4bd4f3f7d59a6f8b53f995a9c41996e97c5b4ab89f1587663efed11dfbd10c4d35b7bcc85b2545e58a12cd0e83",
     "preparationReceiptSha256": "",
     "kernelRelease": "6.12.113+deb13-cloud-arm64",
-    "dockerVersion": "29.2.1",
-    "firmwareCodeSha256": "",
-    "firmwareVarsSha256": ""
+    "dockerVersion": "29.2.1"
   },
   "execution": {
     "ideImage": "",
@@ -58,5 +56,14 @@
     "judgerPort": 39087,
     "runPort": 39088
   },
-  "networkPhase": "bootstrap"
+  "networkPhase": "bootstrap",
+  "bootMode": "direct-kernel",
+  "boot": {
+    "rootPartuuid": "194f4bfc-04a8-48a7-868d-ebe69b12df74",
+    "kernelFile": "kernel.Image",
+    "initrdFile": "initrd.img",
+    "kernelSha256": "",
+    "initrdSha256": "",
+    "commandLine": "root=PARTUUID=194f4bfc-04a8-48a7-868d-ebe69b12df74 ro console=ttyAMA0"
+  }
 }

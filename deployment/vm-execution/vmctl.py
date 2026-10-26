@@ -30,8 +30,37 @@ def sha(path):
             h.update(b)
     return h.hexdigest()
 
+ROOT_PARTUUID = '194f4bfc-04a8-48a7-868d-ebe69b12df74'
+KERNEL_COMMAND_LINE = 'root=PARTUUID=' + ROOT_PARTUUID + ' ro console=ttyAMA0'
+
+
+def validate_boot(c, pinned=True):
+    require(c.get('bootMode') == 'direct-kernel', 'Explicit direct-kernel boot mode required; UEFI is not qualified')
+    b = c.get('boot', {})
+    require(set(b) == {'rootPartuuid', 'kernelFile', 'initrdFile', 'kernelSha256', 'initrdSha256', 'commandLine'}, 'Exact boot fields required; arbitrary extra kernel arguments rejected')
+    require((b['rootPartuuid'], b['kernelFile'], b['initrdFile'], b['commandLine']) == (ROOT_PARTUUID, 'kernel.Image', 'initrd.img', KERNEL_COMMAND_LINE), 'Frozen root/kernel filenames and exact command line required')
+    if pinned:
+        require(all(SHA.fullmatch(b.get(k, '')) for k in ('kernelSha256', 'initrdSha256')), 'Actual kernel/initrd hashes required before writes or start')
+    return b
+
+
+def verify_boot_assets(c, directory):
+    b = validate_boot(c)
+    for filename, key in (('kernel.Image', 'kernelSha256'), ('initrd.img', 'initrdSha256')):
+        file = directory / filename
+        require(file.is_file() and not file.is_symlink() and file.resolve().parent == directory.resolve() and file.stat().st_mode & 0o222 == 0, 'Real read-only boot asset inside owned state required')
+        require(sha(file) == b[key], 'Boot asset SHA mismatch')
+    with (directory / 'kernel.Image').open('rb') as source:
+        source.seek(56)
+        require(source.read(4) == b'ARM\x64', 'Native ARM64 Image magic required')
+    return b
+
+
 def validate_preparation(c, receipt):
     p = c['preparedGuest']
+    validate_boot(c)
+    require(receipt.get('bootMode') == 'direct-kernel' and receipt.get('boot') == c['boot'], 'Prepared receipt must bind actual post-install kernel/initrd and exact command line')
+    require(receipt.get('kernelPackageVersion') == '6.12.113-1', 'Fixed kernel package version required')
     require(receipt.get('schemaVersion') == 1 and receipt.get('status') == 'PREPARED_NOT_GUEST_QUALIFIED', 'Explicit preparation status required')
     require(all(receipt.get(k) == p[v] for k, v in [('upstreamSha512', 'upstreamSha512'), ('diskSha256', 'sha256'), ('kernelRelease', 'kernelRelease'), ('dockerVersion', 'dockerVersion')]), 'Preparation identity mismatch')
     require(receipt.get('architecture') == 'aarch64' and receipt.get('cgroupVersion') == '2' and receipt.get('cgroupDriver') == 'cgroupfs', 'Prepared guest ARM64/cgroup2/cgroupfs contract required')
@@ -51,6 +80,7 @@ def config_hash(c):
 
 def validate(c, complete=True):
     require(c.get('schemaVersion') == 1 and NAME.fullmatch(c.get('name', '')), 'Invalid explicit instance identity')
+    validate_boot(c, pinned=complete)
     require(c.get('stage') in ('dev', 'production-staging'), 'Only dev/production-staging; no activation command exists')
     root = Path(c.get('stateDirectory', ''))
     require(root.is_absolute() and root != Path('/') and str(root) == str(root.resolve()) and re.fullmatch(r'/[A-Za-z0-9_./-]+', str(root)), 'Canonical owned state path required')
@@ -77,7 +107,7 @@ def validate(c, complete=True):
     require(DIGEST.fullmatch(c.get('managerImage', '')), 'Pin manager registry digest; tags/local IDs rejected')
     require(re.fullmatch(r'10\.0\.[0-9]+', c.get('qemuVersion', '')), 'Pin tested QEMU10.0 patch version')
     p = c['preparedGuest']
-    require(p['file'] == 'prepared-guest.qcow2' and all(SHA.fullmatch(p.get(k, '')) for k in ('sha256', 'preparationReceiptSha256', 'firmwareCodeSha256', 'firmwareVarsSha256')), 'Freeze prepared disk, receipt and firmware hashes before rendering')
+    require(p['file'] == 'prepared-guest.qcow2' and all(SHA.fullmatch(p.get(k, '')) for k in ('sha256', 'preparationReceiptSha256')), 'Freeze prepared disk, receipt and boot hashes before rendering')
     source = json.loads((HERE / 'source.lock.json').read_text())
     require(p['upstreamSha512'] == source['sha512'] and p['kernelRelease'] == '6.12.113+deb13-cloud-arm64', 'Prepared guest must derive from the fixed source/kernel')
     require(re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', p.get('dockerVersion', '')), 'Pin exact Docker version')
@@ -202,6 +232,7 @@ def main():
     validate_preparation(c, json.loads((state / 'preparation-receipt.json').read_text()))
     require(read_config(state / 'config.json') == c, 'Rendered and invoked config differ')
     verify_render(c, state)
+    verify_boot_assets(c, state)
     if a.command == 'verify-assets':
         print(json.dumps({'verified': True, 'vmStarted': False, 'scope': 'disk-and-receipt-only'})); return
     require(a.execute and a.confirm_instance == c['name'], 'Writes/start require --execute --confirm-instance EXACT_NAME')

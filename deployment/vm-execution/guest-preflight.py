@@ -11,7 +11,7 @@ import re
 import socket
 import subprocess
 from urllib.parse import urlsplit
-from vmctl import read_config, validate, config_hash, require, sha
+from vmctl import read_config, validate, config_hash, require, sha, KERNEL_COMMAND_LINE
 
 
 def syscall_features():
@@ -56,6 +56,13 @@ def probe(c, network=False, preparation=False):
          'kernelConfigSha256': sha(kernel), 'dockerVersion': info['ServerVersion'], 'cgroupVersion': '2', 'cgroupDriver': 'cgroupfs',
          'features': features, 'lsm': lsm, 'scope': ('dev-preparation-feature-probe-not-workload-qualification' if preparation else 'feature-and-network-preflight-not-workload-qualification'),
          'preparedDiskQualified': False, 'executorStarted': False}
+    kernel_image = Path('/boot/vmlinuz-' + platform.release())
+    initrd_image = Path('/boot/initrd.img-' + platform.release())
+    r['observedBoot'] = {'bootMode': 'direct-kernel', 'kernelSha256': sha(kernel_image), 'initrdSha256': sha(initrd_image), 'commandLine': Path('/proc/cmdline').read_text().strip(), 'rootPartuuid': c['boot']['rootPartuuid']}
+    r['kernelPackageVersion'] = subprocess.check_output(['dpkg-query', '-W', '-f=${Version}', 'linux-image-' + platform.release()], text=True, timeout=5).strip()
+    require(r['kernelPackageVersion'] == '6.12.113-1', 'Exact kernel package version required')
+    require(r['observedBoot']['commandLine'] == KERNEL_COMMAND_LINE and os.cpu_count() == c['vcpus'], 'Exact direct boot command line and CPU envelope required')
+    r['cpuCount'] = os.cpu_count()
     if network:
         e = c['execution']
         targets = [(k, e[k + 'Host'], e[k + 'Port']) for k in ('nacos', 'redis', 'rabbit')]
