@@ -29,3 +29,13 @@ Mac Docker Desktop的LinuxKit与生产拟采用的普通Linux发行版不是同�
 ## 尚未执行
 
 未创建生产VM、未下载/固定guest基础盘、未安装QEMU、未改生产Docker配置、未迁移数据库、未更改80/443或OpenResty。当前KVM接口可用不等于guest和本业务已验收。具体guest基础盘、网络、持久化与切换窗口需在最终部署前确认；本轮先把完整隔离dev问题与回归闭环。
+
+## 可选迁移范围
+
+如果近期目标是避免搬动已有生产数据库和附件，可先把需要新内核的执行层（IDE Worker、Judger、RunWorker）放进新VM；Gateway/业务Java服务及MySQL/Redis/Rabbit/Nacos保留既有部署位置，使用明确的内网地址连接。这样需要验证跨VM网络延迟、队列/文件RPC和精确权限，不能直接沿用本机全同网容量数字。
+
+如果目标是整个stack的基础环境也一致，则在VM部署完整stack，并单独设计生产数据迁移、增量同步、入口切换与回滚。用户已选择第一条：先统一执行层，保留现有数据库与业务服务。完整stack迁移不在本次生产VM范围；本轮不会复制生产数据库或改变现有数据服务位置。
+
+## 已确定的生产范围
+
+用户确认先统一执行层：IDE Worker、Judger、RunWorker。当前正准备固定guest基础盘、私有连接配置与资源合同；VM尚未启动，跨VM真实RPC/队列/性能验收尚未执行。执行层VM应明确连现有Nacos、Redis、Rabbit、Problem与Filesys的内网端点；生产业务Java服务的兼容版本发布仍按联合发布顺序进行，但不搬迁这些服务的宿主位置。

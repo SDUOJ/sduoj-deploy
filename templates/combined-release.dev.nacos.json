@@ -443,7 +443,10 @@
     },
     "sduoj": {
       "filesys": {
-        "baseDir": "/app/filesys"
+        "baseDir": "/app/filesys",
+        "shared-output": {
+          "enabled": true
+        }
       },
       "feign": {
         "enableToken": true,
