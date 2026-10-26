@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "status": "NOT_BUILT_NOT_AVAILABLE",
+  "platform": "darwin-arm64",
+  "qemuVersion": "10.0.13",
+  "sourceUrl": "https://download.qemu.org/qemu-10.0.13.tar.xz",
+  "sourceSha256": "",
+  "sourceSignatureFingerprint": "CEACC9E15534EBABB82D3FA03353C9CEF108B584",
+  "sourceSignatureVerified": false,
+  "archiveSha256": "",
+  "files": {},
+  "required": [
+    "bin/qemu-system-aarch64",
+    "bin/qemu-img",
+    "share/AAVMF/AAVMF_CODE.fd",
+    "share/AAVMF/AAVMF_VARS.fd"
+  ],
+  "notes": "Internal portable bundle from an isolated macOS ARM64 build. Include pinned private dylib closure and the identical AAVMF bytes used in Linux manager; official QEMU provides source rather than claiming this is an official Mac binary."
+}

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "status": "UNRESOLVED_REQUIRES_OFFICIAL_APT_PACKAGE_AND_DEPENDENCY_FREEZE",
+  "architecture": "arm64",
+  "dockerEngineVersion": "29.2.1",
+  "required": [
+    "docker-ce",
+    "docker-ce-cli",
+    "containerd.io",
+    "docker-buildx-plugin",
+    "docker-compose-plugin"
+  ],
+  "packages": []
+}

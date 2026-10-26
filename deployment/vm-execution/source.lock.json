@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "distribution": "Debian 13 trixie",
+  "architecture": "arm64",
+  "build": "20261021-2638",
+  "url": "https://cloud.debian.org/images/cloud/trixie/20261021-2638/debian-13-genericcloud-arm64-20261021-2638.qcow2",
+  "bytes": 336265216,
+  "sha512": "e66eea33be9e1345e6c8737e65096e5b31031f4bd4f3f7d59a6f8b53f995a9c41996e97c5b4ab89f1587663efed11dfbd10c4d35b7bcc85b2545e58a12cd0e83",
+  "sha256": "2e2da616418aab0474f4e582efaa0d90afe9bac63a0b5e8ecae0fb187a65cb0f",
+  "checksumUrl": "https://cloud.debian.org/images/cloud/trixie/20261021-2638/SHA512SUMS",
+  "metadataUrl": "https://cloud.debian.org/images/cloud/trixie/20261021-2638/debian-13-genericcloud-arm64-20261021-2638.json",
+  "metadataSha512": "ca5b301eeeb824c5ce31c327e6e63b24b6d6d37b9bd48570655ccb89ddcf7691c25f42edd6b2add80159ef97879118d0fb4e0e2a96abeb6d089bcf181302fab5",
+  "kernelPackage": "linux-image-6.12.113+deb13-cloud-arm64",
+  "kernelPackageVersion": "6.12.113-1",
+  "authentication": "Official HTTPS checksum file; no detached publisher signature claimed",
+  "status": "DOWNLOADED_CHECKSUM_AND_QCOW2_HEADER_VERIFIED_NOT_GUEST_QUALIFIED",
+  "guestBooted": false,
+  "kernelFeaturesTested": false
+}

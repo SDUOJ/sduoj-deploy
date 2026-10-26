@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "status": "PINNED_BASE_AND_PACKAGE_CANDIDATES_REQUIRES_SIGNED_APT_BUILD",
+  "debianBaseDigest": "docker.io/library/debian@sha256:0daf3052d9359adaa0de63035b87949cc6c7966bfd6d60746d318ee1999f5edb",
+  "snapshot": "20261026T000000Z",
+  "architecture": "arm64",
+  "qemuRuntimeCandidate": "10.0.13",
+  "packages": {
+    "cloud-image-utils": {
+      "Version": "0.33-1",
+      "Filename": "pool/main/c/cloud-utils/cloud-image-utils_0.33-1_all.deb",
+      "SHA256": "d67cfd0a74f9ef6bfd3b386a957a22fa7aa29e589ff0714e31ddd2df28a97254"
+    },
+    "qemu-efi-aarch64": {
+      "Version": "2025.02-8+deb13u1",
+      "Filename": "pool/main/e/edk2/qemu-efi-aarch64_2025.02-8+deb13u1_all.deb",
+      "SHA256": "a00b2411a79c8aeafd95a7c868ac3cd1aab592f1af9fff965f02d81a625276ed"
+    },
+    "python3": {
+      "Version": "3.13.5-1",
+      "Filename": "pool/main/p/python3-defaults/python3_3.13.5-1_arm64.deb",
+      "SHA256": "8d5be256bf3bb4f07afce1aa86f0595c6939e1a6c2ea939bdcb7b36351cbe021"
+    },
+    "qemu-system-arm": {
+      "Version": "1:10.0.13+ds-0+deb13u1",
+      "Filename": "pool/main/q/qemu/qemu-system-arm_10.0.13+ds-0+deb13u1_arm64.deb",
+      "SHA256": "1e067d6d225d54516678472cd21c98aae9fecfb67ce68b797bba24ade405a664"
+    },
+    "qemu-utils": {
+      "Version": "1:10.0.13+ds-0+deb13u1",
+      "Filename": "pool/main/q/qemu/qemu-utils_10.0.13+ds-0+deb13u1_arm64.deb",
+      "SHA256": "9e27319d735bedb023cd0113e97d431deba14af1bb4d8094ed5dcce36f40c886"
+    }
+  },
+  "sourceIndexUrl": "https://deb.debian.org/debian/dists/trixie/main/binary-arm64/Packages.xz",
+  "mustVerifySignedSnapshotReleaseAndPackageClosure": true,
+  "builderMemoryMiB": 768,
+  "builderCpus": 1,
+  "debianSnapshot": "20261026T000000Z",
+  "dockerRepositoryKeyFingerprint": "9DC858229FC7DD38854AE2D88D81803C0EBFCD88",
+  "dockerPackages": {
+    "docker-ce": "5:29.2.1-1~debian.13~trixie",
+    "docker-ce-cli": "5:29.2.1-1~debian.13~trixie",
+    "containerd.io": "2.2.1-1~debian.13~trixie",
+    "docker-buildx-plugin": "0.31.1-1~debian.13~trixie",
+    "docker-compose-plugin": "5.0.2-1~debian.13~trixie"
+  }
+}
