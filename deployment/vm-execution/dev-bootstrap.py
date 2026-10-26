@@ -135,7 +135,7 @@ def argv(c, state, bundle):
             '-drive', f'if=pflash,format=raw,unit=1,file={state / "vars.fd"}',
             '-drive', f'if=none,id=osdisk,format=qcow2,file={state / "disk.qcow2"}', '-device', 'virtio-blk-pci,drive=osdisk',
             '-drive', f'if=none,id=seed,format=raw,readonly=on,file={state / "seed.iso"}', '-device', 'virtio-blk-pci,drive=seed',
-            '-netdev', f'user,id=net0,ipv6=off,hostfwd=tcp:127.0.0.1:{c["sshPort"]}-:22', '-device', 'virtio-net-pci,netdev=net0', '-device', 'virtio-rng-pci',
+            '-netdev', f'user,id=net0,ipv6=off,hostfwd=tcp:127.0.0.1:{c["sshPort"]}-:22', '-device', 'virtio-net-pci,netdev=net0,romfile=', '-device', 'virtio-rng-pci',
             '-display', 'none', '-monitor', 'none', '-serial', f'file:{state / "serial.log"}', '-qmp', f'unix:{state / "qmp.sock"},server=on,wait=off', '-no-reboot']
 
 
