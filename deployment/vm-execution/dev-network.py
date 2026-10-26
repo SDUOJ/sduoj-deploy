@@ -16,7 +16,21 @@ DEPENDENCY_PORTS = {'redis': [(6379, 36379)], 'rabbit': [(5672, 35672)],
                     'nacos': [(8848, 38848), (9848, 39848)]}
 
 
+def require_resolved_literals(value):
+    # Compose config JSON already escapes literal dollars as $$. Reject raw
+    # interpolation input; escaping a resolved document again would corrupt it.
+    if isinstance(value, dict):
+        for item in value.values():
+            require_resolved_literals(item)
+    elif isinstance(value, list):
+        for item in value:
+            require_resolved_literals(item)
+    elif isinstance(value, str):
+        require('$' not in value.replace('$$', ''), 'Resolved Compose config required; raw interpolation rejected')
+
+
 def candidate(base, address):
+    require_resolved_literals(base)
     ip = ipaddress.ip_address(address)
     require(ip.version == 4 and ip.is_private and not any((ip.is_loopback,
             ip.is_link_local, ip.is_unspecified, ip.is_multicast, ip.is_reserved)),

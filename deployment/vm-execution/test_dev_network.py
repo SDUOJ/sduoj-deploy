@@ -1,8 +1,12 @@
 import copy
 import importlib.util
 import json
+import re
 from pathlib import Path
 import sys
+import subprocess
+import shutil
+import tempfile
 import unittest
 
 HERE = Path(__file__).resolve().parent
@@ -13,8 +17,33 @@ spec.loader.exec_module(network)
 
 
 class DevNetworkTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which('docker'), 'Docker Compose parser unavailable')
+    def test_resolved_literal_dollars_survive_real_compose_parser_without_env_expansion(self):
+        value = 'literal$HOME${UNSET_NETWORK_FIXTURE}$$suffix'
+        fixture = {'name': network.OWNER, 'services': {'fixture': {
+            'image': 'registry.invalid/static@sha256:' + '1' * 64,
+            'environment': {'STATIC_LITERAL_FIXTURE': value},
+            'command': ['literal', value]}}}
+        with tempfile.TemporaryDirectory() as directory:
+            file = Path(directory) / 'compose.json'
+            fixture['services']['fixture']['environment']['STATIC_LITERAL_FIXTURE'] = value.replace('$', '$$')
+            fixture['services']['fixture']['command'] = ['literal', value.replace('$', '$$')]
+            file.write_text(json.dumps(fixture))
+            result = subprocess.run(['docker', 'compose', '-p', network.OWNER, '-f',
+                                     str(file), 'config', '--format', 'json'],
+                                    capture_output=True, text=True, timeout=15)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            service = json.loads(result.stdout)['services']['fixture']
+            # config JSON is a round-trippable document: dollars remain escaped.
+            self.assertEqual(service['environment']['STATIC_LITERAL_FIXTURE'], value.replace('$', '$$'))
+            self.assertEqual(service['command'], ['literal', value.replace('$', '$$')])
+            network.require_resolved_literals(json.loads(result.stdout))
+            with self.assertRaises(ValueError):
+                network.require_resolved_literals({'environment': {'RAW': value}})
+
     def setUp(self):
-        self.base = json.loads((HERE.parents[1] / 'compose.combined-release.dev.yaml').read_text())
+        raw = (HERE.parents[1] / 'compose.combined-release.dev.yaml').read_text()
+        self.base = json.loads(re.sub(r'\$\{[^}]+\}', 'static-fixture', raw))
         for service in self.base['services'].values():
             service['ports'] = [dict(host_ip=row.split(':')[0], published=row.split(':')[1],
                                      target=int(row.split(':')[2]), protocol='tcp')
