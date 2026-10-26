@@ -88,6 +88,8 @@ python3 deployment/vm-execution/dev-bootstrap.py start --config /private/bootstr
 
 prepare核官方上游SHA256/SHA512、完整便携bundle及HVF签名，保留只读源盘副本和初始文件hash；start再核同一身份、overlay backing、seed和firmware，拒绝已有runtime/QMP记录。guest SSH host key必须从本实例串口/console核验后单独写入本任务known_hosts，不能使用关闭host-key校验的连接。进入guest后，以本实例name生成`stage=dev`的安装配置，按第2步用`guest-install.py`验证并安装冻结离线deb；不在cloud-init浮动apt安装。保留真实guest探针/包清单，再关机、清理身份并按第3步freeze独立prepared盘。bootstrap的退出和静态测试均不是guest资格；新prepared盘仍须Mac/HVF和Linux/KVM各自验收。
 
+首次安装后、prepared盘hash与registry digests尚未产生时，用 `guest-preflight.py --config /private/install-config.json --preparation` 采集真实内核/LSM/Docker/cgroup能力。这条只读路径仅允许dev且禁止`--network`，仍核固定源内核和离线锁Docker版本，不要求伪造将来才生成的磁盘/执行镜像pins；输出明确不是workload资格。正式guest preflight不带该flag，继续要求完整冻结配置并执行既有完整门禁。
+
 ## Mini 可执行的唯一工件构建入口（不启动VM）
 
 `build-artifacts.py` 默认只打印plan，不调用Docker/网络。已固定官方Debian ARM64 manifest `docker.io/library/debian@sha256:0daf3052d9359adaa0de63035b87949cc6c7966bfd6d60746d318ee1999f5edb`，来源为日期tag trixie-20261020的官方registry index；固定Debian snapshot=20261026T000000Z、QEMU10.0.13/对应固件工具包版本，Docker Engine29.2.1/CLI29.2.1/containerd2.2.1/Buildx0.31.1/Compose5.0.2。执行时apt核Debian签名及Docker官方key fingerprint并保留InRelease/index；Docker仓库为签名在线index，只有本次取回后生成的完整deb hashes锁可用于离线guest安装，不把当前候选版本表冒充完整依赖闭包。

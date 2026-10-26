@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import socket
 import subprocess
 from urllib.parse import urlsplit
@@ -26,8 +27,19 @@ def syscall_features():
     return {'landlockAbi': landlock, 'pidfdOpen': True, 'closeRange': True}
 
 
-def probe(c, network=False):
-    validate(c)
+def validate_probe_config(c, network=False, preparation=False):
+    validate(c, complete=not preparation)
+    if preparation:
+        require(c['stage'] == 'dev' and not network, 'Preparation probe is dev-only and never probes business endpoints')
+        source = json.loads(Path(__file__).with_name('source.lock.json').read_text())
+        build = json.loads(Path(__file__).with_name('manager-build.lock.json').read_text())
+        version = re.fullmatch(r'(?:\d+:)?(\d+\.\d+\.\d+)-[^\s]+', build['dockerPackages']['docker-ce'])
+        require(version and c['preparedGuest']['dockerVersion'] == version.group(1), 'Preparation must use the frozen Docker package version')
+        require(c['preparedGuest']['kernelRelease'] == source['kernelPackage'].removeprefix('linux-image-'), 'Preparation must use the frozen source kernel')
+
+
+def probe(c, network=False, preparation=False):
+    validate_probe_config(c, network, preparation)
     require(platform.system() == 'Linux' and platform.machine() == 'aarch64', 'Native ARM64 guest required')
     require(Path('/etc/sduoj-execution-vm').read_text().strip() == c['name'], 'Dedicated cloud-init guest marker required')
     require(platform.release() == c['preparedGuest']['kernelRelease'], 'Frozen guest kernel release required')
@@ -42,7 +54,8 @@ def probe(c, network=False):
     features = syscall_features()
     r = {'passed': True, 'instance': c['name'], 'configurationSha256': config_hash(c), 'kernelRelease': platform.release(),
          'kernelConfigSha256': sha(kernel), 'dockerVersion': info['ServerVersion'], 'cgroupVersion': '2', 'cgroupDriver': 'cgroupfs',
-         'features': features, 'lsm': lsm, 'scope': 'feature-and-network-preflight-not-workload-qualification', 'executorStarted': False}
+         'features': features, 'lsm': lsm, 'scope': ('dev-preparation-feature-probe-not-workload-qualification' if preparation else 'feature-and-network-preflight-not-workload-qualification'),
+         'preparedDiskQualified': False, 'executorStarted': False}
     if network:
         e = c['execution']
         targets = [(k, e[k + 'Host'], e[k + 'Port']) for k in ('nacos', 'redis', 'rabbit')]
@@ -59,7 +72,8 @@ def probe(c, network=False):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--config', type=Path, required=True); p.add_argument('--network', action='store_true')
-    a = p.parse_args(); print(json.dumps(probe(read_config(a.config), a.network), indent=2))
+    p.add_argument('--preparation', action='store_true', help='Dev guest only: verify fixed kernel/Docker before a prepared disk or executor registry digests exist; no business network probes')
+    a = p.parse_args(); print(json.dumps(probe(read_config(a.config), a.network, a.preparation), indent=2))
 
 if __name__ == '__main__':
     try:
