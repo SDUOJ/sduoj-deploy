@@ -1,0 +1,20 @@
+{
+  "scope": "local-dev-only",
+  "images": [
+    {
+      "role": "judge",
+      "reference": "sduoj-ide-redis-base:judge-7e8e3a0275d42af6",
+      "imageId": "sha256:7e8e3a0275d42af688c81453df315ab8527fa2ef6ead544329b5c09785f3b929"
+    },
+    {
+      "role": "tools",
+      "reference": "sduoj-ide-redis-base:tools-6256b2bea4d6b6fa",
+      "imageId": "sha256:6256b2bea4d6b6fa6a82f37b71e36d7ff8186356df32588dbdc635b38f883f13"
+    },
+    {
+      "role": "debug-tools",
+      "reference": "sduoj-ide-redis-base:debug-tools-1bb00ab90d55763e",
+      "imageId": "sha256:1bb00ab90d55763e93ffc21335d953fed9c8ee181e829591d7a8d29c1aa3745e"
+    }
+  ]
+}

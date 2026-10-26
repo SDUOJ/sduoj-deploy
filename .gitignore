@@ -17,3 +17,8 @@ out/
 .project
 
 *.gpg
+
+# Python acceptance-tool caches are local outputs.
+__pycache__/
+*.py[cod]
+.pytest_cache/
