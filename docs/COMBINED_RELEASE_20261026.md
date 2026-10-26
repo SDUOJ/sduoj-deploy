@@ -49,14 +49,14 @@ Gateway与Worker Redis host/port/**DB2**/prefix必须匹配，先用scripts/ide_
 | 标准浏览器CI | 320例：317通过、0失败、0flaky、3个既有desktop不适用抽屉分支跳过。WebKit精确既有通知15例各1次，其他pageerror0 |
 | 真实业务浏览器 | 最终生产产品内容6/6：运行、取消/刷新恢复、云代码精确bytes、正式AC100/WS回放、比赛与题单context、生产路由隔离 |
 | R8 IDE专项 | 两轮完整四语言API及各轮边界通过；真实浏览器4/4无skip/retry；真实隔离12/12通过 |
-| 初始server | 147实际通过，7个Redis条件测试另在真实独立Redis7/7、0skip；DTO新增测试通过，更新服务尚待最终联合回归 |
+| server | 147实际通过，7个Redis条件测试另在真实独立Redis7/7、0skip；DTO新增测试通过，新DTO服务已部署，真实6业务浏览器及最终Judger/Run聚合回归完成；新IDE候选仍须联合复验 |
 | 部署合同 | 120项通过（含连接DB及超时观察合同） |
 | AutoLab | 新native11/11；课程/教室/题单/UserProfile真实API通过；全仓旧AI测试缺实现、另5旧mock断言在干净基线同样失败，保留边界 |
 | 新sandbox native | Mini与MacBook各自原23integration/10runtime/2cgroup/20次4并发PID及supervisor death通过；expanded27含Java/Rust/匿名握手/外部网络与FD传递拒绝通过 |
 | Linux Judger | 新DTO制品9类42 tests：41通过、1条件跳过、0失败；实际CI smoke含Java8/17/21真实编译运行与helper隔离通过 |
-| 广泛API | 一轮132/132 checker×语言Run及12/12正式语言通过，随后meta发现共享DTO解码错误；已修，新整轮正在复测，后续未完成不能算通过 |
-| 容量 | 20/50/100活跃、500在线75秒各语言/总体100%有效，p95 .488/.462/.542秒；mixed通过；持续第1轮Java85.33%/p95 1.070秒未达门槛，900秒未完成，正在定位JDT生命周期 |
-| 恢复/故障/回滚 | 专属graceful/crash脚本已准备，最终新候选尚未执行；Redis共享整栈故障不混入负载 |
+| 广泛API | 最终DTO候选多phase聚合已完成132/132 checker×语言Run、12/12正式语言、23次meta（22种配置含合同重复）、6类故障及隔离/取消；原失败收据保留，取消只证明4秒投影不变，不单独证明晚到callback已到达 |
+| 容量 | R8的20/50/100活跃、500在线75秒各语言/总体100%有效，p95 .488/.462/.542秒；mixed通过；持续第1轮Java85.33%/p95 1.070秒未达门槛。后续R11虽短档延迟通过，但关闭后残留15个项目且provider退役，仍判失败；当前修复文档切换与异步项目删除竞态，900秒/最终恢复尚未完成 |
+| 恢复/故障/回滚 | 前端artifact事务/独立回滚本机演练16/16；Judger/Run安全同native镜像回退→C++formal/RunAC→恢复最终DTO→meta生成/公开导入及5个旧正式投影不变均通过；最终IDE候选graceful/crash尚未完成，Redis共享整栈故障不混入负载 |
 
 工程参考是每语言和总体validRate>=95%、validP95<=1秒，同时保留allP95与降级/null；不能称所有请求p95<1秒，也不能把参考改称正式业务SLO。15分钟累计稳态也不是24小时长稳。
 
@@ -64,10 +64,10 @@ Gateway与Worker Redis host/port/**DB2**/prefix必须匹配，先用scripts/ide_
 
 1. 冻结精确本地提交、镜像/registrydigest、源码/工件hash、配置与schema依赖。先发布sandbox与server-private依赖提交，再发布引用它们的Judger。跨私有仓库CI要求只读SDUOJ_SERVER_SOURCE_TOKEN，缺失失败关闭；本机gh未登录，尚不能核对secret实际是否配置。
 2. 按migrations/online-ide/README顺序备份并应用additive表/索引；独立dev已只读确认9表/6索引/1列与checker MEDIUMTEXT。回滚不drop表，不改历史正式结果。
-3. 完成整个新候选功能/安全/容量/持续运行/恢复与artifact回滚，生成R8专属资格锁。历史收据只保留来源，不用于新镜像冒充通过。
+3. 完成整个新候选功能/安全/容量/持续运行/恢复与artifact回滚，生成最终精确镜像专属资格锁。历史R7/R8及失败候选收据只保留来源，不用于新镜像冒充通过。
 4. 生产目标基础环境先具备同一内核能力与cgroup/driver，再做只读preflight和节点资格。当前主机不满足，见下节。
 5. 最后审核具体候选和切换范围。排空后按兼容接口/schema服务→评测/Run→IDEWorker→Gateway入口→前端顺序灰度，不在执行中替换sandbox或重放Debug命令。
-6. 正式/v2必须用已验收artifact的独立staging/SHA验证/备份/切换/smoke/rollback入口；现有release-v2-pre脚本只处理/v2-pre且会重建，不可拿它替代正式/v2发布。具体正式脚本另文准备。
+6. 正式/v2使用scripts/release-v2-artifact.sh提升已验收artifact，不重建；独立staging/SHA验证/备份/切换/smoke/rollback已完成本机隔离真实rsync/TLS16项演练。现有release-v2-pre脚本只处理/v2-pre，不用于正式v2。详见FRONTEND_V2_ARTIFACT_RELEASE.md。
 
 回滚先停新建、保留查询/取消，确认进程树/cgroup清空后恢复上版固定镜像与配置。保留additive数据，不FLUSHDB、不清未知reservation。前端保留v2-backup并提供独立rollback；评测回退旧安全边界须显式记录，不能自动回退成答案可读来掩盖失败。
 
@@ -78,3 +78,5 @@ Gateway与Worker Redis host/port/**DB2**/prefix必须匹配，先用scripts/ide_
 /dev/kvm可用，KVM_GET_API_VERSION只读返回12，当前账号可访问；尚未创建虚拟机。普通Docker共享宿主内核，Docker-in-Docker也不能解决；可用完整ARM64 Linux VM提供新内核，再在其中运行同一套Docker。若要求基础系统也一致，dev与生产须从同一固定guest基础盘重新验收，不能把Docker Desktop旧收据自动转给未启动VM。
 
 详见[虚拟机环境方案](PRODUCTION_VM_ENVIRONMENT.md)。未修改生产内核/Docker/cgroup/网络/服务/数据库、未重启或创建VM，当前仅准备和只读审计。
+
+用户已选择执行层VM迁移范围（IDEWorker/Judger/RunWorker）；数据库与业务服务保留现位置。虚拟机管理包正在准备，未启动生产VM。

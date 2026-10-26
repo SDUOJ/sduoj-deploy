@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "stage": "dev-bootstrap",
+  "name": "sduoj-execution-dev-bootstrap-20261026",
+  "stateDirectory": "/absolute/private/new-bootstrap-state",
+  "sourceImage": "/absolute/private/verified-source.qcow2",
+  "nativeLock": "/absolute/private/frozen-native.lock.json",
+  "nativeDirectory": "/absolute/private/frozen-native-bundle",
+  "vcpus": 16,
+  "memoryMiB": 24576,
+  "diskGiB": 120,
+  "sshPort": 40222,
+  "guestSshPublicKey": ""
+}

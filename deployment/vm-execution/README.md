@@ -73,6 +73,19 @@ python3 deployment/vm-execution/vmctl.py start --config /private/config.json --e
 
 `manager.py plan --state /private/owned-state --backend hvf --firmware-code /absolute/frozen-code.fd --firmware-vars /absolute/frozen-vars.fd`默认只读；原生HVF的prepare/start同样要求`--execute --confirm-instance`，只允许stage=dev，完整核同一prepared盘/firmware hashes和QEMU patch。HVF用virt-10.0/GICv3，KVM用同版本machine/GIC host；两种加速后端分别记录CPU特性及资格。Mac必须有足够的可分配资源，不能在12核/不足内存的节点上把16vCPU候选的性能结果直接归为生产容量。这里没有TCG自动fallback。
 
+### 首次从上游原盘制备 guest
+
+`manager.py`和`vmctl.py`只接受已有preparedGuest盘；首次安装Docker使用独立的`dev-bootstrap.py`，不需要伪造尚不存在的制备收据。复制`dev-bootstrap.example.json`到Git外0600文件，填写已验原盘、冻结native lock/bundle、仅公钥的身份和新的短0700状态路径。默认plan不读工具、不联网、不写盘。prepare只创建新私有overlay和public-key cloud-init seed，不启动guest；start仅允许ARM64 Mac/HVF及完整16vCPU/24GiB候选，不支持生产stage或TCG。只暴露loopback SSH，不启动任何执行消费者，不含业务端点和secret。
+
+```bash
+python3 deployment/vm-execution/dev-bootstrap.py plan --config /private/bootstrap.json
+# 唯一运行责任方确认旧性能任务已结束及当前可用资源后，再显式执行；本轮尚未启动。
+python3 deployment/vm-execution/dev-bootstrap.py prepare --config /private/bootstrap.json --execute --confirm-instance sduoj-execution-dev-bootstrap-EXACT_NAME
+python3 deployment/vm-execution/dev-bootstrap.py start --config /private/bootstrap.json --execute --confirm-instance sduoj-execution-dev-bootstrap-EXACT_NAME
+```
+
+prepare核官方上游SHA256/SHA512、完整便携bundle及HVF签名，保留只读源盘副本和初始文件hash；start再核同一身份、overlay backing、seed和firmware，拒绝已有runtime/QMP记录。guest SSH host key必须从本实例串口/console核验后单独写入本任务known_hosts，不能使用关闭host-key校验的连接。进入guest后，以本实例name生成`stage=dev`的安装配置，按第2步用`guest-install.py`验证并安装冻结离线deb；不在cloud-init浮动apt安装。保留真实guest探针/包清单，再关机、清理身份并按第3步freeze独立prepared盘。bootstrap的退出和静态测试均不是guest资格；新prepared盘仍须Mac/HVF和Linux/KVM各自验收。
+
 ## Mini 可执行的唯一工件构建入口（不启动VM）
 
 `build-artifacts.py` 默认只打印plan，不调用Docker/网络。已固定官方Debian ARM64 manifest `docker.io/library/debian@sha256:0daf3052d9359adaa0de63035b87949cc6c7966bfd6d60746d318ee1999f5edb`，来源为日期tag trixie-20261020的官方registry index；固定Debian snapshot=20261026T000000Z、QEMU10.0.13/对应固件工具包版本，Docker Engine29.2.1/CLI29.2.1/containerd2.2.1/Buildx0.31.1/Compose5.0.2。执行时apt核Debian签名及Docker官方key fingerprint并保留InRelease/index；Docker仓库为签名在线index，只有本次取回后生成的完整deb hashes锁可用于离线guest安装，不把当前候选版本表冒充完整依赖闭包。
