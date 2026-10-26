@@ -103,6 +103,24 @@ def extract(file, destination, top):
     return destination / top
 
 
+def apply_hvf_gicv3_patch(qemu, lock):
+    rows = lock.get('qemuSourcePatches', [])
+    require(len(rows) == 1, 'Exact reviewed HVF GICv3 patch required')
+    row = rows[0]
+    require(row['file'] == 'hw/intc/Kconfig' and row['patchFile'] == 'native-hvf-gicv3.patch' and row['upstreamVersion'] == '10.0.13', 'Unexpected QEMU source patch')
+    patch = HERE / row['patchFile']
+    target = qemu / row['file']
+    require(sha(patch) == row['patchSha256'] and sha(target) == row['beforeSha256'], 'QEMU patch or original source drift')
+    before = target.read_bytes()
+    old = b'    select ARM_GICV3 if TCG\n'
+    new = b'    select ARM_GICV3 if TCG || HVF\n'
+    require(before.count(old) == 1, 'Exact GICv3 selection required')
+    after = before.replace(old, new)
+    require(hashlib.sha256(after).hexdigest() == row['afterSha256'], 'Patched QEMU source hash mismatch')
+    target.write_bytes(after)
+    return row
+
+
 def dependencies(file):
     output = subprocess.check_output(['/usr/bin/otool', '-L', str(file)], text=True, timeout=10)
     return [line.strip().split(' (', 1)[0] for line in output.splitlines()[1:]]
@@ -217,6 +235,7 @@ def main():
         signature_log = (a.output / receipt['stages'][-1]['log']).read_text()
         require('VALIDSIG ' + lock['qemuSignatureFingerprint'] + ' ' in signature_log, 'Exact official QEMU signer required')
         qemu = extract(a.sources / 'qemu-10.0.13.tar.xz', work / 'qemu-source', 'qemu-10.0.13')
+        receipt['qemuSourcePatches'] = [apply_hvf_gicv3_patch(qemu, lock)]
         dtc_revision = 'b6910bec11614980a21e46fbccc35934b671bd81'
         require('revision = ' + dtc_revision in (qemu / 'subprojects/dtc.wrap').read_text(), 'DTC pin must match signed QEMU submodule revision')
         dtc = extract(a.sources / ('dtc-' + dtc_revision + '.tar.gz'), work / 'dtc-source', 'dtc-' + dtc_revision)
@@ -244,6 +263,7 @@ def main():
         for name, source in [('QEMU-COPYING', qemu / 'COPYING'), ('QEMU-COPYING.LIB', qemu / 'COPYING.LIB'), ('Ninja-COPYING', ninja / 'COPYING'), ('libslirp-COPYRIGHT', slirp / 'COPYRIGHT'), ('libfdt-BSD-2-Clause', dtc / 'BSD-2-Clause'), ('dtc-GPL', dtc / 'GPL')]:
             require(source.is_file(), 'License input missing: ' + name)
             shutil.copyfile(source, licenses / name); (licenses / name).chmod(0o600)
+        shutil.copyfile(HERE / 'native-hvf-gicv3.patch', licenses / 'native-hvf-gicv3.patch')
         # Keep exact source license bytes and source provenance alongside copied existing dylibs.
         for archive_name in lock['sources']:
             if not archive_name.startswith('existing-dependency-sources/'):
@@ -259,7 +279,7 @@ def main():
         run('native-accelerators', [str(bundle / 'bin/qemu-system-aarch64'), '-accel', 'help'], 30)
         accel = (a.output / receipt['stages'][-1]['log']).read_text(); require(re.search(r'^hvf$', accel, re.M), 'HVF accelerator must be compiled')
         run('native-image-tools', [str(bundle / 'bin/qemu-img'), '--version'], 30)
-        native_lock = {'schemaVersion': 1, 'status': 'INTERNAL_ARM64_HVF_BUNDLE_FROZEN', 'platform': 'darwin-arm64', 'qemuVersion': lock['qemuVersion'], 'sourceUrl': lock['sources']['qemu-10.0.13.tar.xz']['url'], 'sourceSha256': lock['sources']['qemu-10.0.13.tar.xz']['sha256'], 'sourceSignatureFingerprint': lock['qemuSignatureFingerprint'], 'sourceSignatureVerified': True, 'archiveSha256': '0' * 64, 'files': {str(p.relative_to(bundle)): sha(p) for p in bundle.rglob('*') if p.is_file()}, 'minimumMacOS': '26.0', 'guestStarted': False, 'mbpHvfValidated': False}
+        native_lock = {'schemaVersion': 1, 'status': 'INTERNAL_ARM64_HVF_BUNDLE_FROZEN', 'platform': 'darwin-arm64', 'qemuVersion': lock['qemuVersion'], 'sourceUrl': lock['sources']['qemu-10.0.13.tar.xz']['url'], 'sourceSha256': lock['sources']['qemu-10.0.13.tar.xz']['sha256'], 'sourceSignatureFingerprint': lock['qemuSignatureFingerprint'], 'sourceSignatureVerified': True, 'archiveSha256': '0' * 64, 'files': {str(p.relative_to(bundle)): sha(p) for p in bundle.rglob('*') if p.is_file()}, 'minimumMacOS': '26.0', 'qemuSourcePatches': receipt['qemuSourcePatches'], 'officialArchiveUnchanged': True, 'guestStarted': False, 'mbpHvfValidated': False}
         output_lock = a.output / 'native-bundle.lock.json'; output_lock.write_text(json.dumps(native_lock, indent=2))
         run('portable-signature-and-loader-audit', [python, str(HERE / 'native-bundle.py'), 'verify', '--lock', str(output_lock), '--directory', str(bundle), '--runtime-checks'], 120)
         archive = a.output / 'native-hvf-tools.tar'
@@ -273,7 +293,7 @@ def main():
         receipt.update(passed=False, complete=False, failureType=type(error).__name__, failure=str(error)); raise
     finally:
         receipt['finished'] = time.time(); (a.output / 'native-build-receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
-    print(json.dumps({'passed': True, 'bundle': str(bundle), 'nativeToolingVerifiedOnMini': True, 'guestStarted': False, 'mbpHvfValidated': False}))
+    print(json.dumps({'passed': True, 'bundle': str(bundle), 'nativeToolingVerifiedOnMini': True, 'qemuSourcePatches': receipt['qemuSourcePatches'], 'officialArchiveUnchanged': True, 'guestStarted': False, 'mbpHvfValidated': False}))
 
 if __name__ == '__main__':
     try:

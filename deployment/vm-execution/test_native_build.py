@@ -118,6 +118,18 @@ class NativeBuildGuards(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'archive root'):
             native.extract(archive, self.root / 'extract', 'expected')
 
+    def test_hvf_gic_patch_rejects_drift_and_records_exact_patched_bytes(self):
+        root = self.root / 'qemu'; (root / 'hw/intc').mkdir(parents=True)
+        target = root / 'hw/intc/Kconfig'
+        original = b'config ARM_GIC\n    select ARM_GICV3 if TCG\n'
+        target.write_bytes(original)
+        patched = original.replace(b'if TCG\n', b'if TCG || HVF\n')
+        row = dict(file='hw/intc/Kconfig', patchFile='native-hvf-gicv3.patch', upstreamVersion='10.0.13', patchSha256=native.sha(HERE / 'native-hvf-gicv3.patch'), beforeSha256=hashlib.sha256(original).hexdigest(), afterSha256=hashlib.sha256(patched).hexdigest())
+        self.assertEqual(native.apply_hvf_gicv3_patch(root, {'qemuSourcePatches': [row]}), row)
+        self.assertEqual(target.read_bytes(), patched)
+        with self.assertRaisesRegex(ValueError, 'source drift'):
+            native.apply_hvf_gicv3_patch(root, {'qemuSourcePatches': [row]})
+
     def test_frozen_lock_pins_all_missing_tools_and_qemu_source(self):
         lock = json.loads((HERE / 'native-build.lock.json').read_text())
         self.assertEqual(lock['qemuVersion'], '10.0.13')

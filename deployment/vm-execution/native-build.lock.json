@@ -499,5 +499,16 @@
   },
   "automaticInstallation": false,
   "vmStarted": false,
-  "buildHostModel": "Mac16,11"
+  "buildHostModel": "Mac16,11",
+  "qemuSourcePatches": [
+    {
+      "file": "hw/intc/Kconfig",
+      "patchFile": "native-hvf-gicv3.patch",
+      "patchSha256": "11394d2d179eb8ae0953c7ad02b93bacfddbf3563f7cb7281dbf6b0bdfc0ba54",
+      "beforeSha256": "1695a3850fbbabbd6b1c3804522661c8add8f762472809c2507782346703e587",
+      "afterSha256": "afd6400c6cec196e13afcda482881db806a6736f9b3517b0e453d1f910bb06c1",
+      "reason": "HVF needs the emulated GICv3 object when TCG is disabled; no TCG accelerator enabled",
+      "upstreamVersion": "10.0.13"
+    }
+  ]
 }
