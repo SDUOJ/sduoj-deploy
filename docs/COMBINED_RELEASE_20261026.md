@@ -58,7 +58,7 @@ Gateway与Worker Redis host/port/**DB2**/prefix必须匹配，先用scripts/ide_
 | 容量 | R8的20/50/100活跃、500在线75秒各语言/总体100%有效，p95 .488/.462/.542秒；mixed通过；持续第1轮Java85.33%/p95 1.070秒未达门槛。后续R11虽短档延迟通过，但关闭后残留15个项目且provider退役，仍判失败；当前修复文档切换与异步项目删除竞态，900秒/最终恢复尚未完成 |
 | 恢复/故障/回滚 | 前端artifact事务/独立回滚本机演练16/16；Judger/Run安全同native镜像回退→C++formal/RunAC→恢复最终DTO→meta生成/公开导入及5个旧正式投影不变均通过；最终IDE候选graceful/crash尚未完成，Redis共享整栈故障不混入负载 |
 
-工程参考是每语言和总体validRate>=95%、validP95<=1秒，同时保留allP95与降级/null；不能称所有请求p95<1秒，也不能把参考改称正式业务SLO。15分钟累计稳态也不是24小时长稳。
+用户已在当前会话明确采用以下正式灰度质量门槛：500在线/100活跃，每种语言与总体validRate>=95%、validP95<=1秒，且无持续provider退役、资源泄漏或隔离失败。批准收据为work/artifacts/ide-judger-release-prep-20261026/GRAY_ACCEPTANCE_CONTRACT.json；该决定只批准验收标准，不批准生产切换，也不改变历史失败候选的资格。统计必须同时保留allP95、失败/timeout/degraded/null；不能称所有请求p95<1秒。15分钟累计稳态也不是24小时长稳。
 
 ## 发布顺序与回滚
 
@@ -80,3 +80,7 @@ Gateway与Worker Redis host/port/**DB2**/prefix必须匹配，先用scripts/ide_
 详见[虚拟机环境方案](PRODUCTION_VM_ENVIRONMENT.md)。未修改生产内核/Docker/cgroup/网络/服务/数据库、未重启或创建VM，当前仅准备和只读审计。
 
 用户已选择执行层VM迁移范围（IDEWorker/Judger/RunWorker）；数据库与业务服务保留现位置。虚拟机管理包正在准备，未启动生产VM。
+
+## 同源guest制备补充
+
+16vCPU/24GiB/GICv3/HVF的同源内核直接引导已实测成功，cloud-init完成且guest干净poweroff；UEFI组合的早期启动失败仍保留，不转记通过。dev与生产共同采用固定direct-kernel合同：同一prepared根盘、从该盘核验并冻结的kernel/initrd、精确PARTUUID和command line。独立dev guest已实际安装固定离线Docker29.2.1，29个锁包逐项版本/架构核对通过；cgroup2/cgroupfs、Landlock ABI6与active LSM、pidfd/close_range均已通过。该结果是基础环境制备，不是完整工作负载或生产KVM资格。正式prepared收据必须绑定安装后的实际boot字节；当前尚未清身份、转盘与冻结，Linux管理镜像还需提升到最终同版本启动器源码。
