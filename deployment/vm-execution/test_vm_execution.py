@@ -116,6 +116,7 @@ class VmPackageTests(unittest.TestCase):
     def test_executor_quotas_and_cpu_sets_do_not_overlap(self):
         services = vmctl.compose_executors(self.c)['services']
         self.assertEqual([(x['cpus'], x['mem_limit'], x['cpuset']) for x in services.values()], [(4, '6g', '0-3'), (2, '2560m', '4-5'), (2, '2560m', '6-7')])
+        self.assertTrue(all(x['memswap_limit'] == x['mem_limit'] for x in services.values()))
         self.assertEqual(services['ide-worker']['user'], '10001:10001'); self.assertEqual(services['judger']['cgroup'], 'private')
         self.assertEqual(services['judger']['entrypoint'][:3], ['/usr/bin/tini', '--', '/usr/local/bin/sduoj-judge-entrypoint'])
         self.c['execution']['runCpuset'] = '3-4'

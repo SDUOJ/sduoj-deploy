@@ -133,7 +133,7 @@ def compose_executors(c):
            'privileged': False, 'cap_drop': ['ALL'], 'cap_add': ['SETUID', 'SETGID'],
            'security_opt': ['seccomp=unconfined', 'apparmor=unconfined', 'systempaths=unconfined'],
            'cgroup': 'host', 'cgroup_parent': '/' + e['aggregate'], 'read_only': True, 'init': True,
-           'cpus': 4, 'mem_limit': '6g', 'pids_limit': 1024, 'cpuset': e['ideCpuset'], 'stop_grace_period': '60s',
+           'cpus': 4, 'mem_limit': '6g', 'memswap_limit': '6g', 'pids_limit': 1024, 'cpuset': e['ideCpuset'], 'stop_grace_period': '60s',
            'network_mode': 'host', 'env_file': [guest + '/private/ide.env'],
            'environment': {'ACTIVE': e['environment'], 'NACOS_NAMESPACE': e['nacosNamespace'], 'NACOS_GROUP': 'DEFAULT_GROUP',
                            'NACOS_DATA_ID': e['nacosDataId'], 'NACOS_SERVICE': e['nacosService'], 'NACOS_IP': e['advertiseAddress'],
@@ -147,7 +147,7 @@ def compose_executors(c):
     services = {'ide-worker': ide}
     for role, worker, cpuset, node, service_port in [('judger', 'false', e['judgerCpuset'], e['judgerSnowflakeNode'], e['judgerPort']), ('run-worker', 'true', e['runCpuset'], e['runSnowflakeNode'], e['runPort'])]:
         services[role] = {'image': e['judgerImage'], 'platform': 'linux/arm64', 'pull_policy': 'never', 'user': '0:0',
-                          'privileged': False, 'cpus': 2, 'mem_limit': '2560m', 'pids_limit': 1024, 'cpuset': cpuset,
+                          'privileged': False, 'cpus': 2, 'mem_limit': '2560m', 'memswap_limit': '2560m', 'pids_limit': 1024, 'cpuset': cpuset,
                           'cap_add': ['SYS_ADMIN'], 'cgroup': 'private', 'security_opt': ['apparmor=unconfined'],
                           'network_mode': 'host', 'env_file': [guest + '/private/judger.env'],
                           'entrypoint': ['/usr/bin/tini', '--', '/usr/local/bin/sduoj-judge-entrypoint', '/opt/java/openjdk17/bin/java'],
