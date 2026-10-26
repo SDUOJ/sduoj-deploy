@@ -160,9 +160,30 @@ class VmPackageTests(unittest.TestCase):
         (cache / file).write_bytes(b'drift')
         with self.assertRaises(ValueError): install.stage_archives(rows, source, cache)
 
-    def test_local_image_id_not_registry_identity(self):
+    def test_local_image_id_is_dev_only_and_never_registry_identity(self):
         self.c['execution']['ideImage'] = 'sha256:' + '5' * 64
+        vmctl.validate(self.c)
+        self.assertEqual(vmctl.image_reference_kinds(self.c)['ide-worker'], 'dev-local-image-config-id')
+        self.c['stage'] = 'production-staging'
         with self.assertRaises(ValueError): vmctl.validate(self.c)
+
+    def test_dev_local_images_preserve_permissions_and_production_rejects_each(self):
+        original = vmctl.compose_executors(self.c)
+        self.c['managerImage'] = 'sha256:' + '6' * 64
+        self.c['execution']['ideImage'] = 'sha256:' + '7' * 64
+        self.c['execution']['judgerImage'] = 'sha256:' + '8' * 64
+        vmctl.validate(self.c)
+        rendered = vmctl.compose_executors(self.c)
+        for role, service in rendered['services'].items():
+            self.assertEqual({k: v for k, v in service.items() if k != 'image'}, {k: v for k, v in original['services'][role].items() if k != 'image'})
+            self.assertEqual(service['pull_policy'], 'never')
+        vmctl.render(self.c, self.root / 'dev-local-render')
+        vmctl.verify_render(self.c, self.root / 'dev-local-render')
+        self.assertTrue(all(k == 'dev-local-image-config-id' for k in vmctl.image_reference_kinds(self.c).values()))
+        for ref in ('mutable:latest', 'sha256:123', 'sha256:' + 'g' * 64):
+            with self.assertRaises(ValueError): vmctl.image_reference_kind(ref, 'dev')
+        for value in ('sha256:' + '6' * 64, 'sha256:' + '7' * 64, 'sha256:' + '8' * 64):
+            with self.assertRaises(ValueError): vmctl.image_reference_kind(value, 'production-staging')
 
     def test_renderer_has_no_database_or_business_services(self):
         data = vmctl.compose_executors(self.c)

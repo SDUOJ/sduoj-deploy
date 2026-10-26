@@ -16,6 +16,7 @@ from urllib.parse import urlsplit
 
 HERE = Path(__file__).resolve().parent
 DIGEST = re.compile(r'[^\s]+@sha256:[a-f0-9]{64}\Z')
+LOCAL_IMAGE_ID = re.compile(r'sha256:[a-f0-9]{64}\Z')
 SHA = re.compile(r'[a-f0-9]{64}\Z')
 NAME = re.compile(r'sduoj-execution-[a-z0-9][a-z0-9-]{0,48}\Z')
 
@@ -78,6 +79,19 @@ def read_config(path):
 def config_hash(c):
     return hashlib.sha256(json.dumps(c, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
+
+def image_reference_kind(value, stage):
+    if isinstance(value, str) and DIGEST.fullmatch(value):
+        return 'registry-manifest-digest'
+    require(stage == 'dev' and isinstance(value, str) and LOCAL_IMAGE_ID.fullmatch(value), 'Immutable image reference required; production requires registry digest, dev alone may use full local config ID')
+    return 'dev-local-image-config-id'
+
+
+def image_reference_kinds(c):
+    return {name: image_reference_kind(value, c['stage']) for name, value in {
+        'manager': c['managerImage'], 'ide-worker': c['execution']['ideImage'],
+        'judger-and-run': c['execution']['judgerImage']}.items()}
+
 def validate(c, complete=True):
     require(c.get('schemaVersion') == 1 and NAME.fullmatch(c.get('name', '')), 'Invalid explicit instance identity')
     validate_boot(c, pinned=complete)
@@ -104,7 +118,7 @@ def validate(c, complete=True):
     require(e['judgerSnowflakeNode'] != e['runSnowflakeNode'] and all(type(e[k]) is int and 0 <= e[k] <= 31 for k in ('judgerSnowflakeNode', 'runSnowflakeNode')), 'Distinct approved Snowflake nodes required')
     if not complete:
         return
-    require(DIGEST.fullmatch(c.get('managerImage', '')), 'Pin manager registry digest; tags/local IDs rejected')
+    image_reference_kind(c.get('managerImage', ''), c['stage'])
     require(re.fullmatch(r'10\.0\.[0-9]+', c.get('qemuVersion', '')), 'Pin tested QEMU10.0 patch version')
     p = c['preparedGuest']
     require(p['file'] == 'prepared-guest.qcow2' and all(SHA.fullmatch(p.get(k, '')) for k in ('sha256', 'preparationReceiptSha256')), 'Freeze prepared disk, receipt and boot hashes before rendering')
@@ -114,7 +128,8 @@ def validate(c, complete=True):
     require(re.fullmatch(r'ssh-ed25519 [A-Za-z0-9+/]{40,100}={0,2}(?: [A-Za-z0-9._@-]+)?', c.get('guestSshPublicKey', '')), 'Explicit single Ed25519 public key required')
     key_bytes = base64.b64decode(c['guestSshPublicKey'].split()[1], validate=True)
     require(len(key_bytes) == 51 and key_bytes.startswith(struct.pack('>I', 11) + b'ssh-ed25519' + struct.pack('>I', 32)) and key_bytes[-32:] != bytes(32), 'Valid Ed25519 wire-format public key required')
-    require(all(DIGEST.fullmatch(e.get(k, '')) for k in ('ideImage', 'judgerImage')), 'Pin accepted executor registry digests')
+    for key in ('ideImage', 'judgerImage'):
+        image_reference_kind(e.get(key, ''), c['stage'])
     for k in ('environment', 'nacosNamespace', 'nacosDataId', 'nacosService', 'workerId'):
         require(re.fullmatch(r'[A-Za-z0-9._-]{1,100}', e.get(k, '')), 'Explicit namespaced service identities required')
     for k in ('nacosHost', 'redisHost', 'rabbitHost'):
@@ -143,6 +158,7 @@ def verify_render(c, state):
     expected = {'config.json', 'compose.manager.json', 'compose.executors.json', 'user-data', 'meta-data'}
     receipt = json.loads(private(state / 'render-receipt.json').read_text())
     require(receipt.get('configurationSha256') == config_hash(c) and set(receipt.get('files', {})) == expected, 'Rendered bundle identity mismatch')
+    require(receipt.get('imageReferenceKinds') == image_reference_kinds(c), 'Rendered image identity scope mismatch')
     require(all(sha(private(state / name)) == digest for name, digest in receipt['files'].items()), 'Rendered bundle file drift')
 
 def compose_manager(c):
@@ -201,7 +217,7 @@ def render(c, output):
                  'write_files': [{'path': '/etc/sduoj-execution-vm', 'permissions': '0600', 'owner': 'root:root', 'content': c['name'] + '\n'}]}
     write(output / 'user-data', '#cloud-config\n' + json.dumps(user_data, indent=2) + '\n')
     write(output / 'meta-data', json.dumps({'instance-id': c['name'], 'local-hostname': c['name']}) + '\n')
-    write(output / 'render-receipt.json', json.dumps({'configurationSha256': config_hash(c), 'scope': 'rendered-only-not-booted-not-qualified', 'files': {p.name: sha(p) for p in output.iterdir()}}, indent=2))
+    write(output / 'render-receipt.json', json.dumps({'configurationSha256': config_hash(c), 'scope': 'rendered-only-not-booted-not-qualified', 'imageReferenceKinds': image_reference_kinds(c), 'files': {p.name: sha(p) for p in output.iterdir()}}, indent=2))
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)

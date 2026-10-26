@@ -20,6 +20,8 @@
 
 Mini 的 Linux manager build2 是冻结 Debian base/snapshot 与签名依赖原料：QEMU10.0.13、Docker Engine/CLI29.2.1、containerd2.2.1、Buildx0.31.1、Compose5.0.2，147 manager deb 与29 guest deb 各有 package/version/architecture/SHA 锁和 signed-index 取证。不能把依赖闭包校验当作 guest 实际安装成功。后续 runtime manager/vmctl 代码变化需要以该精确本地 image 为父层做离线 overlay，再保存新 image/code hashes；旧 image 不自动拥有新启动合同。registry digest 在实际另行发布前留空，不拿本地 image ID 代替。
 
+独立dev允许完整`sha256:<64hex>`本地image config ID，以导出tar的SHA、导入后的Docker inspect和实际容器Image字段证明内容；不得伪造registry URL或把config ID写成registry manifest digest。render receipt逐项标记`dev-local-image-config-id`，Compose仍pull_policy=never。production-staging继续只接受固定registry digest，拒绝本地ID与可变tag。两stage使用同一份资源/权限Compose，仅引用身份与明确环境端点不同；本地验收结果在发布后须通过registry child manifest的config digest核对映射到同一合格image ID，不能因push而重建产品。
+
 管理容器 UID/GID 显式非root、cap_drop ALL、no-new-privileges、只读rootfs，仅 `/dev/kvm` 与自身0700 state 单一 bind；不挂宿主根目录、Docker socket、TAP 或业务数据。16CPU/26GiB管理上限容纳24GiB guest和QEMU开销，PIDs256、memory-swap等于memory。Mac 便携 bundle 在新 owned 目录核 archive/file lock、Hypervisor entitlement、codesign/otool loader 闭包；不安装宿主包管理器、不改系统 PATH。
 
 | 执行层 | CPU | 内存 | guest cpuset / 权限 |
