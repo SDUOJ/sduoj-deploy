@@ -21,7 +21,7 @@ IDE编译rootfs/native与正式评测sandbox是两个独立受控工件，分别
 
 ## 同构权限和资源合同
 
-目标为ARM64、cgroup-v2、Docker cgroupfs。IDE使用UID/GID10001、非privileged、cap_drop ALL，仅SETUID/SETGID bounding；两个原identity helper无setuid，仅精确filecaps。外层seccomp/AppArmor/systempaths放开以创建嵌套namespace，用户代码内层固定NsJail/seccomp、UID65534、cap0、NoNewPrivs1。仅绑定自己的aggregate子树，禁止Docker socket/host PID/network，DEV_DEBUG_LAB=0。
+目标为ARM64、cgroup-v2、Docker cgroupfs。IDE使用UID/GID10001、非privileged、cap_drop ALL，仅SETUID/SETGID bounding；两个原identity helper无setuid，仅精确filecaps。外层seccomp/AppArmor/systempaths放开以创建嵌套namespace，用户代码内层固定NsJail/seccomp、UID65534、cap0、NoNewPrivs1。仅绑定自己的aggregate子树，禁止Docker socket和host PID，DEV_DEBUG_LAB=0。Docker Desktop基线使用独立容器网络；新执行层VM模板显式使用guest的host network，由VM隔开物理宿主网络命名空间。这个变化必须在新guest重新验收，旧网络收据不转记为通过。
 
 IDE aggregate总额：4CPU/6GiB/1024PIDs/swap0，管理CID与Debug兄弟组都计入；Debug兄弟组1CPU/1.5GiB/512PIDs。语言文档48/48/32/32，clangd-j2，JDTLS2processor/384MiB，concurrency2/2/1/2。Java文档生命周期/持续性能当前仍在诊断，最终配置以新证据冻结，不自行加超时或放宽95%/1秒参考。
 

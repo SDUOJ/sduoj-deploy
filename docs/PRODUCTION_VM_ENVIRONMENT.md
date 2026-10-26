@@ -22,7 +22,7 @@ MBP的原UEFI16CPU引导停在固件WFI，失败收据保留。相同官方QEMU1
 
 Mac Docker Desktop的LinuxKit与生产拟采用的普通Linux发行版不是同一个基础盘。若要求基础系统本身也完全一致，dev与生产应改为从同一个固定guest基础盘启动；Mac与生产的硬件加速后端可以不同，但必须各自完成同一资格测试。不能把已有Docker Desktop测试直接当作尚未启动的生产VM通过。
 
-首次虚拟机建议配置可先评审16vCPU/32GiB内存/120GiB独立磁盘，运行本轮完整单Worker stack；这是待验证的容器外层容量建议，不是新的性能承诺。IDE仍保持单实例4CPU/6GiB/1024PIDs，Judger与Run各2CPU/2560MiB，并保留彼此独立执行核。实际guest配置须用同一个业务负载验收后再冻结，不从生产宿主空闲内存直接推导性能。
+当前执行层候选固定为16vCPU/24GiB内存/120GiB独立磁盘，已在dev通过基础系统制备探针；业务服务和数据库保留原位置。这是待工作负载验收的资源合同，不是容量承诺。IDE仍保持单实例4CPU/6GiB/1024PIDs，Judger与Run各2CPU/2560MiB，并保留彼此独立执行核。实际guest配置须用同一个业务负载验收后再冻结，不从生产宿主空闲内存直接推导性能。
 
 ## 分阶段准备与切换
 
@@ -34,7 +34,7 @@ Mac Docker Desktop的LinuxKit与生产拟采用的普通Linux发行版不是同�
 
 ## 尚未执行
 
-未创建生产VM、未下载/固定guest基础盘、未安装QEMU、未改生产Docker配置、未迁移数据库、未更改80/443或OpenResty。当前KVM接口可用不等于guest和本业务已验收。具体guest基础盘、网络、持久化与切换窗口需在最终部署前确认；本轮先把完整隔离dev问题与回归闭环。
+未创建生产VM、未在生产安装QEMU、未改生产Docker配置、未迁移数据库、未更改80/443或OpenResty。dev已核验固定Debian13上游盘、完成官方QEMU10.0.13原生HVF构建，并在16vCPU/24GiB/120GiB候选中离线安装Docker29.2.1；实际探针确认cgroup-v2/cgroupfs、Landlock ABI6、pidfd和close_range。dev guest已干净关机，但身份清理、最终独立盘冻结、跨VM业务网络及完整负载验收尚未完成。生产KVM接口能力核对不等于生产guest已验收。
 
 ## 可选迁移范围
 
@@ -44,4 +44,4 @@ Mac Docker Desktop的LinuxKit与生产拟采用的普通Linux发行版不是同�
 
 ## 已确定的生产范围
 
-用户确认先统一执行层：IDE Worker、Judger、RunWorker。当前正准备固定guest基础盘、私有连接配置与资源合同；VM尚未启动，跨VM真实RPC/队列/性能验收尚未执行。执行层VM应明确连现有Nacos、Redis、Rabbit、Problem与Filesys的内网端点；生产业务Java服务的兼容版本发布仍按联合发布顺序进行，但不搬迁这些服务的宿主位置。
+用户确认先统一执行层：IDE Worker、Judger、RunWorker。dev guest已完成基础系统制备并干净关机，尚未运行执行层工作负载；生产VM未启动，跨VM真实RPC/队列/性能验收尚未执行。执行层VM应明确连现有Nacos、Redis、Rabbit、Problem与Filesys的内网端点；生产业务Java服务的兼容版本发布仍按联合发布顺序进行，但不搬迁这些服务的宿主位置。
