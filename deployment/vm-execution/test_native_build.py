@@ -91,6 +91,25 @@ class NativeBuildGuards(unittest.TestCase):
             native.extract(archive, self.root / 'extract', 'expected')
         self.assertFalse((self.root.parent / 'escaped').exists())
 
+    def test_only_exact_unused_signed_qemu_x11_symlink_is_skipped(self):
+        archive = self.root / 'qemu-10.0.13.tar.xz'
+        with tarfile.open(archive, 'w') as tar:
+            row = tarfile.TarInfo('qemu-10.0.13/roms/edk2/EmulatorPkg/Unix/Host/X11IncludeHack')
+            row.type = tarfile.SYMTYPE; row.linkname = '/opt/X11/include'; tar.addfile(row)
+        output = self.root / 'safe-extract'
+        native.extract(archive, output, 'qemu-10.0.13')
+        self.assertFalse((output / row.name).exists())
+        audit = json.loads((self.root / 'safe-extract.extraction.json').read_text())
+        self.assertEqual(audit['skippedExactMembers'][0]['linkname'], '/opt/X11/include')
+
+    def test_other_absolute_symlink_remains_rejected(self):
+        archive = self.root / 'qemu-10.0.13.tar.xz'
+        with tarfile.open(archive, 'w') as tar:
+            row = tarfile.TarInfo('qemu-10.0.13/other'); row.type = tarfile.SYMTYPE
+            row.linkname = '/opt/X11/include'; tar.addfile(row)
+        with self.assertRaises(tarfile.AbsoluteLinkError):
+            native.extract(archive, self.root / 'reject-extract', 'qemu-10.0.13')
+
     def test_unexpected_archive_top_is_rejected(self):
         archive = self.root / 'bad.tar'
         with tarfile.open(archive, 'w') as tar:

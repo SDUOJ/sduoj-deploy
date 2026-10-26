@@ -85,7 +85,21 @@ def extract(file, destination, top):
     destination.mkdir(mode=0o700)
     with tarfile.open(file) as archive:
         require(all(row.name == top or row.name.startswith(top + '/') for row in archive.getmembers()), 'Unexpected archive root')
-        archive.extractall(destination, filter='data')
+        skipped = []
+        members = []
+        for row in archive.getmembers():
+            if (file.name == 'qemu-10.0.13.tar.xz' and top == 'qemu-10.0.13'
+                    and row.name == top + '/roms/edk2/EmulatorPkg/Unix/Host/X11IncludeHack'
+                    and row.issym() and row.linkname == '/opt/X11/include'):
+                # This unused edk2 host-build convenience link is absolute. The
+                # frozen AAVMF comes from Linux; never extract a host X11 link.
+                skipped.append({'member': row.name, 'linkname': row.linkname,
+                                'reason': 'Unused edk2 host X11 link; no firmware compilation'})
+                continue
+            members.append(row)
+        archive.extractall(destination, members=members, filter='data')
+    (destination.parent / (destination.name + '.extraction.json')).write_text(json.dumps(
+        {'sourceArchiveSha256': sha(file), 'skippedExactMembers': skipped}, indent=2))
     return destination / top
 
 
@@ -172,7 +186,7 @@ def main():
     firmware_checks = (a.linux_artifacts / 'firmware.sha256').read_text()
     require(all(sha(firmware / name) in firmware_checks for name in ('AAVMF_CODE.fd', 'AAVMF_VARS.fd')), 'Linux firmware hash mismatch')
     os.umask(0o077); a.output.mkdir(mode=0o700); os.nice(10)
-    receipt = {'owner': a.owner, 'monitorPid': os.getpid(), 'started': time.time(), 'sourceLockSha256': sha(lock_path), 'linuxBuildReceiptSha256': sha(a.linux_artifacts / 'build-receipt.json'), 'stages': [], 'vmStarted': False, 'mbpModified': False, 'packageInstalledToSystem': False, 'singleJob': True, 'hostMemoryAdmission': memory, 'warningPressureExplicitlyAdmitted': a.allow_warning_pressure}
+    receipt = {'owner': a.owner, 'monitorPid': os.getpid(), 'started': time.time(), 'builderSourceSha256': sha(Path(__file__)), 'sourceLockSha256': sha(lock_path), 'linuxBuildReceiptSha256': sha(a.linux_artifacts / 'build-receipt.json'), 'stages': [], 'vmStarted': False, 'mbpModified': False, 'packageInstalledToSystem': False, 'singleJob': True, 'hostMemoryAdmission': memory, 'warningPressureExplicitlyAdmitted': a.allow_warning_pressure}
     logs = a.output / 'logs'; logs.mkdir(mode=0o700); stage_number = 0
     env = {key: value for key, value in os.environ.items() if key not in ('CFLAGS', 'CXXFLAGS', 'LDFLAGS', 'DYLD_LIBRARY_PATH', 'DYLD_FALLBACK_LIBRARY_PATH', 'PYTHONPATH', 'PKG_CONFIG_PATH', 'PKG_CONFIG_LIBDIR')}
     prefix = a.output / 'prefix'; prefix.mkdir(mode=0o700)
@@ -249,8 +263,8 @@ def main():
         native_lock['archiveSha256'] = sha(archive); output_lock.write_text(json.dumps(native_lock, indent=2) + '\n')
         verify_inputs(lock, a.sources)
         receipt.update(passed=True, complete=True, portableArchiveSha256=native_lock['archiveSha256'], portableLockSha256=sha(output_lock), copiedDylibSources=libraries, sourceUnchanged=sha(lock_path) == receipt['sourceLockSha256'], guestStarted=False, mbpHvfValidated=False)
-    except Exception:
-        receipt.update(passed=False, complete=False); raise
+    except Exception as error:
+        receipt.update(passed=False, complete=False, failureType=type(error).__name__, failure=str(error)); raise
     finally:
         receipt['finished'] = time.time(); (a.output / 'native-build-receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
     print(json.dumps({'passed': True, 'bundle': str(bundle), 'nativeToolingVerifiedOnMini': True, 'guestStarted': False, 'mbpHvfValidated': False}))
