@@ -392,7 +392,8 @@
       "cgroup": "private",
       "security_opt": [
         "apparmor=unconfined"
-      ]
+      ],
+      "cpuset": "${REHEARSAL_JUDGER_CPUSET:-2-3}"
     },
     "run-worker": {
       "image": "${COMBINED_JUDGER_IMAGE:?Set private rehearsal COMBINED_JUDGER_IMAGE}",
@@ -430,7 +431,8 @@
       "cgroup": "private",
       "security_opt": [
         "apparmor=unconfined"
-      ]
+      ],
+      "cpuset": "${REHEARSAL_RUN_CPUSET:-4-5}"
     }
   },
   "networks": {
