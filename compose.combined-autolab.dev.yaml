@@ -1,0 +1,62 @@
+{
+  "services": {
+    "autolab": {
+      "image": "${COMBINED_AUTOLAB_IMAGE:?Set private rehearsal COMBINED_AUTOLAB_IMAGE}",
+      "pull_policy": "never",
+      "init": true,
+      "mem_limit": "1024m",
+      "cpus": 1,
+      "pids_limit": 256,
+      "labels": {
+        "owner": "sduoj-combined-release-20261026"
+      },
+      "networks": [
+        "release"
+      ],
+      "environment": {
+        "SDUOJ_MODE": "release",
+        "SDUOJ_TOKEN": "${REHEARSAL_RPC_TOKEN:?Set private rehearsal REHEARSAL_RPC_TOKEN}",
+        "AUTOLAB_MYSQL_ADDR": "sduoj-mysql:3306",
+        "AUTOLAB_MYSQL_USER": "sduoj",
+        "AUTOLAB_MYSQL_PASSWORD": "${REHEARSAL_MYSQL_PASSWORD:?Set private rehearsal REHEARSAL_MYSQL_PASSWORD}",
+        "AUTOLAB_MYSQL_DATABASE": "sduoj_ext_problem_set",
+        "AUTOLAB_REDIS_ADDR": "sduoj-redis:6379",
+        "AUTOLAB_REDIS_PASSWORD": "${REHEARSAL_REDIS_PASSWORD:?Set private rehearsal REHEARSAL_REDIS_PASSWORD}",
+        "AUTOLAB_NACOS_ADDR": "sduoj-nacos:8848",
+        "AUTOLAB_NACOS_NAMESPACE": "release-dev-20261026",
+        "AUTOLAB_AI_SECRET_KEY": "${REHEARSAL_AI_SECRET_KEY:?Set private rehearsal REHEARSAL_AI_SECRET_KEY}",
+        "AUTOLAB_IDE_USER_SERVICE_ADDRESS": "user-service:8080",
+        "AUTOLAB_START_TASK_WORKER": "0",
+        "AUTOLAB_IDE_INTELLIGENCE_ENABLED": "0",
+        "AUTOLAB_DEBUG_ENABLED": "0",
+        "TZ": "Asia/Shanghai"
+      },
+      "command": [
+        "python",
+        "-m",
+        "uvicorn",
+        "main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "5005",
+        "--no-proxy-headers"
+      ],
+      "ports": [
+        "127.0.0.1:35005:5005"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request;urllib.request.urlopen('http://127.0.0.1:5005/openapi.json',timeout=2)"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 6,
+        "start_period": "30s"
+      }
+    }
+  }
+}

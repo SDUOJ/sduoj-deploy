@@ -1,0 +1,451 @@
+{
+  "name": "sduoj-combined-release-20261026",
+  "services": {
+    "mysql": {
+      "image": "sha256:3e646bcda0d9448ffa3d2024eef04e1bca95528ec19b9e8b76749da9d97d4a10",
+      "pull_policy": "never",
+      "mem_limit": "1536m",
+      "cpus": 2,
+      "pids_limit": 256,
+      "networks": {
+        "release": {
+          "aliases": [
+            "sduoj-mysql"
+          ]
+        }
+      },
+      "labels": {
+        "owner": "sduoj-combined-release-20261026"
+      },
+      "environment": {
+        "MYSQL_ROOT_PASSWORD": "${REHEARSAL_MYSQL_ROOT_PASSWORD:?Set private rehearsal REHEARSAL_MYSQL_ROOT_PASSWORD}",
+        "MYSQL_DATABASE": "sduoj",
+        "MYSQL_USER": "sduoj",
+        "MYSQL_PASSWORD": "${REHEARSAL_MYSQL_PASSWORD:?Set private rehearsal REHEARSAL_MYSQL_PASSWORD}"
+      },
+      "volumes": [
+        "mysql:/var/lib/mysql"
+      ],
+      "ports": [
+        "127.0.0.1:33306:3306"
+      ]
+    },
+    "redis": {
+      "image": "sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf",
+      "pull_policy": "never",
+      "mem_limit": "256m",
+      "cpus": 0.5,
+      "pids_limit": 256,
+      "networks": {
+        "release": {
+          "aliases": [
+            "sduoj-redis"
+          ]
+        }
+      },
+      "labels": {
+        "owner": "sduoj-combined-release-20261026"
+      },
+      "command": [
+        "redis-server",
+        "--requirepass",
+        "${REHEARSAL_REDIS_PASSWORD:?Set private rehearsal REHEARSAL_REDIS_PASSWORD}"
+      ],
+      "ports": [
+        "127.0.0.1:36379:6379"
+      ]
+    },
+    "rabbit": {
+      "image": "sha256:e582c0bc7766f3342496d8485efb5a1df782b5ce3886ad017e2eaae442311f69",
+      "pull_policy": "never",
+      "mem_limit": "768m",
+      "cpus": 1,
+      "pids_limit": 256,
+      "networks": {
+        "release": {
+          "aliases": [
+            "sduoj-rabbit"
+          ]
+        }
+      },
+      "labels": {
+        "owner": "sduoj-combined-release-20261026"
+      },
+      "environment": {
+        "RABBITMQ_DEFAULT_USER": "rehearsal",
+        "RABBITMQ_DEFAULT_PASS": "${REHEARSAL_RABBIT_PASSWORD:?Set private rehearsal REHEARSAL_RABBIT_PASSWORD}",
+        "RABBITMQ_DEFAULT_VHOST": "/sduoj",
+        "RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS": "+S 2:2"
+      }
+    },
+    "nacos": {
+      "image": "sha256:165669c1dd7fcbbaa0b46902b17686f529df29ee3fb145b528921888543ed4cd",
+      "pull_policy": "never",
+      "mem_limit": "768m",
+      "cpus": 1,
+      "pids_limit": 256,
+      "networks": {
+        "release": {
+          "aliases": [
+            "sduoj-nacos"
+          ]
+        }
+      },
+      "labels": {
+        "owner": "sduoj-combined-release-20261026"
+      },
+      "environment": {
+        "MODE": "standalone",
+        "JVM_XMS": "256m",
+        "JVM_XMX": "384m",
+        "JVM_XMN": "128m",
+        "NACOS_AUTH_ENABLE": "false",
+        "JAVA_OPT_EXT": "-XX:ActiveProcessorCount=2",
+        "JAVA_TOOL_OPTIONS": "-XX:ActiveProcessorCount=2"
+      },
+      "ports": [
+        "127.0.0.1:38848:8848"
+      ]
+    },
+    "gateway": {
+      "image": "${COMBINED_SERVER_IMAGE:?Set private rehearsal COMBINED_SERVER_IMAGE}",
+      "pull_policy": "never",
+      "mem_limit": "768m",
+      "cpus": 1,
+      "pids_limit": 256,
+      "networks": [
+        "release"
+      ],
+      "labels": {
+        "owner": "sduoj-combined-release-20261026"
+      },
+      "entrypoint": [
+        "java"
+      ],
+      "command": [
+        "-jar",
+        "/app/sduoj-gateway-0.2.0-SNAPSHOT.jar",
+        "--server.port=8080",
+        "--sduoj.config.port=8080",
+        "--sduoj.config.active=release-dev-20261026",
+        "--sduoj.config.nacos-addr=sduoj-nacos:8848"
+      ],
+      "environment": {
+        "JAVA_TOOL_OPTIONS": "-Xms64m -Xmx384m -XX:ActiveProcessorCount=2",
+        "TZ": "Asia/Shanghai",
+        "SDUOJ_SNOWFLAKE_NODE": "21"
+      },
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8080/actuator/health >/dev/null"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 18,
+        "start_period": "60s"
+      },
+      "ports": [
+        "127.0.0.1:38080:8080"
+      ],
+      "init": true
+    },
+    "user-service": {
+      "image": "${COMBINED_SERVER_IMAGE:?Set private rehearsal COMBINED_SERVER_IMAGE}",
+      "pull_policy": "never",
+      "mem_limit": "768m",
+      "cpus": 1,
+      "pids_limit": 256,
+      "networks": [
+        "release"
+      ],
+      "labels": {
+        "owner": "sduoj-combined-release-20261026"
+      },
+      "entrypoint": [
+        "java"
+      ],
+      "command": [
+        "-jar",
+        "/app/sduoj-user-service-0.2.0-SNAPSHOT.jar",
+        "--server.port=8080",
+        "--sduoj.config.port=8080",
+        "--sduoj.config.active=release-dev-20261026",
+        "--sduoj.config.nacos-addr=sduoj-nacos:8848"
+      ],
+      "environment": {
+        "JAVA_TOOL_OPTIONS": "-Xms64m -Xmx384m -XX:ActiveProcessorCount=2",
+        "TZ": "Asia/Shanghai",
+        "SDUOJ_SNOWFLAKE_NODE": "22"
+      },
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8080/actuator/health >/dev/null"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 18,
+        "start_period": "60s"
+      },
+      "init": true
+    },
+    "problem-service": {
+      "image": "${COMBINED_SERVER_IMAGE:?Set private rehearsal COMBINED_SERVER_IMAGE}",
+      "pull_policy": "never",
+      "mem_limit": "768m",
+      "cpus": 1,
+      "pids_limit": 256,
+      "networks": [
+        "release"
+      ],
+      "labels": {
+        "owner": "sduoj-combined-release-20261026"
+      },
+      "entrypoint": [
+        "java"
+      ],
+      "command": [
+        "-jar",
+        "/app/sduoj-problem-service-0.2.0-SNAPSHOT.jar",
+        "--server.port=8080",
+        "--sduoj.config.port=8080",
+        "--sduoj.config.active=release-dev-20261026",
+        "--sduoj.config.nacos-addr=sduoj-nacos:8848"
+      ],
+      "environment": {
+        "JAVA_TOOL_OPTIONS": "-Xms64m -Xmx384m -XX:ActiveProcessorCount=2",
+        "TZ": "Asia/Shanghai",
+        "SDUOJ_SNOWFLAKE_NODE": "23"
+      },
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8080/actuator/health >/dev/null"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 18,
+        "start_period": "60s"
+      },
+      "ports": [
+        "127.0.0.1:38082:8080"
+      ],
+      "init": true
+    },
+    "contest-service": {
+      "image": "${COMBINED_SERVER_IMAGE:?Set private rehearsal COMBINED_SERVER_IMAGE}",
+      "pull_policy": "never",
+      "mem_limit": "768m",
+      "cpus": 1,
+      "pids_limit": 256,
+      "networks": [
+        "release"
+      ],
+      "labels": {
+        "owner": "sduoj-combined-release-20261026"
+      },
+      "entrypoint": [
+        "java"
+      ],
+      "command": [
+        "-jar",
+        "/app/sduoj-contest-service-0.2.0-SNAPSHOT.jar",
+        "--server.port=8080",
+        "--sduoj.config.port=8080",
+        "--sduoj.config.active=release-dev-20261026",
+        "--sduoj.config.nacos-addr=sduoj-nacos:8848"
+      ],
+      "environment": {
+        "JAVA_TOOL_OPTIONS": "-Xms64m -Xmx384m -XX:ActiveProcessorCount=2",
+        "TZ": "Asia/Shanghai",
+        "SDUOJ_SNOWFLAKE_NODE": "24"
+      },
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8080/actuator/health >/dev/null"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 18,
+        "start_period": "60s"
+      },
+      "init": true
+    },
+    "filesys-service": {
+      "image": "${COMBINED_SERVER_IMAGE:?Set private rehearsal COMBINED_SERVER_IMAGE}",
+      "pull_policy": "never",
+      "mem_limit": "768m",
+      "cpus": 1,
+      "pids_limit": 256,
+      "networks": [
+        "release"
+      ],
+      "labels": {
+        "owner": "sduoj-combined-release-20261026"
+      },
+      "entrypoint": [
+        "java"
+      ],
+      "command": [
+        "-jar",
+        "/app/sduoj-filesys-service-0.2.0-SNAPSHOT.jar",
+        "--server.port=8080",
+        "--sduoj.config.port=8080",
+        "--sduoj.config.active=release-dev-20261026",
+        "--sduoj.config.nacos-addr=sduoj-nacos:8848"
+      ],
+      "environment": {
+        "JAVA_TOOL_OPTIONS": "-Xms64m -Xmx384m -XX:ActiveProcessorCount=2",
+        "TZ": "Asia/Shanghai",
+        "SDUOJ_SNOWFLAKE_NODE": "25"
+      },
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8080/actuator/health >/dev/null"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 18,
+        "start_period": "60s"
+      },
+      "volumes": [
+        "${REHEARSAL_ROOT:?Set private rehearsal REHEARSAL_ROOT}/filesys:/app/filesys"
+      ],
+      "init": true
+    },
+    "websocket": {
+      "image": "${COMBINED_SERVER_IMAGE:?Set private rehearsal COMBINED_SERVER_IMAGE}",
+      "pull_policy": "never",
+      "mem_limit": "768m",
+      "cpus": 1,
+      "pids_limit": 256,
+      "networks": [
+        "release"
+      ],
+      "labels": {
+        "owner": "sduoj-combined-release-20261026"
+      },
+      "entrypoint": [
+        "java"
+      ],
+      "command": [
+        "-jar",
+        "/app/sduoj-websocket-0.2.0-SNAPSHOT.jar",
+        "--server.port=8080",
+        "--sduoj.config.port=8080",
+        "--sduoj.config.active=release-dev-20261026",
+        "--sduoj.config.nacos-addr=sduoj-nacos:8848"
+      ],
+      "environment": {
+        "JAVA_TOOL_OPTIONS": "-Xms64m -Xmx384m -XX:ActiveProcessorCount=2",
+        "TZ": "Asia/Shanghai",
+        "SDUOJ_SNOWFLAKE_NODE": "28"
+      },
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8080/actuator/health >/dev/null"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 18,
+        "start_period": "60s"
+      },
+      "init": true
+    },
+    "judger": {
+      "image": "${COMBINED_JUDGER_IMAGE:?Set private rehearsal COMBINED_JUDGER_IMAGE}",
+      "pull_policy": "never",
+      "mem_limit": "2560m",
+      "cpus": 2,
+      "pids_limit": 1024,
+      "networks": [
+        "release"
+      ],
+      "labels": {
+        "owner": "sduoj-combined-release-20261026"
+      },
+      "entrypoint": [
+        "/usr/bin/tini",
+        "--",
+        "/usr/local/bin/sduoj-judge-entrypoint",
+        "/opt/java/openjdk17/bin/java"
+      ],
+      "command": [
+        "-jar",
+        "/app/sduoj-judger.jar",
+        "--sduoj.run.worker=false",
+        "--sduoj.config.active=release-dev-20261026",
+        "--sduoj.config.nacos-addr=sduoj-nacos:8848"
+      ],
+      "environment": {
+        "JAVA_TOOL_OPTIONS": "-Xms64m -Xmx384m -XX:ActiveProcessorCount=2",
+        "CPU_PER_JUDGER": "1",
+        "SDUOJ_SNOWFLAKE_NODE": "26"
+      },
+      "cap_add": [
+        "SYS_ADMIN"
+      ],
+      "cgroup": "private",
+      "security_opt": [
+        "apparmor=unconfined"
+      ]
+    },
+    "run-worker": {
+      "image": "${COMBINED_JUDGER_IMAGE:?Set private rehearsal COMBINED_JUDGER_IMAGE}",
+      "pull_policy": "never",
+      "mem_limit": "2560m",
+      "cpus": 2,
+      "pids_limit": 1024,
+      "networks": [
+        "release"
+      ],
+      "labels": {
+        "owner": "sduoj-combined-release-20261026"
+      },
+      "entrypoint": [
+        "/usr/bin/tini",
+        "--",
+        "/usr/local/bin/sduoj-judge-entrypoint",
+        "/opt/java/openjdk17/bin/java"
+      ],
+      "command": [
+        "-jar",
+        "/app/sduoj-judger.jar",
+        "--sduoj.run.worker=true",
+        "--sduoj.config.active=release-dev-20261026",
+        "--sduoj.config.nacos-addr=sduoj-nacos:8848"
+      ],
+      "environment": {
+        "JAVA_TOOL_OPTIONS": "-Xms64m -Xmx384m -XX:ActiveProcessorCount=2",
+        "CPU_PER_JUDGER": "1",
+        "SDUOJ_SNOWFLAKE_NODE": "27"
+      },
+      "cap_add": [
+        "SYS_ADMIN"
+      ],
+      "cgroup": "private",
+      "security_opt": [
+        "apparmor=unconfined"
+      ]
+    }
+  },
+  "networks": {
+    "release": {
+      "name": "sduoj-combined-release-20261026",
+      "labels": {
+        "owner": "sduoj-combined-release-20261026"
+      }
+    }
+  },
+  "volumes": {
+    "mysql": {
+      "labels": {
+        "owner": "sduoj-combined-release-20261026"
+      }
+    }
+  }
+}

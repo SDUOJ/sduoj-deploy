@@ -1,0 +1,62 @@
+# Shared runtime candidate; provision the owned aggregate before starting.
+name: ${IDE_COMPOSE_PROJECT:?Set environment-specific project}
+services:
+  worker:
+    image: ${IDE_WORKER_IMAGE:?Set accepted immutable image ID or registry digest}
+    platform: linux/arm64
+    pull_policy: never
+    user: '10001:10001'
+    privileged: false
+    cap_drop: [ALL]
+    cap_add: [SETUID, SETGID]
+    # NsJail installs the pinned inner policy; identity helpers require setuid.
+    security_opt: [seccomp=unconfined, apparmor=unconfined, systempaths=unconfined]
+    cgroup: host
+    cgroup_parent: /${IDE_CGROUP_NAME:?Set provisioned aggregate name}
+    read_only: true
+    init: true
+    cpus: 4
+    mem_limit: 6g
+    pids_limit: 1024
+    stop_grace_period: 60s
+    labels:
+      owner: ${IDE_WORKER_OWNER:?Set deployment owner}
+      sduoj.ide.permission-profile: arm64-cgroup-v2-shared-v1
+    env_file:
+      - ${IDE_WORKER_ENV_FILE:?Set private connection file}
+    environment:
+      ACTIVE: ${IDE_ENVIRONMENT:?Set environment}
+      NACOS_NAMESPACE: ${IDE_NACOS_NAMESPACE:?Set isolated namespace}
+      NACOS_GROUP: ${IDE_NACOS_GROUP:-DEFAULT_GROUP}
+      NACOS_DATA_ID: ${IDE_NACOS_DATA_ID:?Set deployment dataId}
+      NACOS_SERVICE: ${IDE_NACOS_SERVICE:?Set discovery service}
+      SDUOJ_IDE_WORKER_ID: ${IDE_WORKER_ID:?Set unique Worker identity}
+      SDUOJ_IDE_NACOS_ENABLED: '1'
+      SDUOJ_IDE_DEV_DEBUG_LAB: '0'
+    entrypoint: [/usr/bin/env, -u, SDUOJ_IDE_JAVA_PROCESSORS, python3, /opt/sduoj-ide/scripts/entrypoint.py]
+    command: [--role, all]
+    volumes:
+      - type: bind
+        source: /sys/fs/cgroup/${IDE_CGROUP_NAME:?Set provisioned aggregate name}
+        target: /sys/fs/cgroup
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${IDE_ACCEPTED_CONFIG_DIR:?Set node qualification directory}
+        target: /run/ide-config
+        read_only: true
+        bind: {create_host_path: false}
+    tmpfs:
+      - /tmp:size=256m,uid=10001,gid=10001,mode=1777
+      - /run/sduoj-debug:size=128m,uid=10001,gid=10001,mode=0700
+      - /home/ide:size=32m,uid=10001,gid=10001,mode=0700
+    ports: ['127.0.0.1:${IDE_HEALTH_PORT:?Set local health port}:9086']
+    networks: [ide]
+    healthcheck:
+      test: [CMD, python3, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9086/ready',timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+networks:
+  ide:
+    external: true
+    name: ${IDE_WORKER_NETWORK:?Set existing network}
