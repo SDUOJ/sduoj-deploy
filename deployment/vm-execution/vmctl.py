@@ -219,18 +219,19 @@ def compose_executors(c):
            'healthcheck': {'test': ['CMD', 'python3', '-c', f"import urllib.request; urllib.request.urlopen('http://127.0.0.1:{c['healthPort']}/ready',timeout=2)"], 'interval': '10s', 'timeout': '3s', 'retries': 3},
            'tmpfs': ['/tmp:size=256m,uid=10001,gid=10001,mode=1777', '/run/sduoj-debug:size=128m,uid=10001,gid=10001,mode=0700', '/home/ide:size=32m,uid=10001,gid=10001,mode=0700']}
     services = {'ide-worker': ide}
-    for role, worker, cpuset, node, service_port, cpus in execution_workers(c):
+    for worker_index, (role, worker, cpuset, node, service_port, cpus) in enumerate(execution_workers(c), 1):
+        hostname = 'sduoj-' + hashlib.sha256(c['name'].encode()).hexdigest()[:8] + '-exec-' + str(worker_index)
         services[role] = {'image': e['judgerImage'], 'platform': 'linux/arm64', 'pull_policy': 'never', 'user': '0:0',
                           'privileged': False, 'cpus': cpus, 'mem_limit': '2560m', 'memswap_limit': '2560m', 'pids_limit': 1024, 'cpuset': cpuset,
+                          'hostname': hostname, 'extra_hosts': {hostname: '10.0.2.15'},
                           'cap_add': ['SYS_ADMIN'], 'cgroup': 'private', 'security_opt': ['apparmor=unconfined'],
                           'network_mode': 'host', 'env_file': [guest + '/private/judger.env'],
                           'entrypoint': ['/usr/bin/tini', '--', '/usr/local/bin/sduoj-judge-entrypoint', '/opt/java/openjdk17/bin/java'],
                           'command': ['-jar', '/app/sduoj-judger.jar', '--sduoj.run.worker=' + worker, '--sduoj.config.active=' + e['environment'], f"--sduoj.config.nacos-addr={e['nacosHost']}:{e['nacosPort']}", f'--server.port={service_port}', f'--sduoj.config.port={service_port}', '--spring.cloud.nacos.discovery.ip=' + e['advertiseAddress'], f'--spring.cloud.nacos.discovery.port={service_port}', '--spring.rabbitmq.host=' + e['rabbitHost'], f"--spring.rabbitmq.port={e['rabbitPort']}", '--spring.rabbitmq.virtual-host=' + e['rabbitVirtualHost']],
                           'environment': {'JAVA_TOOL_OPTIONS': f'-Xms64m -Xmx384m -XX:ActiveProcessorCount={cpus}', 'CPU_PER_JUDGER': '1', 'SDUOJ_JUDGER_CPU_NODE_INDEX': '1', 'SDUOJ_SNOWFLAKE_NODE': str(node)}}
-        if resource_profile(c)['formalCount'] > 1:
-            # Bounded, resolvable per-container identity; actual JVM Snowflake tuples
-            # must still be checked before writes. The legacy env hint is not proof.
-            services[role]['hostname'] = 'sduoj-' + hashlib.sha256(c['name'].encode()).hexdigest()[:8] + '-' + role
+        # Host networking otherwise gives both JVMs the guest's hostname and can
+        # collide at the same container PID. Map each UTS name to the real user-net
+        # NIC, never the outer advertise address. Actual Snowflake tuples remain a gate.
     for service in services.values():
         service['profiles'] = ['explicit-executor-start']
         service['labels'] = {'owner': c['name'], 'scope': 'candidate-requires-same-guest-qualification'}

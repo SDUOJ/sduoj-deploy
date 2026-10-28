@@ -42,7 +42,7 @@ Mini 的 Linux manager build2 是冻结 Debian base/snapshot 与签名依赖原�
 | 正式Judger | 6 | 1CPU / 2560MiB | 4、5、6、7、8、9各一核 |
 | RunWorker | 1 | 2CPU / 2560MiB | 10–11 |
 
-总执行配额12CPU/23.5GiB，guest余4CPU/8.5GiB供系统及开销。正式实例仍CPU_PER_JUDGER=1，显式CPU节点索引1，不依赖DNS后缀。控制JVM的ActiveProcessorCount与其CPU配额一致；用户程序的编译、运行和业务时限不变。六实例拥有独立workspace、private cgroup、注册身份和有界hostname；实际Snowflake元组仍须按目标JVM核验，未生效的SDUOJ_SNOWFLAKE_NODE环境提示不能当作节点证明。
+总执行配额12CPU/23.5GiB，guest余4CPU/8.5GiB供系统及开销。正式实例仍CPU_PER_JUDGER=1，显式CPU节点索引1，不依赖DNS后缀。控制JVM的ActiveProcessorCount与其CPU配额一致；用户程序的编译、运行和业务时限不变。每个实例有独立workspace、private cgroup、注册身份和有界UTS hostname，单实例profile的Judger/Run也使用不同hostname。各名称仅映射到实际QEMU user-net guest NIC 10.0.2.15；外部discovery仍登记物理宿主私网地址。当前24GiB guest已实测两个默认hostname/相同targetPID7会产生真实Snowflake碰撞，不能仅检查环境提示。实际Snowflake元组仍须按所有目标JVM核验，SDUOJ_SNOWFLAKE_NODE未被当前类读取。
 
 该profile尚未完成运行验收。先核实Mac真实内存压力，在新的instance/state启动，保留旧24GiB实例与失败证据；禁止为腾资源停止其他session服务。新profile须重跑功能/隔离/500在线100活跃、六正式实例并发与IDE混合、900秒和故障/恢复，不继承24GiB的性能结果。生产使用同一profile并重新验收KVM。
 

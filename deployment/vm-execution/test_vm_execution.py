@@ -61,6 +61,11 @@ class VmPackageTests(unittest.TestCase):
         for name in ('judger', 'run-worker'):
             self.assertEqual(services[name]['environment']['SDUOJ_JUDGER_CPU_NODE_INDEX'], '1')
         self.assertNotEqual(services['judger']['cpuset'], services['run-worker']['cpuset'])
+        self.assertNotEqual(services['judger']['hostname'], services['run-worker']['hostname'])
+        for name in ('judger', 'run-worker'):
+            self.assertEqual(services[name]['extra_hosts'], {services[name]['hostname']: '10.0.2.15'})
+            self.assertNotIn(self.c['execution']['advertiseAddress'],
+                             services[name]['extra_hosts'].values())
 
     def test_default_is_help_without_process_or_files(self):
         before = set(self.root.iterdir())
@@ -242,6 +247,9 @@ class VmPackageTests(unittest.TestCase):
         hostnames = [s['hostname'] for s in services.values() if 'hostname' in s]
         self.assertEqual(len(set(hostnames)), 7)
         self.assertTrue(all(len(h) <= 63 for h in hostnames))
+        for s in services.values():
+            if 'hostname' in s:
+                self.assertEqual(s['extra_hosts'], {s['hostname']: '10.0.2.15'})
         manager_service = vmctl.compose_manager(c)['services']['manager']
         self.assertEqual(manager_service['mem_limit'], '34g')
         self.assertEqual(manager_service['memswap_limit'], '34g')
