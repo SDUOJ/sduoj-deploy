@@ -16,5 +16,5 @@ SET @run_schema_sql = IF(
 PREPARE run_schema_stmt FROM @run_schema_sql;
 EXECUTE run_schema_stmt;
 DEALLOCATE PREPARE run_schema_stmt;
-ALTER TABLE oj_submission_extension MODIFY COLUMN se_value MEDIUMTEXT;
+ALTER TABLE oj_submission_extension MODIFY COLUMN se_value MEDIUMTEXT NOT NULL;
 -- biz_type 0..3 formal; 100 CASES. Formal scheduling and metrics exclude >=100.

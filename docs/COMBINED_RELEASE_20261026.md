@@ -8,11 +8,11 @@
 
 | 仓库 | 本次内容 |
 |---|---|
-| web2 | 最小 Monaco IDE、普通/比赛/题单入口、Run/云代码/正式提交、LSP/Debug 与真实测试；不携带新 AI 后台/首页/全站主题 |
+| web2 | 最小 Monaco IDE、普通/比赛/题单入口、Run/云代码/正式提交、LSP/Debug；保留本轮准备期间已在线的成绩复查功能，不增加 AI 后台/首页/全站主题 |
 | server-private | 继承6a9e54bf的Run/业务上下文/模板memfd修复；Gateway Redis bridge、toolchain/Debug RPC；共享文件DTO显式JSON构造，保留既有RPC重复头/常量时间鉴权与统计隔离 |
 | Judger | 继承4636915加固；Run memfd/isolateFS、checker独立case副本、有限内存安全cap、可信cgroup路径、匹配接口源码构建；独立IDE Worker |
 | sandbox | 继承b58c236加固；旧libseccomp负pseudo系统调用号修正；JDK匿名socketpair与Rust编译器最小匿名握手；外网/命名连接/FD传递仍拒绝 |
-| AutoLab | 基于55591c6原生题单，仅增加严格身份校验和Run/IDE native context RPC，无新AI任务模块 |
+| AutoLab | 保留发布前实际在线的题单、成绩复查和 AI 路由，仅更新 native context RPC 两文件；不能用早期精简候选覆盖线上功能 |
 | deploy | 单Worker权限/资源、独立整栈dev、私有配置渲染、资格/容量/恢复工具、additive迁移与回滚说明 |
 
 已发布4636915 parent index只读确认仍为sha256:7094111e50d5545924d908c5fbbab534b4dcd126d4ac03c50eb61f18882792e0。它不包含本轮新兼容修复，不能作为最终联合制品。
@@ -27,7 +27,7 @@ IDE aggregate总额：4CPU/6GiB/1024PIDs/swap0，管理CID与Debug兄弟组都�
 
 R8 guardian30秒CPU预算只统计trusted控制cgroup。目标jail仍受1核速率、既有每次运行20/20/60/40秒墙钟、hard/idle生命周期限制；编译仍有独立nativeCPU上限。CPU预算不能由编译器/adapter/目标累计用量提前消耗。验收客户端按公布runLimit+10秒观察清理，不改服务端或HTTP超时。
 
-正式Judger与Run各2CPU/2560MiB/1024PIDs，Javaheap384MiB，CPU_PER_JUDGER=1。当前18核dev专属cpuset分别2-3/4-5，实际执行核2/4，避免两个node1争抢首核。生产CPU编号须根据目标节点确认。两条服务使用tini→sduoj-judge-entrypoint→Java、private cgroup、SYS_ADMIN、AppArmor unconfined、非privileged；与非root IDE权限合同分别验收。Java模板0内存不是0字节，明确operator物理安全cap默认1GiB；heap/CPU/wall配置与正factor公式保持。
+正式Judger与Run各2CPU/2560MiB/1024PIDs，Javaheap384MiB，CPU_PER_JUDGER=1。当前16vCPU guest专属cpuset分别4-5/6-7，显式SDUOJ_JUDGER_CPU_NODE_INDEX=1后应选择核4/6；启动验收核对实际effective cpuset与分配结果。不能将含日期的guest反向DNS名称当CPU节点号。两条服务使用tini→sduoj-judge-entrypoint→Java、private cgroup、SYS_ADMIN、AppArmor unconfined、非privileged；与非root IDE权限合同分别验收。Java模板0内存不是0字节，明确operator物理安全cap默认1GiB；heap/CPU/wall配置与正factor公式保持。
 
 ## 完整隔离dev
 
@@ -39,9 +39,22 @@ Gateway与Worker Redis host/port/**DB2**/prefix必须匹配，先用scripts/ide_
 
 六Java基础镜像无tini，采用Docker init:true+java entrypoint；Judger镜像自带tini。专用dev MySQL账号沿用mysql_native_password非TLS合同；生产既有TLS/认证须只读确认，不自动改生产账号。Nacos JAVA_TOOL_OPTIONS ActiveProcessorCount=2避免原生线程/PID配额失配。
 
-## 验收状态
+## 当前候选与验收边界（2026-10-29）
 
-完整原始证据在work/artifacts/ide-judger-release-prep-20261026，失败记录不覆盖。以下是当前已完成与未完成边界，不是生产激活声明。
+统一guest的最终业务验收仍在进行，生产尚未切换。以下身份只能作为候选，不能据此开放流量：
+
+- IDE R15：源码e4422e0e、镜像311abf97538f；新guest内已就绪，完整API/浏览器/隔离/容量/恢复门禁待完成。
+- Judger产品c5224fbb：修复CPU节点选择，保留原native/rootfs；同一新镜像必须重新完成正式评测和Run验收。后续CI报告提交不修改产品字节。
+- server-private e016fc73：buildJar --scan产出的六类服务JAR及lib已逐文件部署到dev；生产实际七个JVM实例（两个WebSocket），Snowflake须按实际进程逐个核验。
+- AutoLab 23e651ee：保留发布前213条线上路由与原main/middleware，实际dev API、MySQL行锁和成绩复查回归待完成；生产仍沿既有systemd/Python管理方式。
+- Web2 836c095e：975项unit已通过此前阶段；精确最终ref的全量CI与新guest浏览器验收仍待终态，不能沿用旧317项浏览器结果宣布完成。
+- Linux manager：a3292e86运行代码已离线覆盖到固定依赖层，非root探针通过；registry发布和生产KVM引导仍待完成。
+
+生产只读库存已确认主库MySQL8.0.39/utf8mb4_unicode_ci与AutoLab库8.0.31/utf8mb4_unicode_ci。dev库版本和默认collation不同，不能称数据库完全同构。在线备份只供隔离恢复演练，维护窗口仍须建立跨库与文件的一致恢复点。迁移先比较现有结构；已存在且匹配的表/索引不重放DDL，se_value保持MEDIUMTEXT NOT NULL。
+
+## 历史验收基线
+
+完整原始证据在work/artifacts/ide-judger-release-prep-20261026，失败记录不覆盖。下表包含早期Docker Desktop及旧候选结果，只作功能来源与回归基线，不能代替上述最终guest、镜像和配置的验收。
 
 | 验收 | 已有结果 |
 |---|---|
@@ -69,7 +82,7 @@ R15源码 `e4422e0e547b0d29068a3e392f12e56fb6572076` 将这段准备放入既有
 ## 发布顺序与回滚
 
 1. 冻结精确本地提交、镜像/registrydigest、源码/工件hash、配置与schema依赖。先发布sandbox与server-private依赖提交，再发布引用它们的Judger。跨私有仓库CI使用server-private专属只读deploy key，Judger的SDUOJ_SERVER_SOURCE_KEY保存私钥；缺失失败关闭。2026-10-28已通过GitHub API核对并配置该密钥，不授予源码写权限；密钥不写入制品或日志。
-2. 按migrations/online-ide/README顺序备份并应用additive表/索引；独立dev已只读确认9表/6索引/1列与checker MEDIUMTEXT。回滚不drop表，不改历史正式结果。
+2. 备份并实际恢复演练后，对比目标schema，按migrations/online-ide/README仅选择本次功能确实缺少的additive表/索引。逐份记录SQL校验值、目标、锁与耗时；不盲目重放已存在结构。回滚不drop表，不改历史正式结果。
 3. 完成整个新候选功能/安全/容量/持续运行/恢复与artifact回滚，生成最终精确镜像专属资格锁。历史R7/R8及失败候选收据只保留来源，不用于新镜像冒充通过。
 4. 生产目标基础环境先具备同一内核能力与cgroup/driver，再做只读preflight和节点资格。当前主机不满足，见下节。
 5. 全部门禁通过、精确候选与既定范围核对后，按用户2026-10-28的条件上线授权执行。排空后按兼容接口/schema服务→评测/Run→IDEWorker→Gateway入口→前端顺序灰度，不在执行中替换sandbox或重放Debug命令。授权收据为work/artifacts/ide-judger-release-prep-20261026/release-readiness-20261028/USER_RELEASE_AUTHORIZATION.json；测试未通过时禁止切换。
