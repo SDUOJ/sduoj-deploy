@@ -48,7 +48,9 @@ Gateway与Worker Redis host/port/**DB2**/prefix必须匹配，先用scripts/ide_
 - server-private e016fc73：buildJar --scan产出的六类服务JAR及lib已逐文件部署到dev；生产实际七个JVM实例（两个WebSocket），Snowflake须按实际进程逐个核验。
 - AutoLab 23e651ee：保留发布前213条线上路由与原main/middleware，实际dev API、MySQL行锁和成绩复查回归待完成；生产仍沿既有systemd/Python管理方式。
 - Web2 836c095e：975项unit已通过此前阶段；精确最终ref的全量CI与新guest浏览器验收仍待终态，不能沿用旧317项浏览器结果宣布完成。
-- Linux manager：a3292e86运行代码已离线覆盖到固定依赖层，非root探针通过；registry发布和生产KVM引导仍待完成。
+- Linux manager：固定依赖层及非root工具探针已通过；六正式实例和MQ消费者网络修订须重新冻结运行代码，registry发布和生产KVM引导仍待完成。
+
+生产另有六正式Judger及一个Run，不能将当前单正式实例dev结果当作六实例容量。新增`six-formal-16c32g`候选：16vCPU/32GiB，IDE4CPU/6GiB，六正式各1CPU/2560MiB，Run2CPU/2560MiB，独占cpuset合计0–11，其余用于guest开销。该profile须新实例完整复验和六正式/IDE混合负载后才能替代线上；尚未取得运行资格。Judger/Run没有HTTP server，注册端口不作为ready；验证对应队列消费者、认证heartbeat和实际业务闭环，Run控制RPC指向Problem服务。
 
 生产只读库存已确认主库MySQL8.0.39/utf8mb4_unicode_ci与AutoLab库8.0.31/utf8mb4_unicode_ci。dev库版本和默认collation不同，不能称数据库完全同构。在线备份只供隔离恢复演练，维护窗口仍须建立跨库与文件的一致恢复点。迁移先比较现有结构；已存在且匹配的表/索引不重放DDL，se_value保持MEDIUMTEXT NOT NULL。
 

@@ -19,6 +19,12 @@ DIGEST = re.compile(r'[^\s]+@sha256:[a-f0-9]{64}\Z')
 LOCAL_IMAGE_ID = re.compile(r'sha256:[a-f0-9]{64}\Z')
 SHA = re.compile(r'[a-f0-9]{64}\Z')
 NAME = re.compile(r'sduoj-execution-[a-z0-9][a-z0-9-]{0,48}\Z')
+RESOURCE_PROFILES = {
+    'single-formal-16c24g': {'memoryMiB': 24576, 'managerMemory': '26g', 'formalCount': 1,
+                             'formalCpus': 2, 'judgerCpuset': '4-5', 'runCpuset': '6-7'},
+    'six-formal-16c32g': {'memoryMiB': 32768, 'managerMemory': '34g', 'formalCount': 6,
+                          'formalCpus': 1, 'judgerCpuset': '4', 'runCpuset': '10-11'},
+}
 
 def require(ok, message):
     if not ok:
@@ -80,6 +86,23 @@ def config_hash(c):
     return hashlib.sha256(json.dumps(c, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 
+def resource_profile(c):
+    name = c.get('resourceProfile', 'single-formal-16c24g')
+    require(isinstance(name, str) and name in RESOURCE_PROFILES, 'Explicit supported resource profile required')
+    return RESOURCE_PROFILES[name]
+
+
+def execution_workers(c):
+    e = c['execution']; profile = resource_profile(c)
+    workers = []
+    for i in range(profile['formalCount']):
+        role = 'judger' if i == 0 else 'judger-' + str(i + 1)
+        cpuset = e['judgerCpuset'] if profile['formalCount'] == 1 else str(4 + i)
+        workers.append((role, 'false', cpuset, e['judgerSnowflakeNode'], e['judgerPort'] + 2 * i, profile['formalCpus']))
+    workers.append(('run-worker', 'true', e['runCpuset'], e['runSnowflakeNode'], e['runPort'], 2))
+    return workers
+
+
 def image_reference_kind(value, stage):
     if isinstance(value, str) and DIGEST.fullmatch(value):
         return 'registry-manifest-digest'
@@ -99,7 +122,8 @@ def validate(c, complete=True):
     root = Path(c.get('stateDirectory', ''))
     require(root.is_absolute() and root != Path('/') and str(root) == str(root.resolve()) and re.fullmatch(r'/[A-Za-z0-9_./-]+', str(root)), 'Canonical owned state path required')
     require(c.get('machine') == 'virt-10.0', 'Versioned virt-10.0 machine required')
-    require((c.get('vcpus'), c.get('memoryMiB'), c.get('diskGiB')) == (16, 24576, 120), 'Candidate VM envelope must remain 16vCPU/24GiB/120GiB until retested')
+    profile = resource_profile(c)
+    require((c.get('vcpus'), c.get('memoryMiB'), c.get('diskGiB')) == (16, profile['memoryMiB'], 120), 'VM envelope must match the exact candidate resource profile; each profile requires separate qualification')
     for k in ('managerUid', 'managerGid', 'kvmGid'):
         require(type(c.get(k)) is int and c[k] >= (1 if k == 'managerUid' else 0), 'Explicit nonroot manager identity and KVM group required')
     require(c.get('networkPhase') in ('bootstrap', 'integrated'), 'Explicit network phase required')
@@ -109,8 +133,10 @@ def validate(c, complete=True):
     ip = ipaddress.ip_address(c['healthBindAddress'])
     require(ip.version == 4 and not ip.is_unspecified and (ip.is_loopback or ip.is_private), 'Health bind must be explicit loopback/private IPv4')
     e = c['execution']
-    require(all(type(e.get(k)) is int and 1024 <= e[k] <= 65535 for k in ('judgerPort', 'runPort')) and len({c['sshPort'], c['healthPort'], e['judgerPort'], e['runPort']}) == 4, 'Distinct nonprivileged SSH and executor service ports required')
-    require((e.get('redisDatabase'), e.get('ideCpuset'), e.get('judgerCpuset'), e.get('runCpuset')) == (2, '0-3', '4-5', '6-7'), 'Redis DB2 and disjoint executor cores required')
+    require(all(type(e.get(k)) is int and 1024 <= e[k] <= 65535 for k in ('judgerPort', 'runPort')), 'Nonprivileged explicit executor service ports required')
+    require((e.get('redisDatabase'), e.get('ideCpuset'), e.get('judgerCpuset'), e.get('runCpuset')) == (2, '0-3', profile['judgerCpuset'], profile['runCpuset']), 'Redis DB2 and exact disjoint profile CPU sets required')
+    ports = [c['sshPort'], c['healthPort']] + [worker[4] for worker in execution_workers(c)]
+    require(all(1024 <= port <= 65535 for port in ports) and len(set(ports)) == len(ports), 'Distinct in-range SSH, health and all executor service ports required')
     require(re.fullmatch(r'[A-Za-z0-9:_-]{4,100}:', e.get('redisPrefix', '')), 'Explicit bounded Redis prefix required')
     require(re.fullmatch(r'sduoj-ide-[a-z0-9][a-z0-9-]{0,60}', e.get('aggregate', '')), 'Dedicated aggregate required')
     for k in ('privateGuestDirectory', 'qualificationDirectory'):
@@ -143,6 +169,7 @@ def validate(c, complete=True):
         require(u.scheme in ('http', 'https') and not u.username and not u.password and not u.query and not u.fragment and u.path in ('', '/'), 'Explicit internal RPC origin required')
         ip = ipaddress.ip_address(u.hostname)
         require(ip.is_private and not ip.is_link_local and not ip.is_multicast and not ip.is_reserved and not ip.is_loopback and not ip.is_unspecified and str(ip) not in ('10.0.2.2', '10.0.2.15'), 'RPC must address existing internal service, not SSH topology')
+    require(e['runRpcUrl'] == e['problemRpcUrl'], 'Run control RPC is served by Problem; MQ workers do not expose HTTP listeners')
     if c['networkPhase'] == 'integrated':
         address = ipaddress.ip_address(e['advertiseAddress'])
         require(address.version == 4 and address.is_private and not address.is_link_local and not address.is_multicast and not address.is_reserved and not address.is_loopback and not address.is_unspecified and str(address) == c['healthBindAddress'], 'Integrated Nacos advertise must match explicitly approved private host health bind')
@@ -162,6 +189,7 @@ def verify_render(c, state):
     require(all(sha(private(state / name)) == digest for name, digest in receipt['files'].items()), 'Rendered bundle file drift')
 
 def compose_manager(c):
+    profile = resource_profile(c)
     return {'name': c['name'], 'services': {'manager': {
         'image': c['managerImage'], 'platform': 'linux/arm64', 'pull_policy': 'never',
         'user': f"{c['managerUid']}:{c['managerGid']}", 'group_add': [str(c['kvmGid'])],
@@ -169,7 +197,7 @@ def compose_manager(c):
         'read_only': True, 'network_mode': 'host', 'devices': ['/dev/kvm:/dev/kvm:rw'],
         'volumes': [{'type': 'bind', 'source': c['stateDirectory'], 'target': '/vm', 'bind': {'create_host_path': False}}],
         'tmpfs': ['/tmp:size=64m,mode=1777'], 'working_dir': '/vm', 'command': ['plan'],
-        'cpus': 16, 'mem_limit': '26g', 'memswap_limit': '26g', 'pids_limit': 256, 'stop_grace_period': '120s',
+        'cpus': 16, 'mem_limit': profile['managerMemory'], 'memswap_limit': profile['managerMemory'], 'pids_limit': 256, 'stop_grace_period': '120s',
         'restart': 'no', 'labels': {'owner': c['name'], 'scope': 'execution-only-no-traffic-activation'}
     }}}
 
@@ -191,14 +219,18 @@ def compose_executors(c):
            'healthcheck': {'test': ['CMD', 'python3', '-c', f"import urllib.request; urllib.request.urlopen('http://127.0.0.1:{c['healthPort']}/ready',timeout=2)"], 'interval': '10s', 'timeout': '3s', 'retries': 3},
            'tmpfs': ['/tmp:size=256m,uid=10001,gid=10001,mode=1777', '/run/sduoj-debug:size=128m,uid=10001,gid=10001,mode=0700', '/home/ide:size=32m,uid=10001,gid=10001,mode=0700']}
     services = {'ide-worker': ide}
-    for role, worker, cpuset, node, service_port in [('judger', 'false', e['judgerCpuset'], e['judgerSnowflakeNode'], e['judgerPort']), ('run-worker', 'true', e['runCpuset'], e['runSnowflakeNode'], e['runPort'])]:
+    for role, worker, cpuset, node, service_port, cpus in execution_workers(c):
         services[role] = {'image': e['judgerImage'], 'platform': 'linux/arm64', 'pull_policy': 'never', 'user': '0:0',
-                          'privileged': False, 'cpus': 2, 'mem_limit': '2560m', 'memswap_limit': '2560m', 'pids_limit': 1024, 'cpuset': cpuset,
+                          'privileged': False, 'cpus': cpus, 'mem_limit': '2560m', 'memswap_limit': '2560m', 'pids_limit': 1024, 'cpuset': cpuset,
                           'cap_add': ['SYS_ADMIN'], 'cgroup': 'private', 'security_opt': ['apparmor=unconfined'],
                           'network_mode': 'host', 'env_file': [guest + '/private/judger.env'],
                           'entrypoint': ['/usr/bin/tini', '--', '/usr/local/bin/sduoj-judge-entrypoint', '/opt/java/openjdk17/bin/java'],
                           'command': ['-jar', '/app/sduoj-judger.jar', '--sduoj.run.worker=' + worker, '--sduoj.config.active=' + e['environment'], f"--sduoj.config.nacos-addr={e['nacosHost']}:{e['nacosPort']}", f'--server.port={service_port}', f'--sduoj.config.port={service_port}', '--spring.cloud.nacos.discovery.ip=' + e['advertiseAddress'], f'--spring.cloud.nacos.discovery.port={service_port}', '--spring.rabbitmq.host=' + e['rabbitHost'], f"--spring.rabbitmq.port={e['rabbitPort']}", '--spring.rabbitmq.virtual-host=' + e['rabbitVirtualHost']],
-                          'environment': {'JAVA_TOOL_OPTIONS': '-Xms64m -Xmx384m -XX:ActiveProcessorCount=2', 'CPU_PER_JUDGER': '1', 'SDUOJ_JUDGER_CPU_NODE_INDEX': '1', 'SDUOJ_SNOWFLAKE_NODE': str(node)}}
+                          'environment': {'JAVA_TOOL_OPTIONS': f'-Xms64m -Xmx384m -XX:ActiveProcessorCount={cpus}', 'CPU_PER_JUDGER': '1', 'SDUOJ_JUDGER_CPU_NODE_INDEX': '1', 'SDUOJ_SNOWFLAKE_NODE': str(node)}}
+        if resource_profile(c)['formalCount'] > 1:
+            # Bounded, resolvable per-container identity; actual JVM Snowflake tuples
+            # must still be checked before writes. The legacy env hint is not proof.
+            services[role]['hostname'] = 'sduoj-' + hashlib.sha256(c['name'].encode()).hexdigest()[:8] + '-' + role
     for service in services.values():
         service['profiles'] = ['explicit-executor-start']
         service['labels'] = {'owner': c['name'], 'scope': 'candidate-requires-same-guest-qualification'}

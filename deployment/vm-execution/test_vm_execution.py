@@ -4,6 +4,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import shutil
 from pathlib import Path
 import struct
 import subprocess
@@ -212,6 +213,88 @@ class VmPackageTests(unittest.TestCase):
         self.c['execution']['runCpuset'] = '3-4'
         with self.assertRaises(ValueError): vmctl.validate(self.c)
 
+    def six_formal_config(self):
+        self.c.update(resourceProfile='six-formal-16c32g', memoryMiB=32768,
+                      networkPhase='integrated', healthBindAddress='10.23.45.67')
+        self.c['execution'].update(judgerCpuset='4', runCpuset='10-11', advertiseAddress='10.23.45.67')
+        return self.c
+
+    def test_six_formal_profile_preserves_parallelism_and_bounded_resources(self):
+        c = self.six_formal_config(); vmctl.validate(c)
+        services = vmctl.compose_executors(c)['services']
+        formal = [s for s in services.values() if '--sduoj.run.worker=false' in s.get('command', [])]
+        self.assertEqual(len(formal), 6)
+        self.assertEqual(len(services), 8)
+        allocated = set()
+        for s in services.values():
+            bits = s['cpuset'].split('-')
+            cpus = set(range(int(bits[0]), int(bits[-1]) + 1))
+            self.assertFalse(allocated & cpus)
+            self.assertEqual(s['cpus'], len(cpus))
+            allocated |= cpus
+            self.assertEqual(s['memswap_limit'], s['mem_limit'])
+            self.assertFalse(s['privileged'])
+        self.assertEqual(allocated, set(range(12)))
+        self.assertEqual(sum(s['cpus'] for s in services.values()), 12)
+        self.assertEqual([s['mem_limit'] for s in formal], ['2560m'] * 6)
+        self.assertEqual(6 * 2560 + 2560 + 6144, 24064)
+        self.assertGreaterEqual(c['memoryMiB'] - 24064, 8192)
+        hostnames = [s['hostname'] for s in services.values() if 'hostname' in s]
+        self.assertEqual(len(set(hostnames)), 7)
+        self.assertTrue(all(len(h) <= 63 for h in hostnames))
+        manager_service = vmctl.compose_manager(c)['services']['manager']
+        self.assertEqual(manager_service['mem_limit'], '34g')
+        self.assertEqual(manager_service['memswap_limit'], '34g')
+
+    def test_six_formal_registration_ids_are_distinct_without_fake_http_forwarding(self):
+        c = self.six_formal_config(); vmctl.validate(c)
+        services = vmctl.compose_executors(c)['services']
+        ports = []
+        args = manager.argv(c, self.root, 'hvf')
+        network = args[args.index('-netdev') + 1]
+        for s in services.values():
+            port_args = [a for a in s.get('command', []) if a.startswith('--server.port=')]
+            if not port_args: continue
+            port = int(port_args[0].split('=')[1]); ports.append(port)
+            self.assertNotIn(f'hostfwd=tcp:10.23.45.67:{port}-:{port}', network)
+            self.assertIn('--spring.cloud.nacos.discovery.port=' + str(port), s['command'])
+        self.assertEqual(len(set(ports)), 7)
+        for run_port in (39087, 39089, 39091, 39093, 39095, 39097, c['healthPort']):
+            bad = copy.deepcopy(c); bad['execution']['runPort'] = run_port
+            with self.assertRaises(ValueError): vmctl.validate(bad)
+        bad = copy.deepcopy(c); bad['execution']['judgerPort'] = 65530
+        with self.assertRaises(ValueError): vmctl.validate(bad)
+        for key, value in (('resourceProfile', 'unreviewed'), ('memoryMiB', 24576), ('vcpus', 18)):
+            bad = copy.deepcopy(c); bad[key] = value
+            with self.assertRaises(ValueError): vmctl.validate(bad)
+        bad = copy.deepcopy(c); bad['execution']['runRpcUrl'] = 'http://10.23.45.67:39088'
+        with self.assertRaises(ValueError): vmctl.validate(bad)
+
+    @unittest.skipUnless(shutil.which('docker'), 'Docker Compose parser unavailable')
+    def test_real_compose_parser_keeps_six_formal_cpu_and_permission_contract(self):
+        c = self.six_formal_config(); vmctl.validate(c)
+        bundle = vmctl.compose_executors(c)
+        # No private env values are needed for this real parser check.
+        for service in bundle['services'].values(): service.pop('env_file')
+        file = self.root / 'six-formal-compose.json'; file.write_text(json.dumps(bundle))
+        result = subprocess.run(['docker', 'compose', '-f', str(file), '--profile',
+                                 'explicit-executor-start', 'config', '--format', 'json'],
+                                capture_output=True, text=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        actual = json.loads(result.stdout)['services']
+        self.assertEqual(set(actual), set(bundle['services']))
+        for role, service in actual.items():
+            expected = bundle['services'][role]
+            self.assertEqual(service['cpuset'], expected['cpuset'])
+            self.assertEqual(float(service['cpus']), expected['cpus'])
+            self.assertEqual(service['memswap_limit'], service['mem_limit'])
+            self.assertFalse(service.get('privileged', False))
+            self.assertEqual(service['network_mode'], 'host')
+            if role != 'ide-worker':
+                self.assertEqual(service['cap_add'], ['SYS_ADMIN'])
+                self.assertEqual(service['cgroup'], 'private')
+                self.assertEqual(service['environment']['SDUOJ_JUDGER_CPU_NODE_INDEX'], '1')
+
     def test_bootstrap_forwards_only_loopback_no_80_443(self):
         args = manager.argv(self.c, self.root, 'kvm')
         net = args[args.index('-netdev') + 1]
@@ -241,7 +324,8 @@ class VmPackageTests(unittest.TestCase):
             self.assertIn('--spring.cloud.nacos.discovery.ip=10.23.45.67', command)
         args = manager.argv(self.c, self.root, 'kvm')
         net = args[args.index('-netdev') + 1]
-        for port in (39086, 39087, 39088): self.assertIn(f'hostfwd=tcp:10.23.45.67:{port}-:{port}', net)
+        self.assertIn('hostfwd=tcp:10.23.45.67:39086-:39086', net)
+        for port in (39087, 39088): self.assertNotIn(f'hostfwd=tcp:10.23.45.67:{port}-:{port}', net)
         self.c['execution']['runPort'] = 39087
         with self.assertRaises(ValueError): vmctl.validate(self.c)
 

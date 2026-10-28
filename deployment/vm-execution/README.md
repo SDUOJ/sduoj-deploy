@@ -8,7 +8,7 @@
 
 - Debian13 ARM64 genericcloud build `20261021-2638`，原盘336265216 bytes；`source.lock.json` 记录官方 HTTPS 来源、SHA256/SHA512和无 backing QCOW2v3。没有独立发布者签名声明。
 - kernel `6.12.113+deb13-cloud-arm64`，包版本 `6.12.113-1`；QEMU `10.0.13`，machine `virt-10.0,gic-version=3`。
-- 16 vCPU / 24576 MiB / 120GiB overlay。dev 仅 `-accel hvf`，生产候选仅 `-accel kvm`；无自动 TCG fallback。
+- 16 vCPU / 120GiB overlay；单正式实例profile为24576MiB，保留线上六正式实例的新候选profile为32768MiB。每个profile分别验收，不能转移容量资格。dev仅 `-accel hvf`，生产候选仅 `-accel kvm`；无自动TCG fallback。
 - 精确命令行 `root=PARTUUID=194f4bfc-04a8-48a7-868d-ebe69b12df74 ro console=ttyAMA0`。不接受任意额外 kernel arguments。
 - `kernel.Image`、`initrd.img` 必须位于 owned state，真实普通文件、只读并逐字节 SHA 匹配；ARM64 Image magic 也检查。启动不使用 pflash、NVRAM 或网卡 PXE ROM。
 
@@ -22,7 +22,7 @@ Mini 的 Linux manager build2 是冻结 Debian base/snapshot 与签名依赖原�
 
 独立dev允许完整`sha256:<64hex>`本地image config ID，以导出tar的SHA、导入后的Docker inspect和实际容器Image字段证明内容；不得伪造registry URL或把config ID写成registry manifest digest。render receipt逐项标记`dev-local-image-config-id`，Compose仍pull_policy=never。production-staging继续只接受固定registry digest，拒绝本地ID与可变tag。两stage使用同一份资源/权限Compose，仅引用身份与明确环境端点不同；本地验收结果在发布后须通过registry child manifest的config digest核对映射到同一合格image ID，不能因push而重建产品。
 
-管理容器 UID/GID 显式非root、cap_drop ALL、no-new-privileges、只读rootfs，仅 `/dev/kvm` 与自身0700 state 单一 bind；不挂宿主根目录、Docker socket、TAP 或业务数据。16CPU/26GiB管理上限容纳24GiB guest和QEMU开销，PIDs256、memory-swap等于memory。Mac 便携 bundle 在新 owned 目录核 archive/file lock、Hypervisor entitlement、codesign/otool loader 闭包；不安装宿主包管理器、不改系统 PATH。
+管理容器 UID/GID 显式非root、cap_drop ALL、no-new-privileges、只读rootfs，仅 `/dev/kvm` 与自身0700 state 单一 bind；不挂宿主根目录、Docker socket、TAP 或业务数据。管理上限16CPU，内存为guest加2GiB（单实例26GiB、六实例34GiB），PIDs256、memory-swap等于memory。Mac便携bundle在新owned目录核archive/file lock、Hypervisor entitlement、codesign/otool loader闭包；不安装宿主包管理器、不改系统PATH。
 
 | 执行层 | CPU | 内存 | guest cpuset / 权限 |
 | --- | --- | --- | --- |
@@ -32,11 +32,27 @@ Mini 的 Linux manager build2 是冻结 Debian base/snapshot 与签名依赖原�
 
 所有执行服务禁额外 swap。VM边界不替代内部 sandbox；上述额度未证明500在线/100活跃，须在最终 guest/image/network 全profile下重新验收。
 
+### 保留六个正式评测消费者的候选
+
+生产只读库存发现现有六个正式Judger和一个Run。单实例profile不能作为其容量替代。`deployment.six-formal.example.json`显式选择`resourceProfile=six-formal-16c32g`：
+
+| 服务 | 数量 | 每实例 CPU / 内存 | guest cpuset |
+| --- | --- | --- | --- |
+| IDE aggregate（含Debug） | 1 | 4CPU / 6GiB | 0–3 |
+| 正式Judger | 6 | 1CPU / 2560MiB | 4、5、6、7、8、9各一核 |
+| RunWorker | 1 | 2CPU / 2560MiB | 10–11 |
+
+总执行配额12CPU/23.5GiB，guest余4CPU/8.5GiB供系统及开销。正式实例仍CPU_PER_JUDGER=1，显式CPU节点索引1，不依赖DNS后缀。控制JVM的ActiveProcessorCount与其CPU配额一致；用户程序的编译、运行和业务时限不变。六实例拥有独立workspace、private cgroup、注册身份和有界hostname；实际Snowflake元组仍须按目标JVM核验，未生效的SDUOJ_SNOWFLAKE_NODE环境提示不能当作节点证明。
+
+该profile尚未完成运行验收。先核实Mac真实内存压力，在新的instance/state启动，保留旧24GiB实例与失败证据；禁止为腾资源停止其他session服务。新profile须重跑功能/隔离/500在线100活跃、六正式实例并发与IDE混合、900秒和故障/恢复，不继承24GiB的性能结果。生产使用同一profile并重新验收KVM。
+
 ## 网络阶段
 
 `networkPhase=bootstrap`：QEMU user-net 显式 `restrict=on`，阻止guest到host/外部IP路由，保留显式loopback hostfwd。初次dev-bootstrap仅SSH，manager另有loopback health；默认 executor compose 为空服务，无法误启动。`package_update=false` 不能替代整体出网隔离；进入guest记录并停用专用guest的apt自动更新timer，避免制备漂移。
 
-`networkPhase=integrated`：不加restrict，但必须另行填写并审批真实host内网IPv4、healthBindAddress=advertiseAddress、独立Judger/Run端口和各服务端点。禁止0.0.0.0、公网、guest NAT10.0.2.15或host alias10.0.2.2作为discovery身份。SSH始终loopback；现有80/443不动。配置显式绑定 Redis DB2/prefix、独立Rabbit vhost/fixture、Nacos namespace/dataId及无冲突Snowflake节点。Java命令也绑定host/port/vhost和discovery.ip/port。不能让远端Nacos覆盖回正式队列。
+`networkPhase=integrated`：不加restrict，但必须另行填写真实host内网IPv4、healthBindAddress=advertiseAddress及各服务端点。禁止0.0.0.0、公网、guest NAT10.0.2.15或host alias10.0.2.2作为discovery身份。SSH始终loopback；现有80/443不动。配置显式绑定Redis DB2/prefix、独立Rabbit vhost/fixture、Nacos namespace/dataId及实际无冲突Snowflake节点。Java命令也绑定host/port/vhost和discovery.ip/port；读回Nacos的实际生效配置，不能假定命令行总是覆盖远程配置或让其回到正式队列。
+
+Judger/Run是MQ消费者，当前制品没有HTTP server。judgerPort/runPort仅作注册身份，六正式实例的编号端口按judgerPort起每次加2，不能以这些端口的HTTP探针判断ready。QEMU只转发SSH和真实IDE ready监听。Run接收/查询/取消及worker heartbeat均由Problem接口提供，runRpcUrl必须与problemRpcUrl origin一致。执行器ready要求精确进程/镜像和CPU身份、对应队列消费者归属、认证heartbeat与实际正式/Run业务闭环；不能把不存在的HTTP监听写成通过。
 
 从真实Nacos/Gateway网络位置请求新health/ready并核注册、heartbeat与地址；TCP可达不等于RPC认证。详细联网门禁见 `../../docs/VM_DEV_NETWORK_QUALIFICATION.md`。本轮仅guest制备，不接这些业务网络或消费者。
 
