@@ -198,7 +198,7 @@ def compose_executors(c):
                           'network_mode': 'host', 'env_file': [guest + '/private/judger.env'],
                           'entrypoint': ['/usr/bin/tini', '--', '/usr/local/bin/sduoj-judge-entrypoint', '/opt/java/openjdk17/bin/java'],
                           'command': ['-jar', '/app/sduoj-judger.jar', '--sduoj.run.worker=' + worker, '--sduoj.config.active=' + e['environment'], f"--sduoj.config.nacos-addr={e['nacosHost']}:{e['nacosPort']}", f'--server.port={service_port}', f'--sduoj.config.port={service_port}', '--spring.cloud.nacos.discovery.ip=' + e['advertiseAddress'], f'--spring.cloud.nacos.discovery.port={service_port}', '--spring.rabbitmq.host=' + e['rabbitHost'], f"--spring.rabbitmq.port={e['rabbitPort']}", '--spring.rabbitmq.virtual-host=' + e['rabbitVirtualHost']],
-                          'environment': {'JAVA_TOOL_OPTIONS': '-Xms64m -Xmx384m -XX:ActiveProcessorCount=2', 'CPU_PER_JUDGER': '1', 'SDUOJ_SNOWFLAKE_NODE': str(node)}}
+                          'environment': {'JAVA_TOOL_OPTIONS': '-Xms64m -Xmx384m -XX:ActiveProcessorCount=2', 'CPU_PER_JUDGER': '1', 'SDUOJ_JUDGER_CPU_NODE_INDEX': '1', 'SDUOJ_SNOWFLAKE_NODE': str(node)}}
     for service in services.values():
         service['profiles'] = ['explicit-executor-start']
         service['labels'] = {'owner': c['name'], 'scope': 'candidate-requires-same-guest-qualification'}

@@ -55,6 +55,12 @@ class VmPackageTests(unittest.TestCase):
         self.assertFalse(report['writes']); self.assertFalse(report['network']); self.assertFalse(report['guestStarted'])
         self.assertEqual(report['builderMemoryMiB'], 768); self.assertEqual(set(self.root.iterdir()), before)
 
+    def test_host_network_judgers_use_explicit_index_with_disjoint_cpu_sets(self):
+        services = vmctl.compose_executors(self.c)['services']
+        for name in ('judger', 'run-worker'):
+            self.assertEqual(services[name]['environment']['SDUOJ_JUDGER_CPU_NODE_INDEX'], '1')
+        self.assertNotEqual(services['judger']['cpuset'], services['run-worker']['cpuset'])
+
     def test_default_is_help_without_process_or_files(self):
         before = set(self.root.iterdir())
         result = subprocess.run([sys.executable, str(HERE / 'vmctl.py')], capture_output=True, text=True, cwd=self.root)
