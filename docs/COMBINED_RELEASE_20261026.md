@@ -1,6 +1,6 @@
 # Online IDE、LSP、Debugger 与评测沙箱联合发布
 
-本次范围：基础 IDE / Run / 云代码历史 / 正式提交、LSP、Debugger，以及用户确认的评测沙箱答案读取隔离加固。发布前在独立 dev 完整部署并回归。当前生产流量未切换，本地提交与新镜像未推送。
+本次范围：基础 IDE / Run / 云代码历史 / 正式提交、LSP、Debugger，以及用户确认的评测沙箱答案读取隔离加固。发布前在独立 dev 完整部署并回归。用户于2026-10-28明确授权全部测试通过后按本规则上线；该授权不豁免任何门禁。六仓库release分支已推送，生产流量尚未切换，新镜像尚未发布。
 
 ## 源码与制品
 
@@ -72,7 +72,7 @@ R15源码 `e4422e0e547b0d29068a3e392f12e56fb6572076` 将这段准备放入既有
 2. 按migrations/online-ide/README顺序备份并应用additive表/索引；独立dev已只读确认9表/6索引/1列与checker MEDIUMTEXT。回滚不drop表，不改历史正式结果。
 3. 完成整个新候选功能/安全/容量/持续运行/恢复与artifact回滚，生成最终精确镜像专属资格锁。历史R7/R8及失败候选收据只保留来源，不用于新镜像冒充通过。
 4. 生产目标基础环境先具备同一内核能力与cgroup/driver，再做只读preflight和节点资格。当前主机不满足，见下节。
-5. 最后审核具体候选和切换范围。排空后按兼容接口/schema服务→评测/Run→IDEWorker→Gateway入口→前端顺序灰度，不在执行中替换sandbox或重放Debug命令。
+5. 全部门禁通过、精确候选与既定范围核对后，按用户2026-10-28的条件上线授权执行。排空后按兼容接口/schema服务→评测/Run→IDEWorker→Gateway入口→前端顺序灰度，不在执行中替换sandbox或重放Debug命令。授权收据为work/artifacts/ide-judger-release-prep-20261026/release-readiness-20261028/USER_RELEASE_AUTHORIZATION.json；测试未通过时禁止切换。
 6. 正式/v2使用scripts/release-v2-artifact.sh提升已验收artifact，不重建；独立staging/SHA验证/备份/切换/smoke/rollback已完成本机隔离真实rsync/TLS16项演练。现有release-v2-pre脚本只处理/v2-pre，不用于正式v2。详见FRONTEND_V2_ARTIFACT_RELEASE.md。
 
 回滚先停新建、保留查询/取消，确认进程树/cgroup清空后恢复上版固定镜像与配置。保留additive数据，不FLUSHDB、不清未知reservation。前端保留v2-backup并提供独立rollback；评测回退旧安全边界须显式记录，不能自动回退成答案可读来掩盖失败。
@@ -89,4 +89,4 @@ R15源码 `e4422e0e547b0d29068a3e392f12e56fb6572076` 将这段准备放入既有
 
 ## 同源guest制备补充
 
-16vCPU/24GiB/GICv3/HVF的同源内核直接引导已实测成功，cloud-init完成且guest干净poweroff；UEFI组合的早期启动失败仍保留，不转记通过。dev与生产共同采用固定direct-kernel合同：同一prepared根盘、从该盘核验并冻结的kernel/initrd、精确PARTUUID和command line。独立dev guest已实际安装固定离线Docker29.2.1，29个锁包逐项版本/架构核对通过；cgroup2/cgroupfs、Landlock ABI6与active LSM、pidfd/close_range均已通过。该结果是基础环境制备，不是完整工作负载或生产KVM资格。正式prepared收据必须绑定安装后的实际boot字节；当前尚未清身份、转盘与冻结，Linux管理镜像还需提升到最终同版本启动器源码。
+16vCPU/24GiB/GICv3/HVF的同源内核直接引导已实测成功，cloud-init完成且guest干净poweroff；UEFI组合的早期启动失败仍保留，不转记通过。dev与生产共同采用固定direct-kernel合同：同一prepared根盘、从该盘核验并冻结的kernel/initrd、精确PARTUUID和command line。独立dev guest已实际安装固定离线Docker29.2.1，29个锁包逐项版本/架构核对通过；cgroup2/cgroupfs、Landlock ABI6与active LSM、pidfd/close_range均已通过。2026-10-28身份清理、正常关机、独立盘转换/check/0400冻结及关机后只读身份复核完成，磁盘SHA256为9f449eedd2dc43a52fb1d6d260dbdeb4003d22c67019aa1a2eae69715d8cbe47。完整收据为DEV_GUEST_FREEZE_RESULT_20261028.json，状态仍为PREPARED_NOT_GUEST_QUALIFIED。新dev集成guest已启动并通过同一内核/boot字节、Docker和路由探针，执行层业务、容量与生产KVM资格仍须实际完成。
