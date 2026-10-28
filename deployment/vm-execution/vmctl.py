@@ -106,8 +106,8 @@ def execution_workers(c):
 def image_reference_kind(value, stage):
     if isinstance(value, str) and DIGEST.fullmatch(value):
         return 'registry-manifest-digest'
-    require(stage == 'dev' and isinstance(value, str) and LOCAL_IMAGE_ID.fullmatch(value), 'Immutable image reference required; production requires registry digest, dev alone may use full local config ID')
-    return 'dev-local-image-config-id'
+    require(stage == 'dev' and isinstance(value, str) and LOCAL_IMAGE_ID.fullmatch(value), 'Immutable image reference required; production requires registry digest, dev alone may use a full local content ID')
+    return 'dev-local-image-id'
 
 
 def image_reference_kinds(c):

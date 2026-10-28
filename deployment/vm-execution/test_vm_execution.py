@@ -175,7 +175,7 @@ class VmPackageTests(unittest.TestCase):
     def test_local_image_id_is_dev_only_and_never_registry_identity(self):
         self.c['execution']['ideImage'] = 'sha256:' + '5' * 64
         vmctl.validate(self.c)
-        self.assertEqual(vmctl.image_reference_kinds(self.c)['ide-worker'], 'dev-local-image-config-id')
+        self.assertEqual(vmctl.image_reference_kinds(self.c)['ide-worker'], 'dev-local-image-id')
         self.c['stage'] = 'production-staging'
         with self.assertRaises(ValueError): vmctl.validate(self.c)
 
@@ -191,7 +191,7 @@ class VmPackageTests(unittest.TestCase):
             self.assertEqual(service['pull_policy'], 'never')
         vmctl.render(self.c, self.root / 'dev-local-render')
         vmctl.verify_render(self.c, self.root / 'dev-local-render')
-        self.assertTrue(all(k == 'dev-local-image-config-id' for k in vmctl.image_reference_kinds(self.c).values()))
+        self.assertTrue(all(k == 'dev-local-image-id' for k in vmctl.image_reference_kinds(self.c).values()))
         for ref in ('mutable:latest', 'sha256:123', 'sha256:' + 'g' * 64):
             with self.assertRaises(ValueError): vmctl.image_reference_kind(ref, 'dev')
         for value in ('sha256:' + '6' * 64, 'sha256:' + '7' * 64, 'sha256:' + '8' * 64):
