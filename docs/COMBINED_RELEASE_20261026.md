@@ -68,7 +68,7 @@ R15源码 `e4422e0e547b0d29068a3e392f12e56fb6572076` 将这段准备放入既有
 
 ## 发布顺序与回滚
 
-1. 冻结精确本地提交、镜像/registrydigest、源码/工件hash、配置与schema依赖。先发布sandbox与server-private依赖提交，再发布引用它们的Judger。跨私有仓库CI要求只读SDUOJ_SERVER_SOURCE_TOKEN，缺失失败关闭；本机gh未登录，尚不能核对secret实际是否配置。
+1. 冻结精确本地提交、镜像/registrydigest、源码/工件hash、配置与schema依赖。先发布sandbox与server-private依赖提交，再发布引用它们的Judger。跨私有仓库CI使用server-private专属只读deploy key，Judger的SDUOJ_SERVER_SOURCE_KEY保存私钥；缺失失败关闭。2026-10-28已通过GitHub API核对并配置该密钥，不授予源码写权限；密钥不写入制品或日志。
 2. 按migrations/online-ide/README顺序备份并应用additive表/索引；独立dev已只读确认9表/6索引/1列与checker MEDIUMTEXT。回滚不drop表，不改历史正式结果。
 3. 完成整个新候选功能/安全/容量/持续运行/恢复与artifact回滚，生成最终精确镜像专属资格锁。历史R7/R8及失败候选收据只保留来源，不用于新镜像冒充通过。
 4. 生产目标基础环境先具备同一内核能力与cgroup/driver，再做只读preflight和节点资格。当前主机不满足，见下节。
