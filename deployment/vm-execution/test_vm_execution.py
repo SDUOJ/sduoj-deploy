@@ -209,6 +209,16 @@ class VmPackageTests(unittest.TestCase):
         self.assertEqual(s['cap_drop'], ['ALL']); self.assertNotEqual(s['user'].split(':')[0], '0'); self.assertEqual(s['command'], ['plan'])
         self.assertNotIn('docker.sock', json.dumps(s)); self.assertNotIn('/dev/net/tun', json.dumps(s))
 
+    def test_ide_uses_unified_mode_entrypoint_and_explicit_sdk_health_python(self):
+        service = vmctl.compose_executors(self.c)['services']['ide-worker']
+        self.assertEqual(service['environment']['SDUOJ_WORKER_MODE'], 'ide')
+        self.assertEqual(service['entrypoint'], ['/usr/bin/env', '-u', 'SDUOJ_IDE_JAVA_PROCESSORS',
+                                                  '/usr/local/bin/sduoj-worker-entrypoint'])
+        self.assertEqual(service['command'], ['--role', 'all'])
+        self.assertTrue(service['init'])
+        self.assertEqual(service['healthcheck']['test'][:2], ['CMD', '/opt/python/3.11/bin/python'])
+        self.assertNotIn('SDUOJ_WORKER_MODE', vmctl.compose_executors(self.c)['services']['judger']['environment'])
+
     def test_executor_quotas_and_cpu_sets_do_not_overlap(self):
         services = vmctl.compose_executors(self.c)['services']
         self.assertEqual([(x['cpus'], x['mem_limit'], x['cpuset']) for x in services.values()], [(4, '6g', '0-3'), (2, '2560m', '4-5'), (2, '2560m', '6-7')])

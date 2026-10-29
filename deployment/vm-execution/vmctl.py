@@ -212,11 +212,12 @@ def compose_executors(c):
            'environment': {'ACTIVE': e['environment'], 'NACOS_NAMESPACE': e['nacosNamespace'], 'NACOS_GROUP': 'DEFAULT_GROUP',
                            'NACOS_DATA_ID': e['nacosDataId'], 'NACOS_SERVICE': e['nacosService'], 'NACOS_IP': e['advertiseAddress'],
                            'NACOS_ADDR': f"{e['nacosHost']}:{e['nacosPort']}", 'SDUOJ_IDE_WORKER_ID': e['workerId'],
-                           'SDUOJ_IDE_HEALTH_PORT': str(c['healthPort']), 'SDUOJ_IDE_NACOS_ENABLED': '1', 'SDUOJ_IDE_DEV_DEBUG_LAB': '0'},
-           'entrypoint': ['/usr/bin/env', '-u', 'SDUOJ_IDE_JAVA_PROCESSORS', 'python3', '/opt/sduoj-ide/scripts/entrypoint.py'], 'command': ['--role', 'all'],
+                           'SDUOJ_IDE_HEALTH_PORT': str(c['healthPort']), 'SDUOJ_IDE_NACOS_ENABLED': '1', 'SDUOJ_IDE_DEV_DEBUG_LAB': '0',
+                           'SDUOJ_WORKER_MODE': 'ide'},
+           'entrypoint': ['/usr/bin/env', '-u', 'SDUOJ_IDE_JAVA_PROCESSORS', '/usr/local/bin/sduoj-worker-entrypoint'], 'command': ['--role', 'all'],
            'volumes': [{'type': 'bind', 'source': '/sys/fs/cgroup/' + e['aggregate'], 'target': '/sys/fs/cgroup', 'bind': {'create_host_path': False}},
                        {'type': 'bind', 'source': e['qualificationDirectory'], 'target': '/run/ide-config', 'read_only': True, 'bind': {'create_host_path': False}}],
-           'healthcheck': {'test': ['CMD', 'python3', '-c', f"import urllib.request; urllib.request.urlopen('http://127.0.0.1:{c['healthPort']}/ready',timeout=2)"], 'interval': '10s', 'timeout': '3s', 'retries': 3},
+           'healthcheck': {'test': ['CMD', '/opt/python/3.11/bin/python', '-c', f"import urllib.request; urllib.request.urlopen('http://127.0.0.1:{c['healthPort']}/ready',timeout=2)"], 'interval': '10s', 'timeout': '3s', 'retries': 3},
            'tmpfs': ['/tmp:size=256m,uid=10001,gid=10001,mode=1777', '/run/sduoj-debug:size=128m,uid=10001,gid=10001,mode=0700', '/home/ide:size=32m,uid=10001,gid=10001,mode=0700']}
     services = {'ide-worker': ide}
     for worker_index, (role, worker, cpuset, node, service_port, cpus) in enumerate(execution_workers(c), 1):
