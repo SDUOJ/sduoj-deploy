@@ -1,16 +1,16 @@
 # Online IDE、LSP、Debugger 与评测沙箱联合发布
 
-本次范围：基础 IDE / Run / 云代码历史 / 正式提交、LSP、Debugger，以及用户确认的评测沙箱答案读取隔离加固。发布前在独立 dev 完整部署并回归。用户于2026-10-28明确授权全部测试通过后按本规则上线；该授权不豁免任何门禁。六仓库release分支已推送，生产流量尚未切换，新镜像尚未发布。
+本次范围：基础 IDE / Run / 云代码历史 / 正式提交、LSP、Debugger，以及用户确认的评测沙箱答案读取隔离加固。发布前在独立 dev 完整部署并回归。用户于2026-10-28明确授权全部测试通过后上线；该授权不豁免任何门禁。维护规范以闭源 workspace 的[发布检查表](../../docs/maintenance/release-workflow.md)为准；下述候选和验收数字是分阶段历史记录，当前状态以受限发布单及实际 CI/制品收据为准。
 
 ## 源码与制品
 
-六仓库均使用独立 release/ide-judger-20261026 分支；最终精确 SHA 和制品 digest 统一记录到本轮发布锁。
+直接在既有维护分支开发和发布，不新建 branch 或 PR，subagent 同样执行。server-private、Judger、Sandbox、AutoLab 和 Web2 使用 `master`，deploy 使用 `middlewares`；Judger `stable` 是独立开源版本。淘汰的 release 分支先保全、合入并验证提交可达，再删除本地及远端引用。最终精确 SHA 和制品 digest 记录到受限发布单。
 
 | 仓库 | 本次内容 |
 |---|---|
 | web2 | 最小 Monaco IDE、普通/比赛/题单入口、Run/云代码/正式提交、LSP/Debug；保留本轮准备期间已在线的成绩复查功能，不增加 AI 后台/首页/全站主题 |
 | server-private | 继承6a9e54bf的Run/业务上下文/模板memfd修复；Gateway Redis bridge、toolchain/Debug RPC；共享文件DTO显式JSON构造，保留既有RPC重复头/常量时间鉴权与统计隔离 |
-| Judger | 继承4636915加固；Run memfd/isolateFS、checker独立case副本、有限内存安全cap、可信cgroup路径、匹配接口源码构建；独立IDE Worker |
+| Judger | 继承4636915加固；Run memfd/isolateFS、checker独立case副本、有限内存安全cap、可信cgroup路径、匹配接口包构建；独立IDE Worker |
 | sandbox | 继承b58c236加固；旧libseccomp负pseudo系统调用号修正；JDK匿名socketpair与Rust编译器最小匿名握手；外网/命名连接/FD传递仍拒绝 |
 | AutoLab | 保留发布前实际在线的题单、成绩复查和 AI 路由，仅更新 native context RPC 两文件；不能用早期精简候选覆盖线上功能 |
 | deploy | 单Worker权限/资源、独立整栈dev、私有配置渲染、资格/容量/恢复工具、additive迁移与回滚说明 |
@@ -83,7 +83,7 @@ R15源码 `e4422e0e547b0d29068a3e392f12e56fb6572076` 将这段准备放入既有
 
 ## 发布顺序与回滚
 
-1. 冻结精确本地提交、镜像/registrydigest、源码/工件hash、配置与schema依赖。先发布sandbox与server-private依赖提交，再发布引用它们的Judger。跨私有仓库CI使用server-private专属只读deploy key，Judger的SDUOJ_SERVER_SOURCE_KEY保存私钥；缺失失败关闭。2026-10-28已通过GitHub API核对并配置该密钥，不授予源码写权限；密钥不写入制品或日志。
+1. 冻结提交、镜像 digest、包坐标及校验值、配置与 schema 依赖。本地先由 server `publishToMavenLocal`，Judger 使用匹配的 `Versions.sduoj`；GitHub 先由 server 原 Actions 发布 GitHub Packages，再验证 Judger 独立消费。沿用既有包凭据，不新增 Deploy key，不额外 checkout server 源码、不使用 composite/includeBuild。Sandbox 经原 judging-containers 工作流发布，Judger 沿原 Dockerfile 构建和 Actions 推送。此前临时源码密钥与替代构建入口已撤销，不作为发布步骤。
 2. 备份并实际恢复演练后，对比目标schema，按migrations/online-ide/README仅选择本次功能确实缺少的additive表/索引。逐份记录SQL校验值、目标、锁与耗时；不盲目重放已存在结构。回滚不drop表，不改历史正式结果。
 3. 完成整个新候选功能/安全/容量/持续运行/恢复与artifact回滚，生成最终精确镜像专属资格锁。历史R7/R8及失败候选收据只保留来源，不用于新镜像冒充通过。
 4. 生产目标基础环境先具备同一内核能力与cgroup/driver，再做只读preflight和节点资格。当前主机不满足，见下节。
