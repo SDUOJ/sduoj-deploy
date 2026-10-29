@@ -1,3 +1,3 @@
 # Shared task output maintenance
 
-The maintained [output retention guide](../../../../OnlineJudge/website/docs/deployment/output-retention.md) covers prerequisites, dry-run, reference protection, historical review and recovery. These tools are independent maintenance operations; deployment does not authorize their execution.
+Use the internal [release and operations guide](../../../../docs/maintenance/release-operations.md) for review, dry-run, reference protection and recovery. These tools are separate maintenance operations; deployment does not authorize deletion, backfill or historical asset claims.

@@ -1,0 +1,11 @@
+--- a/hw/intc/Kconfig
++++ b/hw/intc/Kconfig
+@@ -23,7 +23,7 @@
+ 
+ config ARM_GIC
+     bool
+-    select ARM_GICV3 if TCG
++    select ARM_GICV3 if TCG || HVF
+     select ARM_GIC_KVM if KVM
+     select MSI_NONBROKEN
+ 

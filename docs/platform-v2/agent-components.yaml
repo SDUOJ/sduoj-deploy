@@ -1,0 +1,550 @@
+schema_version: 1
+kind: design_catalog
+engine: openhands-sdk
+execution_owner: auto_task.worker
+task_type: agent.run
+default_enabled: false
+runtime_policy:
+  global_setting_id: agent_components
+  setting_store: AiSetting
+  unknown_component: deny
+  unknown_version: deny
+  unknown_action: deny
+  missing_config: disabled
+  dynamic_code_install: false
+  raw_provider_key_in_agent: false
+  human_confirmation: finish_turn_and_use_current_browser_session
+  history_when_disabled: original_read_permission
+  legacy_ingress_gating_required: true
+  source: reviewed-20261018
+  sdk_process: worker_owned_separate_python_runtime
+  ipc: bounded_schema_json
+  component_generation: monotonic_including_global_disable_and_reenable
+  approval_lifecycle: durable_candidate_independent_of_active_worker_lease
+  generation_tuple:
+  - global
+  - component
+  - action
+  host_config_autoload: false
+  dependency_generations: freeze_transitive_dependencies_and_allowed_cross_component_targets
+  tools_projection: current_action_and_profile_allowlist_with_server_gate
+  sandbox_requires_original_deployment_permission: true
+components:
+- id: content.review
+  title: 内容审核（内部组件）
+  version: 1
+  default_enabled: false
+  implementation_status: not_implemented
+  current_business_status: partial
+  rollout_batch: 1
+  execution_profile: business_tools
+  requires_endpoint: true
+  required_model_capabilities:
+  - tools
+  - structured_output
+  actions:
+  - review
+  tools:
+  - content.read_task_input
+  - content.propose_moderation
+  resource_kinds:
+  - document
+  - collection
+  - question
+  - authoring
+  - conversation
+  - grading
+  - plagiarism
+  - ide
+  - course
+  - interview
+  - exam
+  frontend_surfaces:
+  - manage
+  visibility: internal_service
+  dependencies: []
+  legacy_bindings: []
+  java_strategy: autolab_only
+  result_policy: pending_review_until_validated_policy_decision
+  source_authorization: fresh_original_resource_permission
+  legacy_hook: handlers.moderation_and_legacy_bridge.moderation_including_course.index
+  disabled_behavior: required_reviewed_outputs_remain_private_pending_review
+  doc_refs:
+  - 10-OpenHands与Agent组件.md
+- id: management.assistant
+  title: 智能管理助手
+  version: 1
+  default_enabled: false
+  implementation_status: not_implemented
+  current_business_status: partial
+  rollout_batch: 1
+  execution_profile: business_tools
+  requires_endpoint: true
+  required_model_capabilities:
+  - tools
+  - structured_output
+  actions:
+  - chat
+  - plan
+  tools:
+  - oj.read_authorized
+  - oj.propose_action
+  resource_kinds:
+  - management_session
+  frontend_surfaces:
+  - manage
+  legacy_bindings:
+  - task_type: management.turn
+    selector: explicit_registered_action
+  java_strategy: existing_java_api_via_confirmed_action
+  result_policy: validated_candidate_then_existing_authorized_adoption
+  source_authorization: fresh_original_resource_permission
+  doc_refs:
+  - 10-OpenHands与Agent组件.md
+  dependencies: []
+  visibility: business_entry
+- id: document.extract
+  title: 文档与图片识题
+  version: 1
+  default_enabled: false
+  implementation_status: not_implemented
+  current_business_status: partial
+  rollout_batch: 2
+  execution_profile: business_tools
+  requires_endpoint: true
+  required_model_capabilities:
+  - tools
+  - structured_output
+  actions:
+  - extract
+  - vision_ocr
+  tools:
+  - document.read_owned
+  - question.propose_items
+  resource_kinds:
+  - document
+  - collection
+  - question
+  frontend_surfaces:
+  - manage
+  legacy_bindings:
+  - task_type: question.extract
+    selector: explicit_registered_action
+  java_strategy: autolab_only
+  result_policy: validated_candidate_then_existing_authorized_adoption
+  source_authorization: fresh_original_resource_permission
+  doc_refs:
+  - 10-OpenHands与Agent组件.md
+  dependencies:
+  - content.review
+  visibility: business_entry
+  action_capabilities:
+    vision_ocr:
+    - vision
+  legacy_hooks:
+  - question.extract_image_input
+  - course.index_visual_pdf_ctx.ask
+- id: document.translate
+  title: 题目与文档翻译
+  version: 1
+  default_enabled: false
+  implementation_status: not_implemented
+  current_business_status: partial
+  rollout_batch: 2
+  execution_profile: business_tools
+  requires_endpoint: true
+  required_model_capabilities:
+  - tools
+  - structured_output
+  actions:
+  - translate
+  tools:
+  - document.read_owned
+  - question.propose_translation
+  resource_kinds:
+  - document
+  - question
+  - authoring
+  frontend_surfaces:
+  - manage
+  legacy_bindings: []
+  java_strategy: autolab_only
+  result_policy: validated_candidate_then_existing_authorized_adoption
+  source_authorization: fresh_original_resource_permission
+  doc_refs:
+  - 10-OpenHands与Agent组件.md
+  dependencies:
+  - content.review
+  visibility: business_entry
+- id: question.assistant
+  title: 题目解答与核验
+  version: 1
+  default_enabled: false
+  implementation_status: not_implemented
+  current_business_status: partial
+  rollout_batch: 2
+  execution_profile: business_tools
+  requires_endpoint: true
+  required_model_capabilities:
+  - tools
+  - structured_output
+  actions:
+  - solve
+  - verify
+  - chat
+  - verify_execute
+  tools:
+  - question.read_author_projection
+  - question.propose_answer
+  - execution.validate_bounded
+  resource_kinds:
+  - question
+  - conversation
+  frontend_surfaces:
+  - manage
+  legacy_bindings:
+  - task_type: question.solve
+    selector: explicit_registered_action
+  - task_type: question.verify
+    selector: explicit_registered_action
+  - task_type: question.chat
+    selector: explicit_registered_action
+  java_strategy: autolab_only
+  result_policy: validated_candidate_then_existing_authorized_adoption
+  source_authorization: fresh_original_resource_permission
+  doc_refs:
+  - 10-OpenHands与Agent组件.md
+  dependencies:
+  - content.review
+  visibility: business_entry
+  action_profiles:
+    verify_execute: sandbox_tools
+- id: authoring.programming
+  title: 编程题出题助手
+  version: 1
+  default_enabled: false
+  implementation_status: not_implemented
+  current_business_status: partial
+  rollout_batch: 2
+  execution_profile: business_tools
+  requires_endpoint: true
+  required_model_capabilities:
+  - tools
+  - structured_output
+  actions:
+  - statement
+  - solution
+  - tests
+  - validator
+  - checker
+  - review
+  tools:
+  - authoring.read_package
+  - authoring.propose_revision
+  - execution.validate_bounded
+  resource_kinds:
+  - authoring
+  frontend_surfaces:
+  - manage
+  legacy_bindings:
+  - task_type: authoring.generate
+    selector: server_resolved_question_kind
+  java_strategy: existing_java_api_via_confirmed_action
+  result_policy: validated_candidate_then_existing_authorized_adoption
+  source_authorization: fresh_original_resource_permission
+  doc_refs:
+  - 10-OpenHands与Agent组件.md
+  dependencies:
+  - content.review
+  visibility: business_entry
+  action_profiles:
+    statement: business_tools
+    solution: sandbox_tools
+    tests: sandbox_tools
+    validator: sandbox_tools
+    checker: sandbox_tools
+    review: business_tools
+- id: authoring.objective
+  title: 客观题出题助手
+  version: 1
+  default_enabled: false
+  implementation_status: not_implemented
+  current_business_status: partial
+  rollout_batch: 2
+  execution_profile: business_tools
+  requires_endpoint: true
+  required_model_capabilities:
+  - tools
+  - structured_output
+  actions:
+  - generate
+  - review
+  tools:
+  - authoring.read_package
+  - authoring.propose_revision
+  resource_kinds:
+  - authoring
+  frontend_surfaces:
+  - manage
+  legacy_bindings:
+  - task_type: authoring.generate
+    selector: server_resolved_question_kind
+  java_strategy: autolab_only
+  result_policy: validated_candidate_then_existing_authorized_adoption
+  source_authorization: fresh_original_resource_permission
+  doc_refs:
+  - 10-OpenHands与Agent组件.md
+  dependencies:
+  - content.review
+  visibility: business_entry
+- id: authoring.subjective
+  title: 主观题出题助手
+  version: 1
+  default_enabled: false
+  implementation_status: not_implemented
+  current_business_status: partial
+  rollout_batch: 2
+  execution_profile: business_tools
+  requires_endpoint: true
+  required_model_capabilities:
+  - tools
+  - structured_output
+  actions:
+  - generate
+  - rubric
+  - review
+  tools:
+  - authoring.read_package
+  - authoring.propose_revision
+  resource_kinds:
+  - authoring
+  frontend_surfaces:
+  - manage
+  legacy_bindings:
+  - task_type: authoring.generate
+    selector: server_resolved_question_kind
+  java_strategy: autolab_only
+  result_policy: validated_candidate_then_existing_authorized_adoption
+  source_authorization: fresh_original_resource_permission
+  doc_refs:
+  - 10-OpenHands与Agent组件.md
+  dependencies:
+  - content.review
+  visibility: business_entry
+- id: grading.subjective
+  title: 主观题批阅助手
+  version: 1
+  default_enabled: false
+  implementation_status: not_implemented
+  current_business_status: partial
+  rollout_batch: 1
+  execution_profile: business_tools
+  requires_endpoint: true
+  required_model_capabilities:
+  - tools
+  - structured_output
+  actions:
+  - grade
+  - feedback
+  tools:
+  - grading.read_authorized
+  - grading.propose_review
+  resource_kinds:
+  - grading
+  frontend_surfaces:
+  - manage
+  legacy_bindings:
+  - task_type: subjective.grade
+    selector: explicit_registered_action
+  - task_type: subjective_review
+    selector: explicit_registered_action
+  java_strategy: autolab_only
+  result_policy: validated_candidate_then_existing_authorized_adoption
+  source_authorization: fresh_original_resource_permission
+  doc_refs:
+  - 10-OpenHands与Agent组件.md
+  dependencies:
+  - content.review
+  visibility: business_entry
+- id: plagiarism.explain
+  title: 查重解释助手
+  version: 1
+  default_enabled: false
+  implementation_status: not_implemented
+  current_business_status: partial
+  rollout_batch: 3
+  execution_profile: business_tools
+  requires_endpoint: true
+  required_model_capabilities:
+  - tools
+  - structured_output
+  actions:
+  - explain
+  tools:
+  - plagiarism.read_authorized_pair
+  - plagiarism.propose_explanation
+  resource_kinds:
+  - plagiarism
+  frontend_surfaces:
+  - manage
+  legacy_bindings:
+  - task_type: plagiarism.scan
+    selector: optional_ai_segment_only
+  - task_type: code_similarity
+    selector: optional_ai_segment_only
+  java_strategy: existing_contract_validation_required
+  result_policy: validated_candidate_then_existing_authorized_adoption
+  source_authorization: fresh_original_resource_permission
+  doc_refs:
+  - 10-OpenHands与Agent组件.md
+  dependencies:
+  - content.review
+  visibility: business_entry
+- id: ide.tutor
+  title: IDE 学习辅导
+  version: 1
+  default_enabled: false
+  implementation_status: not_implemented
+  current_business_status: partial
+  rollout_batch: 3
+  execution_profile: business_tools
+  requires_endpoint: true
+  required_model_capabilities:
+  - tools
+  - structured_output
+  actions:
+  - hint
+  - explain
+  - diagnose
+  tools:
+  - ide.read_learner_context
+  - ide.propose_hint
+  resource_kinds:
+  - ide
+  frontend_surfaces:
+  - client
+  legacy_bindings:
+  - task_type: ide.tutor
+    selector: explicit_registered_action
+  java_strategy: existing_contract_validation_required
+  result_policy: validated_candidate_then_existing_authorized_adoption
+  source_authorization: fresh_original_resource_permission
+  doc_refs:
+  - 10-OpenHands与Agent组件.md
+  dependencies:
+  - content.review
+  visibility: business_entry
+- id: course.assistant
+  title: 课程资料问答
+  version: 1
+  default_enabled: false
+  implementation_status: not_implemented
+  current_business_status: partial
+  rollout_batch: 3
+  execution_profile: business_tools
+  requires_endpoint: true
+  required_model_capabilities:
+  - tools
+  - structured_output
+  actions:
+  - ask
+  tools:
+  - course.search_authorized_material
+  - course.answer_with_citations
+  resource_kinds:
+  - course
+  - conversation
+  frontend_surfaces:
+  - client
+  - manage
+  legacy_bindings:
+  - task_type: course.ask
+    selector: explicit_registered_action
+  java_strategy: autolab_only
+  result_policy: validated_candidate_then_existing_authorized_adoption
+  source_authorization: fresh_original_resource_permission
+  doc_refs:
+  - 10-OpenHands与Agent组件.md
+  dependencies:
+  - content.review
+  visibility: business_entry
+- id: interview.assistant
+  title: AI 面试助手
+  version: 1
+  default_enabled: false
+  implementation_status: not_implemented
+  current_business_status: partial
+  rollout_batch: 3
+  execution_profile: business_tools
+  requires_endpoint: true
+  required_model_capabilities:
+  - tools
+  - structured_output
+  actions:
+  - advance
+  - report
+  tools:
+  - interview.read_current_scope
+  - interview.propose_turn_or_report
+  resource_kinds:
+  - interview
+  frontend_surfaces:
+  - client
+  - manage
+  legacy_bindings:
+  - task_type: interview.advance
+    selector: explicit_registered_action
+  java_strategy: autolab_only
+  result_policy: validated_candidate_then_existing_authorized_adoption
+  source_authorization: fresh_original_resource_permission
+  doc_refs:
+  - 10-OpenHands与Agent组件.md
+  dependencies:
+  - content.review
+  visibility: business_entry
+- id: exam.assistant
+  title: 组卷与考务方案建议
+  version: 1
+  default_enabled: false
+  implementation_status: not_implemented
+  current_business_status: proposed
+  rollout_batch: 3
+  execution_profile: business_tools
+  requires_endpoint: true
+  required_model_capabilities:
+  - tools
+  - structured_output
+  actions:
+  - blueprint
+  - advise
+  tools:
+  - exam.read_authorized_context
+  - exam.propose_plan
+  resource_kinds:
+  - exam
+  frontend_surfaces:
+  - manage
+  legacy_bindings: []
+  java_strategy: autolab_only
+  result_policy: validated_candidate_then_existing_authorized_adoption
+  source_authorization: fresh_original_resource_permission
+  doc_refs:
+  - 10-OpenHands与Agent组件.md
+  dependencies:
+  - content.review
+  visibility: business_entry
+non_agent_operations:
+- id: formal_submission
+  behavior: preserve_original_permissions_and_judger
+- id: ide_run_and_cloud_save
+  behavior: preserve_original_run_and_storage
+- id: plagiarism_scan
+  behavior: deterministic_scan_does_not_require_explanation_plugin
+- id: document_parse_and_course_index
+  behavior: deterministic_text_processing_available_but_ocr_and_moderation_are_gated_private_pending_review
+- id: exam_accounts_materials_invigilation
+  behavior: deterministic_operations_keep_original_gates
+- id: task_history_cancel_and_reconciliation
+  behavior: read_cancel_settle_remain_available_without_agent_component
+- id: manual_question_management
+  behavior: manual_access_remains_subject_to_source_permissions

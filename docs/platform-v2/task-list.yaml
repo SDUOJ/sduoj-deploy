@@ -1,0 +1,2240 @@
+# 平台 v2：保留48任务ID；按2026-10-18 OpenHands决策收敛，状态不是批准。
+schema_version: 2
+generated_for: SDUOJ 平台 v2：云 Agent / AI 端口与 MCP / 出题平台 / 查重系统 / 考务系统
+meta:
+  delivery_stages:
+  - id: S1
+    name: 安全与底座
+    goal: 修复越权、统一身份入口、打通队列端口维度
+  - id: S2
+    name: 用户端点与 OpenHands 组件
+    goal: 用户端点、原队列、SDK runner、组件开关与旧业务迁移
+  - id: S3
+    name: Agent 隔离与版本化工作区
+    goal: 原 worker 生命周期、局部工作区与快照、隔离、精确 SDK/组件版本；独立节点平台延期
+  - id: S4
+    name: 出题平台
+    goal: 三题型统一、完整出题流水线、人类实测
+  - id: S5
+    name: 查重系统
+    goal: 批量扫描、阈值复核、绑定与学生自查
+  - id: S6
+    name: 考务系统
+    goal: 账号台账、材料渲染、监考端
+  executors:
+  - id: auto
+    desc: 已有接口/脚本可全自动
+  - id: agent
+    desc: 智能体经 MCP 发起，按风险分级审批
+  - id: hybrid
+    desc: 智能体产出草案，人工审定
+  - id: manual
+    desc: 必须人工（决策/验收/现场）
+  statuses:
+  - id: existing
+    desc: 现有能力可直接用
+  - id: partial
+    desc: 部分具备，需扩展
+  - id: missing
+    desc: 完全缺失，需新建
+  status_meaning: status 表示能力成熟度，不是任务已完成或已批准；执行状态单独记录。
+  expected_tasks_per_stage:
+    S1: 5
+    S2: 10
+    S3: 5
+    S4: 10
+    S5: 10
+    S6: 8
+  repositories:
+  - sduoj-autolab
+  - sduoj-server-private
+  - sduoj-web2
+  - sduoj-deploy
+  execution_statuses:
+  - not_started
+  - needs_verification
+  - pending_approval
+  - in_progress
+  - done
+  - not_applicable
+  approval_gates:
+  - id: AUTH
+    status: proposal_required
+    scope: 主体/会话/委托/网关/对象权限
+  - id: SCHEMA
+    status: proposal_required
+    scope: 实际DDL与历史回填
+  - id: SANDBOX
+    status: proposal_required
+    scope: 执行器/隔离策略/挂载/网络
+  - id: SECRETS
+    status: proposal_required
+    scope: 真实密钥/账号凭据/材料/出口
+  source_baselines:
+    sduoj-autolab: e3b55c540a182037b030af84a188646e5c8c0bf6
+    sduoj-server-private: 085bb7ccdc05051ab11d3c9c1d781cb07fb6471e
+    sduoj-web2: 2215a75afe12276b1dde31bfedb57eba2d9542c5
+    sduoj-deploy: d51b7f623b146689182c11660132926f1a80fe2f
+  requirements_trace:
+    state: original_text_unavailable
+    acceptance_basis: current_48_tasks_user_confirmed
+    confirmation_date: '2026-10-19'
+    note: 2026-10-19 用户明确指示按现有48项开发任务推进；48项 acceptance 为本目标验收基线，不再以缺失的原始35条正文阻塞。
+  sql_inventory:
+    create_tables:
+    - auto_ai_port
+    - auto_agent_node
+    - auto_agent_session
+    - auto_agent_execution
+    - auto_agent_tool_audit
+    - oj_unified_problem
+    - oj_authoring_package
+    - oj_authoring_human_trial
+    - oj_plagiarism_scan
+    - oj_plagiarism_scan_problem
+    - oj_plagiarism_pair
+    - oj_plagiarism_decision_log
+    - oj_plagiarism_binding
+    - oj_exam_account
+    - oj_invigilator_link
+    - oj_invigilator_session
+    - oj_invigilator_action
+    alter_task_owners:
+      auto_task_job: S2-05
+      auto_task_ai_run: S2-05
+      problem_objective: S4-02
+      problem_subjective: S4-02
+    alter_columns:
+      auto_task_job: 2
+      auto_task_ai_run: 1
+      problem_objective: 4
+      problem_subjective: 4
+    inventory_scope: reviewed_draft_not_required_initial_migrations
+    deferred_agent_tables:
+    - auto_agent_node
+    - auto_agent_session
+    - auto_agent_execution
+    - auto_agent_tool_audit
+  architecture_decision:
+    date: '2026-10-18'
+    document: 10-OpenHands与Agent组件.md
+    component_catalog: agent-components.yaml
+    engine: openhands-sdk
+    execution_owner: auto_task.worker
+    platform_owner: sduoj-autolab
+    java_policy: existing_http_contracts_first_no_direct_database
+    sdk_process: worker_owned_separate_python_runtime
+    scope: design_only_not_runtime_implementation
+  task_rescoping:
+    S2-07: DSH 探测退出一期，原 ID 改为组件目录/M 开关/能力发现
+    S3-01: 独立节点控制面延期，原 ID 改为原 Task worker 管理 SDK 生命周期
+    S2-10: 保留主观批阅验收，补齐课程/IDE/面试等既有 AI 组件分批迁移
+tasks:
+- id: S1-01
+  stage: S1
+  title: 核对整理基线与已存在的网关/RPC边界
+  executor: auto
+  status: existing
+  priority: P0
+  acceptance:
+  - 从 reviewed 基线核对 auto-task/management-agent/question-bank 的精确 peer 前缀保护；不重复旧副本修复
+  - 不可信直连、伪造身份头、相似前缀和 proxy peer 改写均拒绝；Internal RPC 缺/错 token 的实际配置反例通过
+  - 记录源码SHA、配置开关和 test_ai_gateway_boundary 结果；新匿名/控制面仍单独提案，不把本项当作放行
+  risk: 低
+  depends_on: []
+  repositories:
+  - sduoj-autolab
+  - sduoj-server-private
+  - sduoj-deploy
+  approval_gates: []
+  execution_status: done
+  source_basis: AutoLab c51869e / Java 29c86d0d boundary checks; observed token enforcement on dev user-service; see 38
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 38-S1安全底座验收.md
+  - 09-审计与实施门禁.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s1-01-autolab.log
+      sha256: c5454a0430b094c1ed8aabc8de34c53b09e8be3e8306d21dc1db51bea95b0fc8
+      source_commit: c51869e9e5c146c1e0146631861469c8375a62c1
+      tested_at: '2026-10-19T08:22:17Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s1-01-live-rpc.json
+      sha256: 00fea230432c7c1567d7119106571f9607e69c1b8c3f033019bf3447768dffca
+      source_commit: 29c86d0de63a323265c7337f47acfa3fbbb70a84
+      tested_at: '2026-10-19T08:24:28Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s1-01-autolab.log
+      sha256: c5454a0430b094c1ed8aabc8de34c53b09e8be3e8306d21dc1db51bea95b0fc8
+      source_commit: c51869e9e5c146c1e0146631861469c8375a62c1
+      tested_at: '2026-10-19T08:22:17Z'
+      result: pass
+- id: S1-02
+  stage: S1
+  title: 修复原生题组与题目关联的读写校验
+  executor: auto
+  status: partial
+  priority: P0
+  acceptance:
+  - 保留既有 group_manager；info/edit 同时校验 gid 权限、type 与 gid/pid 实际关联
+  - 可管理 gid + 其它组 pid、跨题型/缺失对象、普通学生和撤权后读写均拒绝且不泄露答案
+  - 隔离 HTTP + DB 回归覆盖 objective/subjective 的 info/edit 与原合法管理、作答；不称任意登录可读
+  risk: 中
+  depends_on: []
+  repositories:
+  - sduoj-autolab
+  approval_gates:
+  - AUTH
+  execution_status: done
+  source_basis: AutoLab c51869e native source fix; 225bec1 actual Gateway student contract; see 38
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 38-S1安全底座验收.md
+  - 09-审计与实施门禁.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s1-02-gateway-clean.log
+      sha256: 4da691ea26da2598ca5f9d836e9e796ab72a443e136df89d99b4cab18d29b1f6
+      source_commit: c51869e9e5c146c1e0146631861469c8375a62c1
+      tested_at: '2026-10-19T08:35:12Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s1-02-gateway-clean.log
+      sha256: 4da691ea26da2598ca5f9d836e9e796ab72a443e136df89d99b4cab18d29b1f6
+      source_commit: c51869e9e5c146c1e0146631861469c8375a62c1
+      tested_at: '2026-10-19T08:35:12Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s1-02-gateway-clean.log
+      sha256: 4da691ea26da2598ca5f9d836e9e796ab72a443e136df89d99b4cab18d29b1f6
+      source_commit: c51869e9e5c146c1e0146631861469c8375a62c1
+      tested_at: '2026-10-19T08:35:12Z'
+      result: pass
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s1-02-student.log
+      sha256: 79a039ba779f058de7471c31a5f53436f8835ec1e13585c50136495cfc3a2a00
+      source_commit: 225bec121572b07d73c35103cda39f7ececd5196
+      tested_at: '2026-10-19T08:35:12Z'
+      result: pass
+    approval_refs:
+      AUTH: 2026-10-18 用户明确同意第一阶段dev实施提案；仅本地/隔离测试，不含生产。
+- id: S1-03
+  stage: S1
+  title: 逐项验证题组新增/修改的引用权限
+  executor: auto
+  status: partial
+  priority: P1
+  acceptance:
+  - 原生和编程题均逐项确认引用许可；公开引用不转授编辑/答案/数据权限
+  - 新增/编辑题组、批量混合合法非法引用和他人私有题均原子拒绝；已有合法跨组引用保留
+  - 实际源接口回归，历史可疑引用先隔离审计，不能直接转成共享ACL
+  risk: 中
+  depends_on:
+  - S1-02
+  repositories:
+  - sduoj-autolab
+  - sduoj-server-private
+  approval_gates:
+  - AUTH
+  execution_status: done
+  source_basis: AutoLab 56537a9 / Java 29c86d0d; three-kind actual source and original Gateway matrix; see 38
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 38-S1安全底座验收.md
+  - 09-审计与实施门禁.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s1-live-c4bfd92f/result.json
+      sha256: a3422f276f16a28dec3da7de05c7ba0c4a9e72a0b60efaf7fda50e62513db8dd
+      source_commit: 56537a9f0c4a6ad8b41909649630d203314341d9
+      tested_at: '2026-10-19T09:14:11Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s1-live-c4bfd92f/result.json
+      sha256: a3422f276f16a28dec3da7de05c7ba0c4a9e72a0b60efaf7fda50e62513db8dd
+      source_commit: 56537a9f0c4a6ad8b41909649630d203314341d9
+      tested_at: '2026-10-19T09:14:11Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s1-live-c4bfd92f/result.json
+      sha256: a3422f276f16a28dec3da7de05c7ba0c4a9e72a0b60efaf7fda50e62513db8dd
+      source_commit: 56537a9f0c4a6ad8b41909649630d203314341d9
+      tested_at: '2026-10-19T09:14:11Z'
+      result: pass
+    approval_refs:
+      AUTH: 2026-10-18 用户明确同意第一阶段dev实施提案；仅本地/隔离测试，不含生产。
+- id: S1-04
+  stage: S1
+  title: 修复管理组权限查询与撤权边界
+  executor: auto
+  status: partial
+  priority: P1
+  acceptance:
+  - 按已批准方案退役两层权限结果缓存，原列表及提交可见性最终 SQL 参数化校验当前管理组，不依赖 groups.hashCode
+  - 等hash不同组集合、加组/撤组、事务失败与旧缓存命中时私有题列表/详情/数据入口不越权
+  - 原Java权限回归 + 真实Redis证据，记录所有缓存层和失效点而非只删一个key
+  risk: 低
+  depends_on: []
+  repositories:
+  - sduoj-server-private
+  approval_gates:
+  - AUTH
+  execution_status: done
+  source_basis: 0a417e97 current scoped checkpoint authority; real Gateway incremental recovery; see47
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 47-S1-04测试点作用域与权限闭合验收.md
+  - 32-管理组权限查询先红再绿.md
+  - 38-S1安全底座验收.md
+  - 39-S1-04测试点作用域修复提案.md
+  - 09-审计与实施门禁.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s1-04-evidence.json
+      sha256: 40fae8db15a3145996d5c1db852611ad95a667339f511e0399fdaf5c43452fdc
+      source_commit: 0a417e9746f090d07c72b42aedd66862a19a73e1
+      tested_at: '2026-10-19T11:29:35Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s1-04-evidence.json
+      sha256: 40fae8db15a3145996d5c1db852611ad95a667339f511e0399fdaf5c43452fdc
+      source_commit: 0a417e9746f090d07c72b42aedd66862a19a73e1
+      tested_at: '2026-10-19T11:29:35Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s1-04-evidence.json
+      sha256: 40fae8db15a3145996d5c1db852611ad95a667339f511e0399fdaf5c43452fdc
+      source_commit: 0a417e9746f090d07c72b42aedd66862a19a73e1
+      tested_at: '2026-10-19T11:29:35Z'
+      result: pass
+    approval_refs:
+      AUTH: 2026-10-19 用户同意 S1-04 管理组权限查询 dev 修复提案；以及39的problemCode作用域具体鉴权修复已获用户批准（原聊天01a152b2-bcf9-7e03-bae5-9c7b0c3ba360）；仅本地修复与隔离验证，不含生产。
+- id: S1-05
+  stage: S1
+  title: 冻结类型化ID与学生下标适配契约
+  executor: hybrid
+  status: partial
+  priority: P0
+  acceptance:
+  - uid 带 prog/obj/subj；kind 使用字符串，旧group.type显式0/1/2映射
+  - obj:45 与 subj:45、shuffle、重复题slot和管理nativeId/学生position不能混用
+  - 跨Java/Autolab/前端合同与旧正式提交/答案卡映射回归；按用户确认的现有48项基线验收
+  risk: 中
+  depends_on: []
+  repositories:
+  - sduoj-autolab
+  - sduoj-server-private
+  - sduoj-web2
+  approval_gates: []
+  execution_status: done
+  source_basis: Original Java FORMAL / native answer mapping and 47 Python + 72 Jest tests; see 40
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 40-S1-05显示与正式提交合同验收.md
+  - 09-审计与实施门禁.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s1-05-evidence.json
+      sha256: afc583b4c33c42b6b8a9e98a50175adff81e5227e4f7fab9b67227155475a0ac
+      source_commit: 08c3648aea33e4f434b4e3dfc4d305205d00284f
+      tested_at: '2026-10-19T09:39:00Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s1-05-evidence.json
+      sha256: afc583b4c33c42b6b8a9e98a50175adff81e5227e4f7fab9b67227155475a0ac
+      source_commit: 08c3648aea33e4f434b4e3dfc4d305205d00284f
+      tested_at: '2026-10-19T09:39:00Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s1-05-evidence.json
+      sha256: afc583b4c33c42b6b8a9e98a50175adff81e5227e4f7fab9b67227155475a0ac
+      source_commit: 08c3648aea33e4f434b4e3dfc4d305205d00284f
+      tested_at: '2026-10-19T09:39:00Z'
+      result: pass
+- id: S2-01
+  stage: S2
+  title: 端口表与每用户至多一个有效默认
+  executor: auto
+  status: missing
+  priority: P0
+  acceptance:
+  - 采用06生成列唯一约束，允许同用户多个active非默认端口；默认替换/禁用/删除同事务
+  - 零端口并发创建默认、同时替换/删除与stale version均只有合法结果；不自动选备用
+  - 真实目标版本MySQL验证生成列、多NULL唯一性与稳定账户行锁；附迁移恢复证据
+  risk: 低
+  depends_on:
+  - S1-01
+  repositories:
+  - sduoj-autolab
+  - sduoj-deploy
+  approval_gates:
+  - SCHEMA
+  execution_status: done
+  source_basis: d1b201d unchanged migration/AiPort; 35909b1 lifecycle MySQL 8.0.43 evidence; see 41
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 41-S2-01端点默认与迁移验收.md
+  - 02-AI端口与MCP.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s2-01-evidence.json
+      sha256: 9a6b9dc33e5bcc5e6650704ba18cc925cc31a6ee887b5c23f8443743b1e8327d
+      source_commit: 35909b1d48a9c563c3bc91667a9e34188e000248
+      tested_at: '2026-10-19T09:49:52Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s2-01-evidence.json
+      sha256: 9a6b9dc33e5bcc5e6650704ba18cc925cc31a6ee887b5c23f8443743b1e8327d
+      source_commit: 35909b1d48a9c563c3bc91667a9e34188e000248
+      tested_at: '2026-10-19T09:49:52Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s2-01-evidence.json
+      sha256: 9a6b9dc33e5bcc5e6650704ba18cc925cc31a6ee887b5c23f8443743b1e8327d
+      source_commit: 35909b1d48a9c563c3bc91667a9e34188e000248
+      tested_at: '2026-10-19T09:49:52Z'
+      result: pass
+    approval_refs:
+      SCHEMA: 2026-10-18 用户同意第一阶段具体 dev 提案的一张端点表和三个可空关联列及隔离测试；见11，本批未改变合同或执行生产DDL。
+- id: S2-02
+  stage: S2
+  title: 本人端口CRUD与密钥生命周期
+  executor: auto
+  status: missing
+  priority: P0
+  acceptance:
+  - 本人可多端口CRUD，key加密且只展示has_key/指纹；端点变更必须新key，使用CAS
+  - 他人端口、伪造owner、日志/事件/错误密钥泄露、运行中删除和权限撤销均拒绝
+  - 前后端接口与密钥轮换/失效测试通过；平台运营总览不默认为所有ADMIN可见
+  risk: 中
+  depends_on:
+  - S2-01
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates:
+  - AUTH
+  - SECRETS
+  execution_status: done
+  source_basis: f288b48 current identity; 120 backend, 2 real Gateway and 61 frontend; see42
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 42-S2-02本人端点与当前身份验收.md
+  - 02-AI端口与MCP.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 28-端点运营与停用dev验收.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s2-02-evidence.json
+      sha256: 23b35fca48a40e3124166591e7b37e9f1356b217c5f5936ceb96a789ff1095f8
+      source_commit: f288b4886bcfddec450d8e4176d2549026f003f2
+      tested_at: '2026-10-19T09:59:02Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s2-02-evidence.json
+      sha256: 23b35fca48a40e3124166591e7b37e9f1356b217c5f5936ceb96a789ff1095f8
+      source_commit: f288b4886bcfddec450d8e4176d2549026f003f2
+      tested_at: '2026-10-19T09:59:02Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s2-02-evidence.json
+      sha256: 23b35fca48a40e3124166591e7b37e9f1356b217c5f5936ceb96a789ff1095f8
+      source_commit: f288b4886bcfddec450d8e4176d2549026f003f2
+      tested_at: '2026-10-19T09:59:02Z'
+      result: pass
+    approval_refs:
+      AUTH: 2026-10-18 用户同意第一阶段具体dev提案：原来源/本人端点权限与组件治理；见11，本次不新增角色或API合同。
+      SECRETS: 2026-10-18 用户同意第一阶段本人端点加密与受控出口及隔离测试；见11，无生产密钥操作。
+- id: S2-03
+  stage: S2
+  title: 受控端口能力探测与SSRF验证
+  executor: auto
+  status: partial
+  priority: P1
+  acceptance:
+  - 区分reachable/models_supported/responses_supported/unknown，付费探测先确认预算
+  - DNS rebinding、IPv6/编码私网、redirect、代理环境、元数据和超大响应不能绕过出口；models404不误判
+  - 隔离网络实测出口与超时；先假provider，不向真实端口探测或计费，除非另获授权
+  risk: 中
+  depends_on:
+  - S2-02
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  - sduoj-deploy
+  approval_gates:
+  - SECRETS
+  execution_status: done
+  source_basis: 7598a52 exact child real isolated DNS/TLS/HTTP,21 checks; existing task/UI evidence; see43
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 43-S2-03隔离网络出口验收.md
+  - 02-AI端口与MCP.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 27-端点探测前端与真实供应商dev验收.md
+  - 29-models受控出口dev验收.md
+  - 30-models任务与前端dev验收.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s2-03-evidence.json
+      sha256: 70a563c6166bd6e5813bd122fa6180e361e5adff1da1a45c405b0fcd0488d1fd
+      source_commit: 7598a5269f520d4692c6f8e472d3a44721fe94dc
+      tested_at: '2026-10-19T10:08:18Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s2-03-evidence.json
+      sha256: 70a563c6166bd6e5813bd122fa6180e361e5adff1da1a45c405b0fcd0488d1fd
+      source_commit: 7598a5269f520d4692c6f8e472d3a44721fe94dc
+      tested_at: '2026-10-19T10:08:18Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s2-03-evidence.json
+      sha256: 70a563c6166bd6e5813bd122fa6180e361e5adff1da1a45c405b0fcd0488d1fd
+      source_commit: 7598a5269f520d4692c6f8e472d3a44721fe94dc
+      tested_at: '2026-10-19T10:08:18Z'
+      result: pass
+    approval_refs:
+      SECRETS: 2026-10-18 用户同意第一阶段本人端点受控出口及隔离测试；见11，本次只用合成provider/凭据，无真实端口探测或计费。
+- id: S2-04
+  stage: S2
+  title: 解析显式端口或本人默认，禁止隐式站点兜底
+  executor: auto
+  status: missing
+  priority: P0
+  acceptance:
+  - 显式有效端口→本人默认→503；入队固定配置/价格/模型/release，旧路径显式兼容
+  - 显式端口失效、无权限或无默认不能换provider；非AI确定性任务不被阻断
+  - 未配置引导、旧队列任务/默认变化/密钥版本不可用回归，费用主体明确
+  risk: 低
+  depends_on:
+  - S2-02
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates:
+  - AUTH
+  execution_status: done
+  source_basis: fe7331a selection/key/default recovery; 74 base,5 increment,58 web and strengthened guide; see44
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 44-S2-04端点解析与冻结验收.md
+  - 02-AI端口与MCP.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s2-04-evidence.json
+      sha256: 71b78e3b7aa3567bb1d237b771686cd8741fbe959825d30a2e2112c4dc82d638
+      source_commit: fe7331a53ece5b25d85c9af8ebcd66c6d20273cd
+      tested_at: '2026-10-19T10:15:23Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s2-04-evidence.json
+      sha256: 71b78e3b7aa3567bb1d237b771686cd8741fbe959825d30a2e2112c4dc82d638
+      source_commit: fe7331a53ece5b25d85c9af8ebcd66c6d20273cd
+      tested_at: '2026-10-19T10:15:23Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s2-04-evidence.json
+      sha256: 71b78e3b7aa3567bb1d237b771686cd8741fbe959825d30a2e2112c4dc82d638
+      source_commit: fe7331a53ece5b25d85c9af8ebcd66c6d20273cd
+      tested_at: '2026-10-19T10:15:23Z'
+      result: pass
+    approval_refs:
+      AUTH: 2026-10-18 用户同意第一阶段dev本人端点/原来源权限/受限runner提案；见11，本次只验证既有选择和冻结合同。
+- id: S2-05
+  stage: S2
+  title: 扩展原claim与AiRun账本的端口额度
+  executor: auto
+  status: missing
+  priority: P0
+  acceptance:
+  - 原runtime稳定锁内原子检查全局/用户/通道/端口/当前单部署节点容量（节点沿10的已确认路线由全局上限收紧，不新增独立节点平台），复用逐请求预留/幂等结算
+  - 并发1不超发、其它端口不饥饿；取消/租约丢失/重复完成/多轮累计预算/unknown usage不漏记
+  - 真实MySQL多进程与模型代理回归，价格版本/缓存usage/长上下文费率和月预算含在途预留
+  risk: 中
+  depends_on:
+  - S2-04
+  repositories:
+  - sduoj-autolab
+  - sduoj-deploy
+  approval_gates:
+  - SCHEMA
+  execution_status: done
+  source_basis: 0e77727 claim port capacity red/green; 770b89b real MySQL recovery; see45
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 45-S2-05端点领取与账务验收.md
+  - 02-AI端口与MCP.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s2-05-evidence.json
+      sha256: 33db10cc8b9fff0146101acad260cd6b11f0aab0d817a2816a954218669a6924
+      source_commit: 770b89b476abc0c7703642feb8dafc89b0546935
+      tested_at: '2026-10-19T10:35:32Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s2-05-evidence.json
+      sha256: 33db10cc8b9fff0146101acad260cd6b11f0aab0d817a2816a954218669a6924
+      source_commit: 770b89b476abc0c7703642feb8dafc89b0546935
+      tested_at: '2026-10-19T10:35:32Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s2-05-evidence.json
+      sha256: 33db10cc8b9fff0146101acad260cd6b11f0aab0d817a2816a954218669a6924
+      source_commit: 770b89b476abc0c7703642feb8dafc89b0546935
+      tested_at: '2026-10-19T10:35:32Z'
+      result: pass
+    approval_refs:
+      SCHEMA: 2026-10-18 用户同意第一阶段dev一张端点表、三个可空关联列、本人端点与原worker/账本隔离测试；见11。本批无新增产品DDL，节点范围沿10的已确认延期决策。
+- id: S2-06
+  stage: S2
+  title: 原 Task worker 调起隔离解释器中的 OpenHands SDK
+  executor: auto
+  status: partial
+  priority: P1
+  acceptance:
+  - worker 为唯一 owner；独立 Python>=3.12 SDK runner+有界 JSON IPC，不混装原 Pydantic1/FastAPI 依赖，不新建队列或 Web 内模型循环
+  - 真实 SDK+假模型验证事件/取消/子进程树/坏JSON/lease丢失；不继承宿主配置、自动skills/MCP或备用密钥
+  - 一次turn=一个TaskJob；固定release/component/action及传递依赖generation、输入hash；旧管理用例兼容且未接入治理的旧AI action unavailable
+  risk: 中
+  depends_on:
+  - S2-05
+  repositories:
+  - sduoj-autolab
+  approval_gates:
+  - AUTH
+  - SANDBOX
+  - SECRETS
+  execution_status: done
+  source_basis: aca8a9a real-pipe17 and real-SDK/process/policy32; unchanged Linux boundary reuse; see46
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 46-S2-06隔离SDK运行时验收.md
+  - 02-AI端口与MCP.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 10-OpenHands与Agent组件.md
+  - agent-components.yaml
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s2-06-evidence.json
+      sha256: 8132656dbdb51f7c80c780cbdf51c3b386801b1d2eb994e3436296814f8a0bde
+      source_commit: aca8a9ab035d5cc44dd65ce9c89a7bce1db98a42
+      tested_at: '2026-10-19T10:44:01Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s2-06-evidence.json
+      sha256: 8132656dbdb51f7c80c780cbdf51c3b386801b1d2eb994e3436296814f8a0bde
+      source_commit: aca8a9ab035d5cc44dd65ce9c89a7bce1db98a42
+      tested_at: '2026-10-19T10:44:01Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s2-06-evidence.json
+      sha256: 8132656dbdb51f7c80c780cbdf51c3b386801b1d2eb994e3436296814f8a0bde
+      source_commit: aca8a9ab035d5cc44dd65ce9c89a7bce1db98a42
+      tested_at: '2026-10-19T10:44:01Z'
+      result: pass
+    approval_refs:
+      AUTH: 2026-10-18 第一阶段dev原worker/current来源权限与受限business_tools提案；见11。
+      SANDBOX: 2026-10-18 同意独立SDK解释器、有界IPC和受限业务工具；见11，不新增execution profile。
+      SECRETS: 2026-10-18 同意加密本人端点经父代理使用；SDK仅临时loopback token，不继承宿主密钥；见11。
+- id: S2-07
+  stage: S2
+  title: 组件注册表、M端开关与capabilities v2
+  executor: auto
+  status: missing
+  priority: P1
+  acceptance:
+  - 静态注册14组件及action/profile/schema/依赖；AiSetting复用、默认关闭，M配置仅既有平台运营权限，CAS+幂等receipt与原审计链
+  - 总/组件/action和依赖单调generation冻结，旧入口/chain/batch/retry/claim/模型/工具/最终采用统一gate；关闭重开不复活，历史/取消/端点修复与确定性流程可用
+  - capabilities兼容旧字段、不触发模型；前端按主体/作用域缓存与路由守卫，旧响应/30s缓存无授权效力；内置审核/OCR分段及14组件正反向回归
+  - 静态治理/前端可先于SDK实现；运行启用另受B-03及S3-05合同放行，不把手工/确定性开发绑到SDK
+  risk: 高
+  depends_on:
+  - S1-01
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates:
+  - AUTH
+  execution_status: done
+  source_basis: 79c8796 schema/governance and 09b03ff scoped controls; current Gateway/Node24/MySQL/SDK evidence; see48
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 48-S2-07组件治理与能力合同验收.md
+  - 02-AI端口与MCP.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 10-OpenHands与Agent组件.md
+  - agent-components.yaml
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s2-07-evidence.json
+      sha256: 4a4ed4a2a1f3fe8b8d3e3fb3452195fe5429158caf407283c06a71f04ba82a4e
+      source_commit: 79c87967800f374660c89334bb45010887c37743
+      tested_at: '2026-10-19T11:55:08Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s2-07-evidence.json
+      sha256: 4a4ed4a2a1f3fe8b8d3e3fb3452195fe5429158caf407283c06a71f04ba82a4e
+      source_commit: 79c87967800f374660c89334bb45010887c37743
+      tested_at: '2026-10-19T11:55:08Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s2-07-evidence.json
+      sha256: 4a4ed4a2a1f3fe8b8d3e3fb3452195fe5429158caf407283c06a71f04ba82a4e
+      source_commit: 79c87967800f374660c89334bb45010887c37743
+      tested_at: '2026-10-19T11:55:08Z'
+      result: pass
+    approval_refs:
+      AUTH: 2026-10-18 用户明确同意第一阶段dev实施提案；仅本地/隔离测试，不含生产。
+- id: S2-08
+  stage: S2
+  title: AutoLab受限工具Broker与既有Java接口适配
+  executor: auto
+  status: missing
+  priority: P0
+  acceptance:
+  - 业务工具先落AutoLab；需MCP时实测握手/list/call/CallToolResult；短期令牌绑定audience/job/attempt/lease/subject/tools/resources及组件和依赖generation
+  - 伪造owner/用户头、跨任务/资源/工具/组件、过期/撤权均拒绝；Java仅调用原受权HTTP合同，无法安全调用时unavailable且不直连数据库
+  - SDK真实工具回调/撤权与当前浏览器确认回归；自动委托未批准保持关闭，Java缺口单列最小提案，不作为本任务默认改Java
+  risk: 中
+  depends_on:
+  - S2-05
+  - S2-06
+  - S1-02
+  - S1-05
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates:
+  - AUTH
+  execution_status: done
+  source_basis: 61f3af4 owned MySQL broker scope;36 direct/current SDK and historical browser evidence; see49
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 49-S2-08受限工具Broker验收.md
+  - 02-AI端口与MCP.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 10-OpenHands与Agent组件.md
+  - agent-components.yaml
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s2-08-evidence.json
+      sha256: 59328bc76f02ef72c07969f51302932e1dd3785e6f02fa4d9a22706a418dc96a
+      source_commit: 6edd990cded1cb9e0c7174865a0c37f6585a0ab9
+      tested_at: '2026-10-19T12:09:27Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s2-08-evidence.json
+      sha256: 59328bc76f02ef72c07969f51302932e1dd3785e6f02fa4d9a22706a418dc96a
+      source_commit: 6edd990cded1cb9e0c7174865a0c37f6585a0ab9
+      tested_at: '2026-10-19T12:09:27Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s2-08-evidence.json
+      sha256: 59328bc76f02ef72c07969f51302932e1dd3785e6f02fa4d9a22706a418dc96a
+      source_commit: 6edd990cded1cb9e0c7174865a0c37f6585a0ab9
+      tested_at: '2026-10-19T12:09:27Z'
+      result: pass
+    approval_refs:
+      AUTH: 2026-10-18用户批准第一阶段dev的原current身份、受限business_tools和普通文档候选浏览器确认，见11；2026-10-19批阅dev子集见34，不覆盖其他新写适配。
+- id: S2-09
+  stage: S2
+  title: 持久候选确认、幂等与未知结果审计
+  executor: auto
+  status: missing
+  priority: P1
+  acceptance:
+  - turn成功后独立持久候选，不沿用旧decide的running前提；task/attempt/主体/输入/资源版本/hash/有效期/三元及依赖generation绑定，原fenced事务登记
+  - 当前浏览器原权限确认，pending到executing版本CAS和receipt；重复/并发确认、关闭重开、换turn/编辑/撤权、成功丢包不重复写，unknown先对账
+  - 原AiResource/操作审计能原子持久化则复用；草案新audit表不自动迁移；主观批阅采用/出题发布同查来源gate，Cookie不持久化；DB并发和跨Web进程回归
+  risk: 中
+  depends_on:
+  - S2-08
+  - S2-07
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  - sduoj-deploy
+  approval_gates:
+  - AUTH
+  - SCHEMA
+  execution_status: done
+  source_basis: 6edd990 current identity;56 candidate,3 MySQL process/recovery,1 Gateway,62 adoption gates;see50
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 50-S2-09持久候选与当前身份确认验收.md
+  - 02-AI端口与MCP.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  - 10-OpenHands与Agent组件.md
+  - agent-components.yaml
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s2-09-evidence.json
+      sha256: 028fd473aa14bfc6db24a735c1a157f290f9ead19f3cb18dde98ca3271262e1d
+      source_commit: 6edd990cded1cb9e0c7174865a0c37f6585a0ab9
+      tested_at: '2026-10-19T12:09:27Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s2-09-evidence.json
+      sha256: 028fd473aa14bfc6db24a735c1a157f290f9ead19f3cb18dde98ca3271262e1d
+      source_commit: 6edd990cded1cb9e0c7174865a0c37f6585a0ab9
+      tested_at: '2026-10-19T12:09:27Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s2-09-evidence.json
+      sha256: 028fd473aa14bfc6db24a735c1a157f290f9ead19f3cb18dde98ca3271262e1d
+      source_commit: 6edd990cded1cb9e0c7174865a0c37f6585a0ab9
+      tested_at: '2026-10-19T12:09:27Z'
+      result: pass
+    approval_refs:
+      AUTH: 2026-10-18用户批准第一阶段dev的原current身份、受限business_tools和普通文档候选浏览器确认，见11；2026-10-19批阅dev子集见34，不覆盖其他新写适配。
+      SCHEMA: 11已批准复用原AiResource候选/回执，不执行草案新表DDL或迁移。
+- id: S2-10
+  stage: S2
+  title: 分批迁移既有AI业务为OpenHands组件
+  executor: hybrid
+  status: partial
+  priority: P1
+  acceptance:
+  - 管理/审核/主观批阅优先，文档提取翻译/三类出题其次，IDE/课程/面试/查重解释后续；14组件每个action有迁移清单与独立合同，未实现标unavailable
+  - 原评分schema、AiReview/教师采用/源ACL/考试策略保留；legacy入口同一gate，OCR/审核/翻译/查重AI段显式拆分，未知费用/重复采用不写原成绩
+  - 每组件先假端点+真实SDK/worker隔离回归，教师冻结批阅验收集/偏差阈值/费用；可选AI关闭不影响正式提交/Run/云保存/确定性扫描和手工操作；新考务AI按需求另验收
+  risk: 高
+  depends_on:
+  - S2-09
+  - S3-03
+  - S3-05
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates:
+  - AUTH
+  execution_status: in_progress
+  source_basis: 2026-10-19 approved native grading dev subset; backend f318aef; web2 e2eece0; see 34
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 02-AI端口与MCP.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 10-OpenHands与Agent组件.md
+  - agent-components.yaml
+  - 34-主观批阅工作台dev验收.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence:
+    - 31-全平台进度与后续批次.md
+    - 34-主观批阅工作台dev验收.md
+    approval_refs:
+      AUTH: 2026-10-19 用户同意主观批阅具体dev提案；仅原教师答卷读取、本人端点和人工采用，不覆盖其他组件或生产。
+
+- id: S3-01
+  stage: S3
+  title: 原worker管理SDK runner的生命周期与fencing
+  executor: auto
+  status: missing
+  priority: P1
+  acceptance:
+  - 复用TaskJob/AiResource/原lease和心跳，父worker监控独立SDK子进程并维护attempt；不新增节点注册/claim控制面、平行session正文或队列
+  - kill/取消/租约丢失回收子进程，旧attempt事件/模型调用/完成均拒绝，未知外部写不自动重放
+  - 真实MySQL+进程故障验证claim/额度/完成/对账；草案node/session/execution表延期，若证明需要最小列变更另提SCHEMA并恢复验证
+  risk: 高
+  depends_on:
+  - S2-06
+  - S2-05
+  repositories:
+  - sduoj-autolab
+  - sduoj-deploy
+  approval_gates:
+  - SCHEMA
+  - AUTH
+  - SECRETS
+  execution_status: done
+  source_basis: a0945c0 parent-death fix;61 lifecycle,26 SDK/IPC/process,1 deadline,1 current Linux originalworker;see52
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 52-S3-01原worker生命周期与强杀回收验收.md
+  - 01-云Agent系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  - 10-OpenHands与Agent组件.md
+  - agent-components.yaml
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s3-01-evidence.json
+      sha256: d8e0b28f172f6c3fb199e81c08e4f5c8c952df790b849de859f3c64f9764db92
+      source_commit: a0945c0db854602421e1b422c8907edc26edb447
+      tested_at: '2026-10-19T12:25:09Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s3-01-evidence.json
+      sha256: d8e0b28f172f6c3fb199e81c08e4f5c8c952df790b849de859f3c64f9764db92
+      source_commit: a0945c0db854602421e1b422c8907edc26edb447
+      tested_at: '2026-10-19T12:25:09Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s3-01-evidence.json
+      sha256: d8e0b28f172f6c3fb199e81c08e4f5c8c952df790b849de859f3c64f9764db92
+      source_commit: a0945c0db854602421e1b422c8907edc26edb447
+      tested_at: '2026-10-19T12:25:09Z'
+      result: pass
+    approval_refs:
+      SCHEMA: 11第一阶段批准复用原TaskJob/AiResource/lease，无新DDL，草案node/session/execution延期。
+      AUTH: 11第一阶段批准原worker管理受限SDK生命周期及原current来源权限；本次只补父死回收，不扩张委托。
+      SECRETS: 11/21/23批准独立SDK私有HOME与白名单环境的隔离dev测试；本次只增加非秘密PID/期限，不增加凭据或出口。
+- id: S3-02
+  stage: S3
+  title: 按task/attempt隔离工作区并显式快照
+  executor: auto
+  status: missing
+  priority: P1
+  acceptance:
+  - 一期本地隔离工作区+显式对象快照，固定输入manifest和attempt产物目录，不强制FUSE/JuiceFS或独立存储平台
+  - 跨租户/路径穿越/符号链接/凭据泄露拒绝；上传中断不登记成功，恢复先校验版本与hash
+  - 实测备份恢复、取消回收和冷暖延迟；以后需要多节点/FUSE时另做rename/锁/flush/断网PoC，不把S3当POSIX
+  risk: 高
+  depends_on:
+  - S3-01
+  repositories:
+  - sduoj-autolab
+  - sduoj-deploy
+  approval_gates:
+  - SANDBOX
+  - SECRETS
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 01-云Agent系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 10-OpenHands与Agent组件.md
+  - agent-components.yaml
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S3-03
+  stage: S3
+  title: OpenHands两种执行profile的真实隔离验收
+  executor: auto
+  status: partial
+  priority: P1
+  acceptance:
+  - business_tools只有登记的窄工具及worker权限dispatcher；sandbox_tools的不可信代码仅在隔离沙箱运行，SDK本身不等于沙箱
+  - 实际容器/出口验证元数据/内网/socket/跨租户/宿主配置/自动工具加载/子进程树，模型只能达受控代理；取消回收不残留凭据
+  - 两profile分别出威胁报告和真实失败/恢复证据；未通过的profile及其action unavailable；不将命令沙箱当整个runner已隔离
+  risk: 高
+  depends_on:
+  - S3-01
+  repositories:
+  - sduoj-autolab
+  - sduoj-deploy
+  approval_gates:
+  - SANDBOX
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 01-云Agent系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 10-OpenHands与Agent组件.md
+  - agent-components.yaml
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S3-04
+  stage: S3
+  title: 固定SDK、runner和组件版本的兼容发布
+  executor: auto
+  status: missing
+  priority: P1
+  acceptance:
+  - 沿原制品流程固定SDK/runner镜像digest、IPC协议、工具schema和组件版本，锁Python依赖且不引入源码替代既有包发布
+  - 未知版本拒绝，新旧在途任务保留固定版本；checkpoint不兼容明确失败，不宽SemVer推断兼容或卸载在用组件
+  - 新旧release契约、灰度/回退、会话恢复证据；组件目录只声明已安装能力，不等于已批准启用
+  risk: 中
+  depends_on:
+  - S2-06
+  repositories:
+  - sduoj-autolab
+  - sduoj-deploy
+  approval_gates:
+  - SECRETS
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 01-云Agent系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 10-OpenHands与Agent组件.md
+  - agent-components.yaml
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S3-05
+  stage: S3
+  title: 真实OpenHands worker、端点和组件合同验收
+  executor: auto
+  status: missing
+  priority: P1
+  acceptance:
+  - 真实SDK runner+原worker+假模型验证事件、结构化结果、工具回调、多turn状态、取消/超时、模型代理预算和人工候选
+  - 缺final/坏JSON/挂进程/旧lease/跨组件依赖关闭重开/SDK压缩与子Agent逃逸均失败且不写重放；Responses和chat分别按真实支持标注
+  - 使用最终制品验证进程/网络/存储边界；模型先假端点，真实用户端点计费需另授权；报告精确版本与profile，不宣称支持DSH或独立多节点
+  risk: 低
+  depends_on:
+  - S3-02
+  - S3-03
+  - S3-04
+  - S2-07
+  repositories:
+  - sduoj-autolab
+  - sduoj-deploy
+  approval_gates: []
+  execution_status: in_progress
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 01-云Agent系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 10-OpenHands与Agent组件.md
+  - agent-components.yaml
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S4-01
+  stage: S4
+  title: 统一检索投影与源校验适配
+  executor: auto
+  status: partial
+  priority: P0
+  acceptance:
+  - 三题型类型化索引、源签名/tombstone/游标与可重建对账，不直写Java库
+  - 撤权/删除/同步故障不泄露标题/答案；重复nativeId和重复slot不合并
+  - Java/Autolab有界批量合同和重建对账，索引不充当权威ACL
+  risk: 中
+  depends_on:
+  - S1-05
+  - S1-02
+  - S1-04
+  repositories:
+  - sduoj-autolab
+  - sduoj-server-private
+  - sduoj-deploy
+  approval_gates:
+  - SCHEMA
+  - AUTH
+  execution_status: done
+  source_basis: c51869e/29c86d0d projection unchanged;current source crosscheck and S1-02/04/05 complete;see51
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 51-S4-01前置闭合与证据复核.md
+  - 03-出题平台.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  - 36-S4-01统一检索投影dev验收.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence:
+    - kind: positive
+      artifact: work/platform-v2-all-20261019/s4-01-evidence.json
+      sha256: 5bc3f2fd1e63d5710ae41aca360690907f783be90c967aa80b4b962eaf493e24
+      source_commit: 6edd990cded1cb9e0c7174865a0c37f6585a0ab9
+      tested_at: '2026-10-19T12:20:49Z'
+      result: pass
+    - kind: negative
+      artifact: work/platform-v2-all-20261019/s4-01-evidence.json
+      sha256: 5bc3f2fd1e63d5710ae41aca360690907f783be90c967aa80b4b962eaf493e24
+      source_commit: 6edd990cded1cb9e0c7174865a0c37f6585a0ab9
+      tested_at: '2026-10-19T12:20:49Z'
+      result: pass
+    - kind: failure_recovery
+      artifact: work/platform-v2-all-20261019/s4-01-evidence.json
+      sha256: 5bc3f2fd1e63d5710ae41aca360690907f783be90c967aa80b4b962eaf493e24
+      source_commit: 6edd990cded1cb9e0c7174865a0c37f6585a0ab9
+      tested_at: '2026-10-19T12:20:49Z'
+      result: pass
+    approval_refs:
+      SCHEMA: 2026-10-19 用户明确同意继续执行 S4-01 提案；仅隔离 dev 实现，不含生产。
+      AUTH: 2026-10-19 用户明确同意继续执行 S4-01 提案；当前只读入口使用原身份校验，匿名入口保持关闭。
+- id: S4-02
+  stage: S4
+  title: 原生元数据兼容迁移与多组ACL审计
+  executor: auto
+  status: missing
+  priority: P0
+  acceptance:
+  - nullable未迁移态保持原合法权限；稳定主体映射和多管理组完整保留
+  - 孤儿/归属冲突/可疑引用隔离，不强制私有+单组、不凭未验证引用授新权
+  - 恢复隔离库分批回填、迁移前后权限集合/计数/hash等价及旧读者回退
+  risk: 中
+  depends_on:
+  - S4-01
+  - S1-03
+  repositories:
+  - sduoj-autolab
+  - sduoj-deploy
+  approval_gates:
+  - SCHEMA
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 53-S4-02原生元数据兼容迁移dev提案.md
+  - 03-出题平台.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S4-03
+  stage: S4
+  title: 统一来源检索与分投影详情
+  executor: auto
+  status: missing
+  priority: P0
+  acceptance:
+  - public/group/mine/all筛选与program/objective/subjective类型，回源按动作裁剪
+  - 匿名/普通引用者拿不到答案/rubric/隐藏数据，source/include_tests不能提权
+  - 本人/同组/异组/撤权/超管/匿名矩阵，路由不冲突原/problem/:ProblemCode
+  risk: 中
+  depends_on:
+  - S4-02
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates:
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 03-出题平台.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S4-04
+  stage: S4
+  title: 复用原authoring资源的九阶段与幂等发布
+  executor: auto
+  status: missing
+  priority: P1
+  acceptance:
+  - 包绑定AiResource/manifest，stage服务端验证，原native-plan/finalize与人工发布门禁保留
+  - 修改输入使报告失效；跨库/对象上传部分成功和unknown不盲重试create
+  - 端到端生成到发布+读回receipt，外部故障/幂等合同与安全staging回归
+  risk: 中
+  depends_on:
+  - S4-03
+  repositories:
+  - sduoj-autolab
+  - sduoj-server-private
+  - sduoj-web2
+  - sduoj-deploy
+  approval_gates:
+  - SCHEMA
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 03-出题平台.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+  capability_dependencies:
+    ai_actions:
+    - S2-07
+    - S3-05
+- id: S4-05
+  stage: S4
+  title: 文档/图片解析与人工核对草稿管线
+  executor: auto
+  status: partial
+  priority: P1
+  acceptance:
+  - 复用files上传与解析组件，保留PDF/DOCX/PPTX/图片/MD/TXT路径；块有源hash/页/坐标/版本
+  - 伪装文件/压缩炸弹/外部关系/宏/超页数/提示注入受限，未知置信度不伪造
+  - 实际格式样本与渲染/结构化对照回归，parse REST包装按新接口验收而非声称已有
+  risk: 中
+  depends_on:
+  - S4-04
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates:
+  - SANDBOX
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 03-出题平台.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+  capability_dependencies:
+    ai_actions:
+    - S2-07
+    - S3-05
+- id: S4-06
+  stage: S4
+  title: 版本化逐块翻译与双语对照
+  executor: agent
+  status: missing
+  priority: P2
+  acceptance:
+  - 保留原文与术语表/模型/提示版本，公式/代码/范围不被改写
+  - 源版本改变标旧译文过期，不覆盖人工修订或默默发布
+  - 确定样例双语核对与端口失败/费用边界，非AI解析仍可用
+  risk: 中
+  depends_on:
+  - S4-05
+  - S2-04
+  - S2-07
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates: []
+  execution_status: not_started
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 03-出题平台.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S4-07
+  stage: S4
+  title: 按题型profile执行七项自动终检
+  executor: auto
+  status: partial
+  priority: P1
+  acceptance:
+  - 题面/分布/配置/语言/解法/强度/边界报告绑定同一manifest；不适用有批准理由
+  - 七类故意错误各被检出，修改输入令旧绿勾失效；不把人类实测混为第七项
+  - 真实编译执行/评测模板矩阵、结果哈希与预算证据
+  - 确定性终检沿原真实评测链及自身SANDBOX门禁独立验收，不依赖OpenHands或端口；仅AI辅助步骤受组件/profile放行
+  risk: 中
+  depends_on:
+  - S4-04
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates:
+  - SANDBOX
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 03-出题平台.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+  capability_dependencies:
+    ai_actions:
+    - S2-07
+    - S3-05
+    - S3-03
+- id: S4-08
+  stage: S4
+  title: 限版本邀请的人类实测与完整记录
+  executor: hybrid
+  status: missing
+  priority: P1
+  acceptance:
+  - v1一邀请一人/一次兑换/独立会话，多人生成多邀请；哈希令牌、服务端计时并追加每次代码/答案/得分/意见
+  - 管理列表/撤销校验关联和邀请自身version CAS；并发兑换不覆盖会话、幂等撤销立即失效；跨包/版本/超次/答案读取拒绝，不写正式成绩/限次
+  - 真实独立试做人与执行链验收，token不入URL path/log，公开匿名入口另获批准
+  risk: 中
+  depends_on:
+  - S4-07
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  - sduoj-deploy
+  approval_gates:
+  - AUTH
+  - SCHEMA
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 03-出题平台.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S4-09
+  stage: S4
+  title: 混合题组格式的独立兼容放行
+  executor: auto
+  status: missing
+  priority: P2
+  acceptance:
+  - item kind/slot_id/format_version，旧0/1/2显式映射；读者全链先支持，再开新写
+  - 旧读者不能忽略kind误判；shuffle/权限/限次/Run/正式提交/计分/导出/缓存均覆盖
+  - 旧数据与混合数据真实矩阵，记录写后不可回任意旧版本的回退底线
+  risk: 高
+  depends_on:
+  - S1-05
+  - S4-03
+  repositories:
+  - sduoj-autolab
+  - sduoj-server-private
+  - sduoj-web2
+  approval_gates:
+  - AUTH
+  - SCHEMA
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 03-出题平台.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S4-10
+  stage: S4
+  title: 客观/主观AI命题草稿
+  executor: agent
+  status: missing
+  priority: P3
+  acceptance:
+  - 按知识点产草稿，保留原题型/图片选项/多项rubric结构
+  - 模型输出不直接公开/写成绩，变更旧原生题需当前源权限与人工确认
+  - 题型schema、人工审定和端口费用/撤权回归
+  risk: 中
+  depends_on:
+  - S4-04
+  - S2-09
+  - S2-07
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates:
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 03-出题平台.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S5-01
+  stage: S5
+  title: 扫描范围/不可变快照/历史模型
+  executor: auto
+  status: partial
+  priority: P0
+  acceptance:
+  - 单题/组范围固定版本/截点/selection/capture_metric/floor与review_metric及源权限；新扫新operation_key
+  - 只采正式提交，排除Run/云保存；未知/partial不宣布完整，无AI端口仍可跑确定性扫描
+  - 快照完整性、源合同、单题有效上限和故障证据
+  risk: 中
+  depends_on:
+  - S1-05
+  - S1-02
+  repositories:
+  - sduoj-autolab
+  - sduoj-server-private
+  - sduoj-deploy
+  approval_gates:
+  - SCHEMA
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 04-查重系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S5-02
+  stage: S5
+  title: 整单按题项和语言分片扫描
+  executor: auto
+  status: missing
+  priority: P0
+  acceptance:
+  - 按scope_item_key+language分片，不把不同题或重复引用上下文合并
+  - 总量/配对/字节超限明确失败或partial，取消及失败分片不静默遗漏
+  - 实际JPlag容量/并发与最大配对数报告，初期不超过执行器1000条有效上限
+  risk: 中
+  depends_on:
+  - S5-01
+  repositories:
+  - sduoj-autolab
+  - sduoj-deploy
+  approval_gates:
+  - SCHEMA
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 04-查重系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S5-03
+  stage: S5
+  title: 比赛正式提交的授权分页取数
+  executor: auto
+  status: missing
+  priority: P1
+  acceptance:
+  - 按contest/slot/时间/策略固定源快照，仅管理者允许范围，稳定排序分页
+  - 跨比赛、私有代码、非正式Task类型或漏页均拒绝/报告，不假定现有内部page接口
+  - Java生产者接口包原发布链+Autolab消费者真实合同验收
+  risk: 中
+  depends_on:
+  - S5-01
+  repositories:
+  - sduoj-server-private
+  - sduoj-autolab
+  approval_gates:
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 04-查重系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S5-04
+  stage: S5
+  title: 按采集指标、floor和完整度调整管理阈值
+  executor: auto
+  status: missing
+  priority: P1
+  acceptance:
+  - 固定capture_metric/review_metric与floor/complete/operator，v2严格gt，legacy ge不重解释；1为skip
+  - 当前CLI AVG采集供MAX复查强制-m0；跨指标非零floor或低于同指标floor要求重扫，原始Decimal判定不按九位展示值
+  - 真实引擎长短代码AVG低MAX高、0.7000000004与0.7、等号/1和四位阈值超精度拒绝；人工决定不随筛选删除
+  risk: 低
+  depends_on:
+  - S5-01
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates: []
+  execution_status: not_started
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 04-查重系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S5-05
+  stage: S5
+  title: 管理配对diff与有界相似矩阵
+  executor: auto
+  status: missing
+  priority: P1
+  acceptance:
+  - 按题项/语言显示原文件匹配行，长列表/矩阵聚合分页
+  - 坏报告/越界行/HTML代码与未授权pair不泄露或执行，不把连通分量称团伙
+  - 真实报告fixture、浏览器大样本/字符转义与权限回归
+  risk: 低
+  depends_on:
+  - S5-01
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  - sduoj-deploy
+  approval_gates:
+  - SCHEMA
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 04-查重系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S5-06
+  stage: S5
+  title: 复查CAS、不可变决策历史与受控写回
+  executor: hybrid
+  status: partial
+  priority: P1
+  acceptance:
+  - 必填理由、version CAS与decision_log同事务，原生写回保留原门禁
+  - 并发改判/重复决定/外部写未知先对账，contest不自动改成绩
+  - 真实MySQL锁+原native writeback合同，不确定结果恢复与receipt证据
+  risk: 中
+  depends_on:
+  - S5-05
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  - sduoj-deploy
+  approval_gates:
+  - SCHEMA
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 04-查重系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S5-07
+  stage: S5
+  title: 授权导出与隐私防护
+  executor: auto
+  status: missing
+  priority: P2
+  acceptance:
+  - CSV/Excel与筛选/revision一致，原jplag/PDF摘要仅授权下载并审计
+  - 公式注入、超量、临时URL过期和报告ZIP炸弹被拦，不公开学生源码
+  - 导出回读/数据一致性与受控下载回归
+  risk: 低
+  depends_on:
+  - S5-06
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates: []
+  execution_status: not_started
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 04-查重系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S5-08
+  stage: S5
+  title: 冻结查重发布与唯一场次绑定
+  executor: auto
+  status: missing
+  priority: P0
+  acceptance:
+  - 绑定同范围的完整已复查扫描，固定发布manifest/revision，默认visible/show_code=false
+  - 跨范围、partial/skipped/未复查拒绝；管理阈值变更不自动改学生发布，解绑立即失效
+  - 真实并发绑定/CAS、不可变发布历史/权限与撤销回归
+  risk: 中
+  depends_on:
+  - S5-04
+  - S5-06
+  - S5-02
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  - sduoj-deploy
+  approval_gates:
+  - AUTH
+  - SCHEMA
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 04-查重系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S5-09
+  stage: S5
+  title: 学生本人查重结果最小投影
+  executor: auto
+  status: missing
+  priority: P0
+  acceptance:
+  - 验证当前主体/场次资格/发布revision；默认无对方身份/代码/提交ID
+  - 跨学生/场次/pair/未发布/撤销均拒绝，partial不说无异常，无绑定返回bound=false
+  - 专用API与真实学生会话/浏览器验收，非仅隐藏管理DTO字段
+  risk: 中
+  depends_on:
+  - S5-08
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates:
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 04-查重系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S5-10
+  stage: S5
+  title: 扫描与发布历史对照
+  executor: auto
+  status: missing
+  priority: P2
+  acceptance:
+  - 同范围多scan并列保留，展示各快照/引擎/阈值/完整度，不覆盖旧源
+  - 同key重试幂等、改参数409，权限撤销后不能继续读历史代码
+  - 历史/新扫/绑定revision合同与分页回归
+  risk: 低
+  depends_on:
+  - S5-01
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates: []
+  execution_status: not_started
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 04-查重系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S6-01
+  stage: S6
+  title: 最小化的考试在线观测批量聚合
+  executor: auto
+  status: missing
+  priority: P1
+  acceptance:
+  - 按当前有权考试名单查询session_present/last_observed_at，不扩大原SUPERADMIN接口
+  - 任意用户名/跨场次/伪造主体拒绝；源失败显示unknown而非离线，不返回token/IP
+  - 真实Java会话源与216人/多场次冷暖p95目标测量，500ms仅待验目标
+  risk: 中
+  depends_on:
+  - S1-01
+  repositories:
+  - sduoj-server-private
+  - sduoj-autolab
+  approval_gates:
+  - AUTH
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 05-考务系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S6-02
+  stage: S6
+  title: 幂等加密账号台账与冻结生成
+  executor: auto
+  status: missing
+  priority: P0
+  acceptance:
+  - 稳定exam/candidate文本键、CSPRNG、先持久后外部调用/渲染，重试密码不变
+  - 并发生成、前导零考号、OJ外部重名和key恢复不覆盖旧用户，明文不入job/log/model
+  - 真实MySQL唯一/锁和密钥备份恢复，按权限脱敏读取
+  risk: 高
+  depends_on:
+  - S1-05
+  repositories:
+  - sduoj-autolab
+  - sduoj-deploy
+  approval_gates:
+  - SCHEMA
+  - SECRETS
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 05-考务系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S6-03
+  stage: S6
+  title: 非覆盖建号编排与未知结果对账
+  executor: hybrid
+  status: partial
+  priority: P0
+  acceptance:
+  - 逐人状态/attempt/receipt，先隔离确认邮箱/邮件策略和batch事务/覆盖语义
+  - 部分成功/回包丢失/用户名已存在不盲重放或重置密码，unknown阻止材料发布
+  - 隔离Java/DB禁外发邮件，合法/非法/重复导入和抽样登录，生产建号另批准
+  risk: 中
+  depends_on:
+  - S6-02
+  repositories:
+  - sduoj-autolab
+  - sduoj-server-private
+  approval_gates:
+  - AUTH
+  - SECRETS
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 05-考务系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S6-04
+  stage: S6
+  title: 冻结材料渲染、全批回验与受控重印
+  executor: auto
+  status: missing
+  priority: P0
+  acceptance:
+  - 台账/seat/roster同版本，12条每页/每场另页，重印读原密码
+  - 全批缺失/重复/字段不符/溢出/缺字/越界任一失败禁止发布；输入转义禁shell escape
+  - 实际PDF渲染/回读/视觉检查+私有短期下载/过期/审计，监考接口不见密码
+  risk: 中
+  depends_on:
+  - S6-03
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates:
+  - SECRETS
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 05-考务系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S6-05
+  stage: S6
+  title: 受限监考邀请兑换与独立会话
+  executor: auto
+  status: missing
+  priority: P1
+  acceptance:
+  - link/session分别高熵hash，fragment兑换HttpOnly Cookie/CSRF，限定exam/room/actions与有效期
+  - 并发max_uses/撤销子session/过期/猜sid/跨room/CSRF/日志secret失败，不能因sid即授权
+  - 真实网关精确匿名白名单+peer+能力中间件联合验收，不豁免整个auto-task
+  risk: 高
+  depends_on:
+  - S1-01
+  - S6-02
+  repositories:
+  - sduoj-autolab
+  - sduoj-server-private
+  - sduoj-web2
+  - sduoj-deploy
+  approval_gates:
+  - AUTH
+  - SCHEMA
+  - SECRETS
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 05-考务系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S6-06
+  stage: S6
+  title: 移动优先监考页面与弱网观测
+  executor: auto
+  status: missing
+  priority: P1
+  acceptance:
+  - 375px真机单列、44px触控、安全区、15秒轮询且隐藏暂停，不加载管理导航
+  - 长姓名/横向溢出/断网与stale、过期/撤销正确，observed不是绝对在线
+  - 真机与三浏览器、弱网恢复/权限测试，不用仅jsdom快照当移动验收
+  risk: 中
+  depends_on:
+  - S6-01
+  - S6-05
+  repositories:
+  - sduoj-web2
+  approval_gates: []
+  execution_status: not_started
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 05-考务系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S6-07
+  stage: S6
+  title: 监考追加动作与非自动补时申请
+  executor: hybrid
+  status: missing
+  priority: P1
+  acceptance:
+  - present/absent/exception/resolved/extension_request，request_id幂等与version/room校验
+  - 重复点击/并发修订/跨人跨考场拒绝；补时仅申请，不能改正式deadline
+  - 真实会话/DB冲突/撤销测试，记录更正保留历史和actor非实名标识
+  risk: 中
+  depends_on:
+  - S6-06
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  - sduoj-deploy
+  approval_gates:
+  - AUTH
+  - SCHEMA
+  execution_status: pending_approval
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 05-考务系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  - 06-数据库变更汇总.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+- id: S6-08
+  stage: S6
+  title: 考务工作台串联与分阶段发布
+  executor: auto
+  status: partial
+  priority: P2
+  acceptance:
+  - 名单→台账→导入→座位→材料→链接显式版本与断点，复用原prepare/publish门禁
+  - 未导入/unknown/未校验材料/未授权链接阻止发布，不重生成账号或绕TEST/FORMAL
+  - 最终真实制品全链、人工现场演练与关闭新写/对账/兼容回退清单
+  risk: 中
+  depends_on:
+  - S6-04
+  - S6-07
+  repositories:
+  - sduoj-autolab
+  - sduoj-web2
+  approval_gates: []
+  execution_status: not_started
+  source_basis: reviewed-20261018; see 09
+  rollback: 关闭该能力新写入口，保留数据/账本/receipt；按09兼容版本对账恢复，不直接DROP或重放外部写。
+  doc_refs:
+  - 05-考务系统.md
+  - 07-API清单.md
+  - 08-前端改造方案.md
+  verification:
+    required:
+    - positive
+    - negative
+    - failure_recovery
+    evidence: []
+blockers:
+- id: B-01
+  text: 整理基线及既有peer/RPC回归尚需绑定到最终候选
+  until_tasks:
+  - S1-01
+  state: needs_evidence
+  note: 本轮文档不替代实际批准/验收。
+  blocks_release_of:
+  - S2-08
+  - S3-01
+  - S6-05
+  capability_scope: named_feature_release
+- id: B-02
+  text: 原生gid/type/pid关联读写缺口修复须批准并验收
+  until_tasks:
+  - S1-02
+  - S1-03
+  state: needs_evidence
+  note: 本轮文档不替代实际批准/验收。
+  blocks_release_of:
+  - S4-01
+  - S4-03
+  - S5-01
+  capability_scope: named_feature_release
+- id: B-03
+  text: OpenHands SDK/用户端点/原worker合同尚未实测
+  until_tasks:
+  - S2-06
+  - S3-05
+  state: needs_evidence
+  note: 取代一期DSH能力门禁；假模型不证明真实用户端点兼容/计费，实际计费验收另获授权。
+  blocks_release_of:
+  - S2-10
+  - S4-10
+  capability_scope: openhands_worker
+- id: B-04
+  text: 公开多租户Agent需隔离/出口/凭据验收
+  until_tasks:
+  - S3-03
+  - S3-05
+  state: needs_evidence
+  note: 本轮文档不替代实际批准/验收。
+  blocks_release_of:
+  - S2-10
+  - S4-10
+  capability_scope: named_feature_release
+- id: B-05
+  text: 台账/导入未核定不得发布或重印密码材料
+  until_tasks:
+  - S6-02
+  - S6-03
+  state: needs_evidence
+  note: 本轮文档不替代实际批准/验收。
+  blocks_release_of:
+  - S6-04
+  - S6-08
+  capability_scope: named_feature_release
+- id: B-06
+  text: 实际DDL与数据回填需要独立SCHEMA提案/恢复验收
+  until_tasks:
+  - S2-01
+  - S4-02
+  state: needs_evidence
+  note: 本轮文档不替代实际批准/验收。
+  blocks_release_of:
+  - S2-05
+  - S4-03
+  capability_scope: named_feature_release
+- id: B-07
+  text: owner_id不是会话，自动MCP写委托未完成前保持关闭
+  until_tasks:
+  - S2-08
+  - S2-09
+  state: needs_evidence
+  note: 本轮文档不替代实际批准/验收。
+  blocks_release_of:
+  - S2-10
+  - S4-10
+  capability_scope: named_feature_release
+- id: B-08
+  text: 混合题组需全读者兼容，不能直接回退旧格式
+  until_tasks:
+  - S1-05
+  - S4-09
+  state: needs_evidence
+  note: 本轮文档不替代实际批准/验收。
+  blocks_release_of:
+  - S4-09
+  capability_scope: named_feature_release
+- id: B-09
+  text: 查重复筛受capture_metric/review_metric、floor、原值精度与完整度限制
+  until_tasks:
+  - S5-04
+  state: needs_evidence
+  note: 本轮文档不替代实际批准/验收。
+  blocks_release_of:
+  - S5-08
+  - S5-09
+  capability_scope: named_feature_release
+- id: B-10
+  text: 监考匿名入口/撤销/CSRF须完整验收
+  until_tasks:
+  - S6-05
+  state: needs_evidence
+  note: 本轮文档不替代实际批准/验收。
+  blocks_release_of:
+  - S6-06
+  - S6-08
+  capability_scope: named_feature_release
+- id: B-11
+  text: 实测邀请兑换/版本/次数须完整验收
+  until_tasks:
+  - S4-08
+  blocks_release_of:
+  - S4-08
+  state: needs_evidence
+  capability_scope: human_trial_release
+  note: 放行门禁，不是任务启动依赖；不阻塞独立监考开发。
+change_control:
+- rule: 本轮仅审计/完善文档，不授权实际DDL、鉴权、网关、沙箱、密钥或生产修改。
+- rule: 按已确认整理基线开需求分支；一个PR/commit一个目的，保留原供应链与发布流程，无授权不push。
+- rule: DDL集中06、REST路径集中07；先兼容读者再回填/放写，真实MySQL/Redis/服务链和恢复必须有证据。
+- rule: TaskJob/ModelProxy/原审批和账本不重建；旧任务冻结配置，v2无隐式站点provider兜底。
+- rule: 回退关闭新写并对账，保留schema/账本/外部receipt；混合数据写入后不能回任意旧代码。
+- rule: 确定性查重/材料/本地解析不依赖AI；发布、代用户写、匿名能力入口分别放行。
+audited_at: '2026-10-18'
+implementation_packages:
+- id: OH-01
+  task_refs:
+  - S2-06
+  - S3-01
+  scope: 隔离SDK依赖与worker生命周期
+- id: OH-02
+  task_refs:
+  - S2-01
+  - S2-02
+  - S2-03
+  - S2-04
+  - S2-05
+  scope: 用户端点与原ModelProxy
+- id: OH-03
+  task_refs:
+  - S2-07
+  - S2-09
+  scope: 注册表/M配置/后端gate
+- id: OH-04
+  task_refs:
+  - S2-07
+  scope: capabilities与前端
+- id: OH-05
+  task_refs:
+  - S2-10
+  - S4-04
+  - S4-05
+  - S4-06
+  - S4-07
+  - S4-10
+  scope: 14组件分批迁移，查重仅可选解释、考务仅AI建议
+- id: OH-06
+  task_refs:
+  - S3-02
+  - S3-03
+  - S3-04
+  - S3-05
+  scope: 隔离工作区与版本
