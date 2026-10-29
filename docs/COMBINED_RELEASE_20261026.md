@@ -10,14 +10,24 @@
 |---|---|
 | web2 | 最小 Monaco IDE、普通/比赛/题单入口、Run/云代码/正式提交、LSP/Debug；保留本轮准备期间已在线的成绩复查功能，不增加 AI 后台/首页/全站主题 |
 | server-private | 继承6a9e54bf的Run/业务上下文/模板memfd修复；Gateway Redis bridge、toolchain/Debug RPC；共享文件DTO显式JSON构造，保留既有RPC重复头/常量时间鉴权与统计隔离 |
-| Judger | 继承4636915加固；Run memfd/isolateFS、checker独立case副本、有限内存安全cap、可信cgroup路径、匹配接口包构建；独立IDE Worker |
+| Judger | 继承4636915评测机加固；Run memfd/isolateFS、checker独立case副本、有限内存安全cap、可信cgroup路径、匹配接口包构建；同一镜像按显式模式提供 LSP/Debug |
 | sandbox | 继承b58c236加固；旧libseccomp负pseudo系统调用号修正；JDK匿名socketpair与Rust编译器最小匿名握手；外网/命名连接/FD传递仍拒绝 |
-| AutoLab | 保留发布前实际在线的题单、成绩复查和 AI 路由，仅更新 native context RPC 两文件；不能用早期精简候选覆盖线上功能 |
+| AutoLab | 保留发布前实际在线的题单、成绩复查和 AI 路由，适配 native context RPC 与迁移元数据依赖；不能用早期精简候选覆盖线上功能 |
 | deploy | 单Worker权限/资源、独立整栈dev、私有配置渲染、资格/容量/恢复工具、additive迁移与回滚说明 |
 
 已发布4636915 parent index只读确认仍为sha256:7094111e50d5545924d908c5fbbab534b4dcd126d4ac03c50eb61f18882792e0。它不包含本轮新兼容修复，不能作为最终联合制品。
 
-IDE编译rootfs/native与正式评测sandbox是两个独立受控工件，分别锁定。R8从精确R7派生，仅修改外部guardian/launcher/runtime三文件；82236个/opt文件除三文件逐字节一致，编译器/rootfs/native/adapter未换。R7旧资格锁不用于R8。
+最终交付使用一个 Judger 镜像承载正式评测、Run、LSP 与 Debug。正式评测是默认模式，沿用原有 `tini -> sduoj-judge-entrypoint -> Java` 启动链；Run 仍由 `sduoj.run.worker=true` 和独立队列选择。只有显式的 IDE 模式参数才启动 LSP/Debug 后端，并在启动前检查非 root 身份、固定工具链清单、cgroup 委托和隔离策略。未知模式、root IDE 模式、缺少工具清单或隔离前置条件时必须失败关闭。IDE 工具和调试运行时作为同一镜像的受审 `/opt` 内容构建，不能通过旧本机镜像层、临时 overlay 或额外源码 checkout 注入。
+
+IDE 编译与正式评测使用同一镜像中的加固 sandbox 生产链，但保留独立的编译阶段边界和资源合同；不能把正式评测容器的权限直接授予 IDE 控制进程。Option B 的 user namespace、挂载、cgroup 委托和 CapBnd 门禁必须在目标 ARM64/cgroup-v2 guest 中真实验证，验证前不开放 Debug。旧 R8/R15 及单独 IDE 镜像只作历史证据，不能替代统一镜像的完整验收。
+
+CI 沿用原流程。Judger 保留用户提交 `3817aa18` 的阿里云兼容设置 `provenance: false`、`sbom: false`；不要在整理提交时删除或改造。工具链生产者使用原 GHCR metadata 步骤规范仓库名，再由统一镜像直接消费已核验 digest。SDK 构建成功、统一镜像工具可运行和四角色完整业务验收分别记录。
+
+## 发布前安全修复
+
+2026-10-29 已只读检查当前生产防火墙、监听、进程及测试目录引用，收紧闲置 staging 备份、两处旧 IDE 测试目录、工具目录和历史运维脚本权限。备份与失败证据保留；没有重启业务、修改防火墙或切换生产流量。具体路径、原权限、回执及验证结果仅放受限发布单。
+
+用户已批准将 AutoLab 代码移至 root 管理的 `/opt/sduoj/releases`，先在 staging 验证，再在本次正式窗口切换；当前线上服务保持原路径。代码目录及全部祖先都不能由服务账号替换，日志、数据、解释器及环境文件沿用原位置。使用[路径迁移与回滚说明](AUTOLAB_RELEASE_PATH_MIGRATION.md)，实际 Linux 权限测试不替代真实 systemd、业务与回滚验收。
 
 ## 同构权限和资源合同
 
@@ -27,7 +37,7 @@ IDE aggregate总额：4CPU/6GiB/1024PIDs/swap0，管理CID与Debug兄弟组都�
 
 R8 guardian30秒CPU预算只统计trusted控制cgroup。目标jail仍受1核速率、既有每次运行20/20/60/40秒墙钟、hard/idle生命周期限制；编译仍有独立nativeCPU上限。CPU预算不能由编译器/adapter/目标累计用量提前消耗。验收客户端按公布runLimit+10秒观察清理，不改服务端或HTTP超时。
 
-正式Judger与Run各2CPU/2560MiB/1024PIDs，Javaheap384MiB，CPU_PER_JUDGER=1。当前16vCPU guest专属cpuset分别4-5/6-7，显式SDUOJ_JUDGER_CPU_NODE_INDEX=1后应选择核4/6；启动验收核对实际effective cpuset与分配结果。不能将含日期的guest反向DNS名称当CPU节点号。两条服务使用tini→sduoj-judge-entrypoint→Java、private cgroup、SYS_ADMIN、AppArmor unconfined、非privileged；与非root IDE权限合同分别验收。Java模板0内存不是0字节，明确operator物理安全cap默认1GiB；heap/CPU/wall配置与正factor公式保持。
+当前正式候选是 `six-formal-16c32g`：16vCPU/32GiB guest 内保留六个正式 Judger，每实例1CPU/2560MiB，分别使用核4至9；Run 为2CPU/2560MiB，使用核10至11；IDE aggregate 使用核0至3。执行额度共12CPU/23.5GiB，余4CPU/8.5GiB供系统及开销。原单正式实例24GiB实验不能替代该候选容量验收。Javaheap384MiB、CPU_PER_JUDGER=1、显式SDUOJ_JUDGER_CPU_NODE_INDEX=1；启动核对实际effective cpuset、CPU分配及每个实例的Snowflake身份，不能从含日期的DNS名称推断节点。正式评测和Run沿用tini→sduoj-judge-entrypoint→Java、private cgroup、SYS_ADMIN、AppArmor unconfined、非privileged；与非root IDE权限合同分别验收。Java模板0内存采用operator物理安全cap默认1GiB；heap/CPU/wall配置与正factor公式保持。
 
 ## 完整隔离dev
 
