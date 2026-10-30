@@ -1,5 +1,6 @@
 import copy
 import importlib.util
+import os
 from pathlib import Path
 import pytest
 
@@ -14,6 +15,25 @@ def module(name):
 
 runtime = module('ide_cgroup_v2_runtime_check')
 setup = module('ide_cgroup_v2_setup')
+
+
+def test_provision_preserves_delegated_directory_access_under_private_umask(tmp_path, monkeypatch):
+    parent = tmp_path / 'sduoj-ide-private-umask'
+    monkeypatch.setattr(setup, 'validate', lambda root, name: parent)
+    monkeypatch.setattr(setup.os, 'geteuid', lambda: 0)
+    owners = []
+    monkeypatch.setattr(setup.os, 'chown', lambda path, uid, gid: owners.append((path, uid, gid)))
+    previous = os.umask(0o077)
+    try:
+        report = setup.provision(tmp_path, parent.name)
+    finally:
+        os.umask(previous)
+    assert parent.stat().st_mode & 0o777 == 0o755
+    assert (parent / 'debug').stat().st_mode & 0o777 == 0o755
+    assert report['limits'] == setup.LIMITS
+    assert report['debugLimits'] == setup.DEBUG_LIMITS
+    assert all(uid == gid == 10001 for path, uid, gid in owners)
+    assert parent not in [path for path, uid, gid in owners]
 
 
 def fixture():

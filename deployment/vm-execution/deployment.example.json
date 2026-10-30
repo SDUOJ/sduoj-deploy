@@ -50,6 +50,7 @@
     "runCpuset": "6-7",
     "judgerSnowflakeNode": 26,
     "runSnowflakeNode": 27,
+    "snowflakeDatacenter": 17,
     "privateGuestDirectory": "/opt/sduoj-execution",
     "qualificationDirectory": "/opt/sduoj-execution/qualification",
     "runRpcUrl": "",

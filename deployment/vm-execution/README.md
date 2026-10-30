@@ -42,7 +42,7 @@ Mini 的 Linux manager build2 是冻结 Debian base/snapshot 与签名依赖原�
 | 正式Judger | 6 | 1CPU / 2560MiB | 4、5、6、7、8、9各一核 |
 | RunWorker | 1 | 2CPU / 2560MiB | 10–11 |
 
-总执行配额12CPU/23.5GiB，guest余4CPU/8.5GiB供系统及开销。正式实例仍CPU_PER_JUDGER=1，显式CPU节点索引1，不依赖DNS后缀。控制JVM的ActiveProcessorCount与其CPU配额一致；用户程序的编译、运行和业务时限不变。每个实例有独立workspace、private cgroup、注册身份和有界UTS hostname，单实例profile的Judger/Run也使用不同hostname。各名称仅映射到实际QEMU user-net guest NIC 10.0.2.15；外部discovery仍登记物理宿主私网地址。当前24GiB guest已实测两个默认hostname/相同targetPID7会产生真实Snowflake碰撞，不能仅检查环境提示。实际Snowflake元组仍须按所有目标JVM核验，SDUOJ_SNOWFLAKE_NODE未被当前类读取。
+总执行配额12CPU/23.5GiB，guest余4CPU/8.5GiB供系统及开销。正式实例仍CPU_PER_JUDGER=1，显式CPU节点索引1，不依赖DNS后缀。控制JVM的ActiveProcessorCount与其CPU配额一致；用户程序的编译、运行和业务时限不变。每个实例有独立workspace、private cgroup、注册身份和有界UTS hostname，单实例profile的Judger/Run也使用不同hostname。各名称仅映射到实际QEMU user-net guest NIC 10.0.2.15；外部discovery仍登记物理宿主私网地址。当前24GiB guest已实测两个默认hostname/相同targetPID7会产生真实Snowflake碰撞，不能仅检查环境提示。历史镜像仅按PID/MAC推导节点，未读取SDUOJ_SNOWFLAKE_NODE；本次实际八角色检查再次发现碰撞。新候选需要包含显式节点支持的common-util，并设置成对的SDUOJ_SNOWFLAKE_WORKER_ID和SDUOJ_SNOWFLAKE_DATACENTER_ID；任一缺失、空白或超出0–31均拒绝启动。VM合同的snowflakeDatacenter固定数据中心，judgerSnowflakeNode为连续正式节点起点，runSnowflakeNode须避开整个正式区间；六实例示例为同一数据中心的20–25及Run26。业务JVM也须独立分配，不能只修执行侧。历史epoch、ID位布局与未配置时的默认逻辑不变。所有目标JVM仍须从实际制品核对生效节点，并验证重启后的唯一性，旧绿色结果不覆盖新依赖。
 
 该profile尚未完成运行验收。先核实Mac真实内存压力，在新的instance/state启动，保留旧24GiB实例与失败证据；禁止为腾资源停止其他session服务。新profile须重跑功能/隔离/500在线100活跃、六正式实例并发与IDE混合、900秒和故障/恢复，不继承24GiB的性能结果。生产使用同一profile并重新验收KVM。
 

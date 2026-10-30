@@ -231,8 +231,31 @@ class VmPackageTests(unittest.TestCase):
     def six_formal_config(self):
         self.c.update(resourceProfile='six-formal-16c32g', memoryMiB=32768,
                       networkPhase='integrated', healthBindAddress='10.23.45.67')
-        self.c['execution'].update(judgerCpuset='4', runCpuset='10-11', advertiseAddress='10.23.45.67')
+        self.c['execution'].update(judgerCpuset='4', runCpuset='10-11', advertiseAddress='10.23.45.67',
+                                   judgerSnowflakeNode=20, runSnowflakeNode=26)
         return self.c
+
+    def test_all_seven_jvm_roles_have_explicit_distinct_snowflake_nodes(self):
+        c = self.six_formal_config(); vmctl.validate(c)
+        services = vmctl.compose_executors(c)['services']
+        nodes = []
+        for role, service in services.items():
+            if role == 'ide-worker':
+                continue
+            environment = service['environment']
+            self.assertNotIn('SDUOJ_SNOWFLAKE_NODE', environment)
+            self.assertEqual(environment['SDUOJ_SNOWFLAKE_DATACENTER_ID'], '17')
+            nodes.append(int(environment['SDUOJ_SNOWFLAKE_WORKER_ID']))
+        self.assertEqual(nodes, list(range(20, 27)))
+        for key, value in [('judgerSnowflakeNode', 27), ('runSnowflakeNode', 22),
+                           ('snowflakeDatacenter', -1), ('snowflakeDatacenter', 32),
+                           ('snowflakeDatacenter', True)]:
+            bad = copy.deepcopy(c); bad['execution'][key] = value
+            with self.assertRaises(ValueError):
+                vmctl.validate(bad)
+        bad = copy.deepcopy(c); del bad['execution']['snowflakeDatacenter']
+        with self.assertRaises(ValueError):
+            vmctl.validate(bad)
 
     def test_six_formal_profile_preserves_parallelism_and_bounded_resources(self):
         c = self.six_formal_config(); vmctl.validate(c)

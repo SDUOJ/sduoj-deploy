@@ -52,6 +52,7 @@ def provision(root, name):
     if os.geteuid() != 0:
         raise PermissionError('One-time host provisioning requires root')
     parent.mkdir(mode=0o755)
+    parent.chmod(0o755)
     for name, value in LIMITS.items():
         (parent / name).write_text(value)
         if (parent / name).read_text().strip() != value:
@@ -62,6 +63,7 @@ def provision(root, name):
     os.chown(parent / 'cgroup.procs', 10001, 10001)
     debug = parent / 'debug'
     debug.mkdir(mode=0o755)
+    debug.chmod(0o755)
     for name, value in DEBUG_LIMITS.items():
         (debug / name).write_text(value)
         if (debug / name).read_text().strip() != value:

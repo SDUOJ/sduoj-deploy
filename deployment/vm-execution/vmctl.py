@@ -98,7 +98,7 @@ def execution_workers(c):
     for i in range(profile['formalCount']):
         role = 'judger' if i == 0 else 'judger-' + str(i + 1)
         cpuset = e['judgerCpuset'] if profile['formalCount'] == 1 else str(4 + i)
-        workers.append((role, 'false', cpuset, e['judgerSnowflakeNode'], e['judgerPort'] + 2 * i, profile['formalCpus']))
+        workers.append((role, 'false', cpuset, e['judgerSnowflakeNode'] + i, e['judgerPort'] + 2 * i, profile['formalCpus']))
     workers.append(('run-worker', 'true', e['runCpuset'], e['runSnowflakeNode'], e['runPort'], 2))
     return workers
 
@@ -141,7 +141,9 @@ def validate(c, complete=True):
     require(re.fullmatch(r'sduoj-ide-[a-z0-9][a-z0-9-]{0,60}', e.get('aggregate', '')), 'Dedicated aggregate required')
     for k in ('privateGuestDirectory', 'qualificationDirectory'):
         require(re.fullmatch(r'/opt/sduoj-execution(?:/[a-z0-9-]+)*', e.get(k, '')), 'Guest paths must be under dedicated /opt/sduoj-execution')
-    require(e['judgerSnowflakeNode'] != e['runSnowflakeNode'] and all(type(e[k]) is int and 0 <= e[k] <= 31 for k in ('judgerSnowflakeNode', 'runSnowflakeNode')), 'Distinct approved Snowflake nodes required')
+    require(all(type(e.get(k)) is int and 0 <= e[k] <= 31 for k in ('judgerSnowflakeNode', 'runSnowflakeNode', 'snowflakeDatacenter')), 'Explicit Snowflake datacenter and worker nodes from 0 to 31 required')
+    formal_nodes = set(range(e['judgerSnowflakeNode'], e['judgerSnowflakeNode'] + profile['formalCount']))
+    require(max(formal_nodes) <= 31 and e['runSnowflakeNode'] not in formal_nodes, 'All formal worker nodes and the Run node must be distinct and in range')
     if not complete:
         return
     image_reference_kind(c.get('managerImage', ''), c['stage'])
@@ -229,7 +231,7 @@ def compose_executors(c):
                           'network_mode': 'host', 'env_file': [guest + '/private/judger.env'],
                           'entrypoint': ['/usr/bin/tini', '--', '/usr/local/bin/sduoj-judge-entrypoint', '/opt/java/openjdk17/bin/java'],
                           'command': ['-jar', '/app/sduoj-judger.jar', '--sduoj.run.worker=' + worker, '--sduoj.config.active=' + e['environment'], f"--sduoj.config.nacos-addr={e['nacosHost']}:{e['nacosPort']}", f'--server.port={service_port}', f'--sduoj.config.port={service_port}', '--spring.cloud.nacos.discovery.ip=' + e['advertiseAddress'], f'--spring.cloud.nacos.discovery.port={service_port}', '--spring.rabbitmq.host=' + e['rabbitHost'], f"--spring.rabbitmq.port={e['rabbitPort']}", '--spring.rabbitmq.virtual-host=' + e['rabbitVirtualHost']],
-                          'environment': {'JAVA_TOOL_OPTIONS': f'-Xms64m -Xmx384m -XX:ActiveProcessorCount={cpus}', 'CPU_PER_JUDGER': '1', 'SDUOJ_JUDGER_CPU_NODE_INDEX': '1', 'SDUOJ_SNOWFLAKE_NODE': str(node)}}
+                          'environment': {'JAVA_TOOL_OPTIONS': f'-Xms64m -Xmx384m -XX:ActiveProcessorCount={cpus}', 'CPU_PER_JUDGER': '1', 'SDUOJ_JUDGER_CPU_NODE_INDEX': '1', 'SDUOJ_SNOWFLAKE_WORKER_ID': str(node), 'SDUOJ_SNOWFLAKE_DATACENTER_ID': str(e['snowflakeDatacenter'])}}
         # Host networking otherwise gives both JVMs the guest's hostname and can
         # collide at the same container PID. Map each UTS name to the real user-net
         # NIC, never the outer advertise address. Actual Snowflake tuples remain a gate.
